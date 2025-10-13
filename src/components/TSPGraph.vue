@@ -1,42 +1,60 @@
 <template>
   <div ref="graphContainer" class="tsp-graph">
     <svg :width="width" :height="height" class="graph-svg">
+      
+      <!-- 矩阵定义的边（非零权重） - 背景边 -->
+      <g v-if="distanceMatrix && distanceMatrix.length > 0">
+        <g v-for="edge in renderedEdges" :key="`e-${edge.i}-${edge.j}`">
+          <line
+            :x1="cities[edge.i]?.x"
+            :y1="cities[edge.i]?.y"
+            :x2="cities[edge.j]?.x"
+            :y2="cities[edge.j]?.y"
+            stroke="#E6EAF5"
+            stroke-width="1.5"
+            opacity="0.5"
+          />
+        </g>
+      </g>
+      
       <!-- 当前路径线 -->
       <g v-if="route.length > 1">
         <path
           :d="getRoutePath(route)"
           fill="none"
-          stroke="#4050F8"
+          stroke="#8C8FA3"
           stroke-width="2"
-          opacity="0.8"
+          opacity="0.5"
         />
       </g>
       
-      <!-- 最佳路径线 -->
-      <g v-if="bestRoute.length > 1 && bestRoute !== route">
+      <!-- 最佳路径线（标粗） -->
+      <g v-if="bestRoute.length > 1">
         <path
           :d="getRoutePath(bestRoute)"
           fill="none"
           stroke="#40C878"
-          stroke-width="3"
-          stroke-dasharray="5,5"
-          opacity="0.6"
+          stroke-width="4"
+          opacity="0.8"
         />
       </g>
       
-      <!-- 矩阵定义的边（非零权重） -->
-      <g v-if="distanceMatrix && distanceMatrix.length > 0">
-        <line
-          v-for="edge in renderedEdges"
-          :key="`e-${edge.i}-${edge.j}`"
-          :x1="cities[edge.i]?.x"
-          :y1="cities[edge.i]?.y"
-          :x2="cities[edge.j]?.x"
-          :y2="cities[edge.j]?.y"
-          stroke="#8C8FA3"
-          stroke-width="1.5"
-          opacity="0.5"
-        />
+      <!-- 最佳路径权值标签 -->
+      <g v-if="bestRoute.length > 1">
+        <text
+          v-for="(segment, index) in getBestRouteSegments()"
+          :key="`label-${index}`"
+          :x="segment.midX"
+          :y="segment.midY"
+          text-anchor="middle"
+          dy="-5"
+          fill="#40C878"
+          font-size="11"
+          font-weight="600"
+          style="pointer-events: none; text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white;"
+        >
+          {{ segment.weight.toFixed(1) }}
+        </text>
       </g>
       
       <!-- 城市节点 -->
@@ -162,6 +180,50 @@ const renderedEdges = computed(() => {
 
 const isSelected = (cityId) => {
   return Array.isArray(props.selectedNodes) && props.selectedNodes.includes(cityId)
+}
+
+// 获取边的权重（优先使用矩阵，否则计算欧几里得距离）
+const getEdgeWeight = (cityAId, cityBId) => {
+  const m = props.distanceMatrix
+  if (m && m[cityAId] && typeof m[cityAId][cityBId] === 'number' && m[cityAId][cityBId] > 0) {
+    return m[cityAId][cityBId]
+  }
+  
+  const cityA = props.cities[cityAId]
+  const cityB = props.cities[cityBId]
+  if (cityA && cityB) {
+    const dx = cityA.x - cityB.x
+    const dy = cityA.y - cityB.y
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+  return 0
+}
+
+// 获取最佳路径的所有段及其权重
+const getBestRouteSegments = () => {
+  if (!props.bestRoute || props.bestRoute.length < 2) return []
+  
+  const segments = []
+  for (let i = 0; i < props.bestRoute.length; i++) {
+    const fromId = props.bestRoute[i]
+    const toId = props.bestRoute[(i + 1) % props.bestRoute.length]
+    
+    const fromCity = props.cities[fromId]
+    const toCity = props.cities[toId]
+    
+    if (fromCity && toCity) {
+      const weight = getEdgeWeight(fromId, toId)
+      segments.push({
+        from: fromId,
+        to: toId,
+        midX: (fromCity.x + toCity.x) / 2,
+        midY: (fromCity.y + toCity.y) / 2,
+        weight: weight
+      })
+    }
+  }
+  
+  return segments
 }
 
 const startDrag = (city) => {

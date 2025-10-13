@@ -159,13 +159,45 @@
         </div>
       </div>
     </el-card>
+    <el-card class="history-card">
+      <template #header>
+        <div class="history-header">
+          <h3>任务历史</h3>
+          <el-button size="small" @click="clearHistory">清空历史</el-button>
+        </div>
+      </template>
+      <el-table :data="taskHistory" stripe style="width: 100%">
+        <el-table-column prop="taskName" label="任务名" width="200" />
+        <el-table-column prop="modelType" label="模型" width="150">
+          <template #default="{ row }">
+            {{ getModelTypeText(row.modelType) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="timestamp" label="提交时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.timestamp) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="matrixSize" label="规模" width="80" />
+        <el-table-column prop="status" label="状态" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)">
+              {{ getStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="bestValue" label="最优值" width="100" />
+        <el-table-column prop="solveTime" label="求解时间" width="120" />
+      </el-table>
+    </el-card>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import TSPGraph from '../components/TSPGraph.vue'
-import { submitTask } from '../api/index.js'
+import { submitTask, getTaskStatus, cancelTask } from '../api/index.js'
+import { ElMessageBox } from 'element-plus'
 
 // 响应式数据
 const cityCount = ref(8)
@@ -180,6 +212,10 @@ const statusText = ref('等待求解')
 const solveTime = ref('--')
 const iterations = ref(0)
 const logs = ref(['TSP求解系统已就绪'])
+const currentTaskId = ref(null)
+
+// 任务历史
+const taskHistory = ref([])
 
 const cities = ref([])
 const currentRoute = ref([])
@@ -226,6 +262,8 @@ const generateCitiesAndMatrix = () => {
   // 初始化/重置距离矩阵
   const size = cityCount.value
   distanceMatrix.value = Array(size).fill().map(() => Array(size).fill(0))
+  // 清除路径结果
+  bestRoute.value = []
 }
 
 const generateCities = () => {
@@ -574,22 +612,31 @@ const setEdgeWeight = (i, j, w) => {
     distanceMatrix.value[b][a] = w
     addLog(`设置边 (${a}, ${b}) = ${w}`)
   }
+  // 修改边权时清除路径结果
+  bestRoute.value = []
 }
 
 // 距离矩阵交互：自定义/随机/导入
-const setMatrixMode = (mode) => { matrixMode.value = mode }
+const setMatrixMode = (mode) => { 
+  matrixMode.value = mode
+  // 切换模式时清除路径结果
+  bestRoute.value = []
+  addLog('切换矩阵模式，清除路径结果')
+}
 
 const generateRandomMatrix = () => {
   const size = cityCount.value
   const m = Array(size).fill().map(() => Array(size).fill(0))
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
-      const w = Math.random() < 0.6 ? (Math.random() * 100 + 1) : 0 // 60% 概率有边
+      const w = Math.random() < 0.6 ? (Math.random() * 9 + 1) : 0 // 60% 概率有边
       m[i][j] = Number(w.toFixed(1))
       m[j][i] = m[i][j]
     }
   }
   distanceMatrix.value = m
+  // 清除路径结果
+  bestRoute.value = []
   addLog('随机生成距离矩阵（非负权），覆盖当前图结构')
 }
 
@@ -648,17 +695,30 @@ const submitSolve = async () => {
       problemType: 'tsp',
       modelType: solveType.value, // classic | sim | cloud
       algorithm: algorithm.value,
-      cityCount: cityCount.value,
+      matrixSize: cityCount.value,
       cities: cities.value.map(c => ({ id: c.id, x: c.x, y: c.y })),
-      distanceMatrix: distanceMatrix.value
+      adjacencyMatrix: distanceMatrix.value
     }
 
     const res = await submitTask(payload)
     if (res?.success) {
-      statusClass.value = 'status-success'
-      statusText.value = '提交成功'
-      solveTime.value = ((Date.now() - start) / 1000).toFixed(2) + 's'
-      addLog(`任务已提交（${solveType.value}）`)
+      currentTaskId.value = res.taskId
+      addLog(`任务已提交，ID: ${res.taskId}`)
+      
+      // 添加到任务历史
+      addTaskToHistory({
+        taskId: res.taskId,
+        taskName: payload.taskName,
+        modelType: payload.modelType,
+        timestamp: new Date().toISOString(),
+        matrixSize: payload.matrixSize,
+        status: 'queued',
+        bestValue: '--',
+        solveTime: '--'
+      })
+      
+      // 开始轮询任务状态
+      await pollTaskStatus(res.taskId, start)
     } else {
       throw new Error(res?.message || '提交失败')
     }
@@ -666,24 +726,127 @@ const submitSolve = async () => {
     statusClass.value = 'status-fail'
     statusText.value = '提交失败'
     addLog('提交失败：' + e.message)
-  } finally {
     solving.value = false
   }
 }
 
-const cancelSolve = () => {
-  ElMessageBox.confirm('确定要取消当前求解任务吗？', '取消确认', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    statusClass.value = 'status-idle'
-    statusText.value = '已取消'
-    solving.value = false
-    addLog('用户取消求解任务')
-  }).catch(() => {
-    // 用户取消
-  })
+// 轮询任务状态
+const pollTaskStatus = async (taskId, startTime) => {
+  const pollInterval = 2000 // 2秒轮询一次
+  
+  const poll = async () => {
+    try {
+      const statusResponse = await getTaskStatus(taskId)
+      
+      if (statusResponse.state === 'completed') {
+        // 任务完成
+        const endTime = Date.now()
+        const duration = ((endTime - startTime) / 1000).toFixed(2)
+        
+        statusClass.value = 'status-success'
+        statusText.value = '求解成功'
+        solveTime.value = `${duration}s`
+        solving.value = false
+        
+        // 更新结果
+        console.log("-----GET RESULT FROM BACKEND------")
+        console.log(statusResponse)
+        console.log("-----RESULT END------")
+        
+        // 解析后端返回的结果
+        const resultCandidates = statusResponse.results?.candidates || []
+        if (resultCandidates.length > 0) {
+          // 取第一个候选结果
+          const bestResult = resultCandidates[0]
+          const solutionMatrix = bestResult.solution // 一维数组
+          const routeValue = bestResult.value // 路径长度
+          
+          // 将解矩阵转换为路径
+          // solutionMatrix是N×N矩阵的一维表示
+          // 第i行第j列为1表示第i步经过第j个节点
+          const n = cityCount.value
+          const route = []
+          
+          if (Array.isArray(solutionMatrix)) {
+            for (let step = 0; step < n; step++) {
+              for (let node = 0; node < n; node++) {
+                const index = step * n + node // 一维数组索引
+                if (solutionMatrix[index] === 1) {
+                  route.push(node)
+                  break
+                }
+              }
+            }
+          }
+          
+          console.log("解析的路径:", route)
+          console.log("路径长度:", routeValue)
+          
+          bestRoute.value = route
+          currentRoute.value = route
+          
+          // 更新任务历史
+          updateTaskInHistory(taskId, {
+            status: 'completed',
+            bestValue: routeValue.toFixed(2),
+            solveTime: `${duration}s`
+          })
+          
+          addLog(`求解完成，最短距离：${routeValue.toFixed(2)}`)
+        }
+        
+      } else if (statusResponse.state === 'failed' || statusResponse.state === 'cancelled') {
+        // 任务失败或取消
+        statusClass.value = 'status-fail'
+        statusText.value = statusResponse.state === 'cancelled' ? '已取消' : '求解失败'
+        solving.value = false
+        addLog(statusResponse.message || '任务失败')
+        
+        // 更新任务历史
+        updateTaskInHistory(taskId, {
+          status: statusResponse.state,
+          solveTime: '--'
+        })
+        
+      } else if (statusResponse.state === 'processing') {
+        // 任务处理中
+        statusText.value = '计算中...'
+        updateTaskInHistory(taskId, { status: 'processing' })
+        setTimeout(poll, pollInterval)
+        
+      } else if (statusResponse.state === 'queued') {
+        // 任务排队中
+        statusText.value = `排队中${statusResponse.queuePosition ? `(第${statusResponse.queuePosition}位)` : ''}`
+        updateTaskInHistory(taskId, { status: 'queued' })
+        setTimeout(poll, pollInterval)
+      }
+      
+    } catch (error) {
+      statusClass.value = 'status-fail'
+      statusText.value = '连接失败'
+      solving.value = false
+      addLog('无法获取任务状态: ' + error.message)
+    }
+  }
+  
+  // 开始轮询
+  setTimeout(poll, pollInterval)
+}
+
+const cancelSolve = async () => {
+  if (currentTaskId.value) {
+    try {
+      await cancelTask(currentTaskId.value)
+      addLog('取消任务请求已发送')
+    } catch (error) {
+      addLog('取消任务失败: ' + error.message)
+    }
+  }
+  
+  solving.value = false
+  statusClass.value = 'status-idle'
+  statusText.value = '已取消'
+  currentTaskId.value = null
 }
 
 const addLog = (message) => {
@@ -720,7 +883,88 @@ const calculateRouteDistance = (route) => {
 // 兼容原有算法使用的距离接口
 const getDistance = (cityA, cityB) => distanceBetween(cityA, cityB)
 
+// 任务历史相关方法
+const loadTaskHistory = () => {
+  try {
+    const stored = localStorage.getItem('tspTaskHistory')
+    if (stored) {
+      taskHistory.value = JSON.parse(stored)
+    }
+  } catch (error) {
+    console.error('加载任务历史失败:', error)
+    taskHistory.value = []
+  }
+}
+
+const saveTaskHistory = () => {
+  try {
+    localStorage.setItem('tspTaskHistory', JSON.stringify(taskHistory.value))
+  } catch (error) {
+    console.error('保存任务历史失败:', error)
+  }
+}
+
+const addTaskToHistory = (task) => {
+  taskHistory.value.unshift(task)
+  if (taskHistory.value.length > 50) {
+    taskHistory.value = taskHistory.value.slice(0, 50)
+  }
+  saveTaskHistory()
+}
+
+const updateTaskInHistory = (taskId, updates) => {
+  const task = taskHistory.value.find(t => t.taskId === taskId)
+  if (task) {
+    Object.assign(task, updates)
+    saveTaskHistory()
+  }
+}
+
+const clearHistory = () => {
+  taskHistory.value = []
+  saveTaskHistory()
+  addLog('任务历史已清空')
+}
+
+// 辅助函数
+const getModelTypeText = (type) => {
+  const types = {
+    classic: '经典计算',
+    sim: '量子芯片模拟',
+    cloud: '量子云服务'
+  }
+  return types[type] || type
+}
+
+const getStatusText = (status) => {
+  const statuses = {
+    queued: '排队中',
+    processing: '计算中',
+    completed: '已完成',
+    failed: '失败',
+    cancelled: '已取消'
+  }
+  return statuses[status] || status
+}
+
+const getStatusType = (status) => {
+  const types = {
+    queued: 'info',
+    processing: 'warning',
+    completed: 'success',
+    failed: 'danger',
+    cancelled: 'info'
+  }
+  return types[status] || 'info'
+}
+
+const formatDate = (timestamp) => {
+  const date = new Date(timestamp)
+  return `${date.toLocaleDateString('zh-CN')} ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 // 初始化
+loadTaskHistory()
 generateCitiesAndMatrix()
 </script>
 
@@ -1046,5 +1290,24 @@ generateCitiesAndMatrix()
 .control-buttons {
   display: flex;
   gap: 12px;
+}
+
+/* 任务历史列表 */
+.history-card { 
+  margin-top: 20px; 
+  background: #FFFFFF; 
+  border-radius: 20px; 
+  border: 1px solid #E6EAF5; 
+  box-shadow: 0 10px 20px rgba(9, 30, 66, 0.04); 
+}
+.history-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+.history-header h3 { 
+  margin: 0; 
+  color: #292929; 
+  font-weight: 600; 
 }
 </style> 

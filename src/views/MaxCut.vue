@@ -63,13 +63,16 @@
             互相转化（邻接矩阵 ↔ 图）。点击矩阵单元格可编辑连接关系（仅自定义模式）。
           </div>
 
-          <!-- 简化的图形显示 -->
+          <!-- 图形可视化 -->
           <div class="graph-container">
-            <div class="graph-placeholder">
-              <p>图形可视化区域</p>
-              <p>节点数：{{ matrixSize }}</p>
-              <p>边数：{{ edgeCount }}</p>
-            </div>
+            <MaxCutGraph
+              :nodes="nodes"
+              :edges="edges"
+              :partition="partition"
+              :editable="true"
+              :selected-nodes="selectedNodes"
+              @node-click="onGraphNodeClick"
+            />
           </div>
         </div>
 
@@ -129,12 +132,46 @@
         </div>
       </div>
     </el-card>
+
+    <!-- 任务历史列表 -->
+    <el-card class="history-card">
+      <template #header>
+        <div class="history-header">
+          <h3>任务历史</h3>
+          <el-button size="small" @click="clearHistory">清空历史</el-button>
+        </div>
+      </template>
+      <el-table :data="taskHistory" stripe style="width: 100%">
+        <el-table-column prop="taskName" label="任务名" width="200" />
+        <el-table-column prop="modelType" label="模型" width="150">
+          <template #default="{ row }">
+            {{ getModelTypeText(row.modelType) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="timestamp" label="提交时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.timestamp) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="matrixSize" label="规模" width="80" />
+        <el-table-column prop="status" label="状态" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)">
+              {{ getStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="bestValue" label="最优值" width="100" />
+        <el-table-column prop="solveTime" label="求解时间" width="120" />
+      </el-table>
+    </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { submitTask, getTaskStatus, cancelTask } from '../api/index.js'
+import MaxCutGraph from '../components/MaxCutGraph.vue'
 
 // 响应式数据
 const solveType = ref('classic')
@@ -155,6 +192,15 @@ const currentTaskId = ref(null)
 
 const fileInput = ref(null)
 
+// 任务历史
+const taskHistory = ref([])
+
+// 图形可视化数据
+const nodes = ref([])
+const edges = ref([])
+const selectedNodes = ref([])
+const partition = ref({})
+
 // 计算属性
 const edgeCount = computed(() => {
   let count = 0
@@ -170,6 +216,25 @@ const edgeCount = computed(() => {
 const generateMatrix = () => {
   const size = matrixSize.value
   matrix.value = Array(size).fill().map(() => Array(size).fill(0))
+  generateNodes()
+  syncEdgesFromMatrix()
+  // 清除分区结果
+  partition.value = {}
+  candidates.value = [
+    { value: null, solution: null },
+    { value: null, solution: null },
+    { value: null, solution: null }
+  ]
+}
+
+// 生成节点布局
+const generateNodes = () => {
+  const size = matrixSize.value
+  nodes.value = Array.from({ length: size }, (_, i) => ({
+    id: i,
+    x: 200 + 150 * Math.cos(2 * Math.PI * i / size),
+    y: 180 + 150 * Math.sin(2 * Math.PI * i / size)
+  }))
 }
 
 // 生成随机矩阵
@@ -186,11 +251,27 @@ const generateRandomMatrix = () => {
   }
   
   matrix.value = newMatrix
+  syncEdgesFromMatrix()
+  // 清除分区结果
+  partition.value = {}
+  candidates.value = [
+    { value: null, solution: null },
+    { value: null, solution: null },
+    { value: null, solution: null }
+  ]
 }
 
 // 设置编辑模式
 const setEditMode = (mode) => {
   editMode.value = mode
+  // 切换编辑模式时清除分区结果
+  partition.value = {}
+  candidates.value = [
+    { value: null, solution: null },
+    { value: null, solution: null },
+    { value: null, solution: null }
+  ]
+  addLog('切换编辑模式，清除分区结果')
 }
 
 // 切换单元格状态
@@ -199,7 +280,86 @@ const toggleCell = (i, j) => {
     const newValue = matrix.value[i][j] === 1 ? 0 : 1
     matrix.value[i][j] = newValue
     matrix.value[j][i] = newValue
+    syncEdgesFromMatrix()
+    // 修改矩阵时清除分区结果
+    partition.value = {}
+    candidates.value = [
+      { value: null, solution: null },
+      { value: null, solution: null },
+      { value: null, solution: null }
+    ]
   }
+}
+
+// 从邻接矩阵同步边
+const syncEdgesFromMatrix = () => {
+  const size = matrixSize.value
+  const newEdges = []
+  for (let i = 0; i < size; i++) {
+    for (let j = i + 1; j < size; j++) {
+      if (matrix.value[i] && matrix.value[i][j] === 1) {
+        newEdges.push({ source: i, target: j })
+      }
+    }
+  }
+  edges.value = newEdges
+}
+
+// 从边同步到邻接矩阵
+const syncMatrixFromEdges = () => {
+  const size = matrixSize.value
+  const newMatrix = Array(size).fill().map(() => Array(size).fill(0))
+  for (const edge of edges.value) {
+    newMatrix[edge.source][edge.target] = 1
+    newMatrix[edge.target][edge.source] = 1
+  }
+  matrix.value = newMatrix
+}
+
+// 节点点击事件处理
+const onGraphNodeClick = (nodeId) => {
+  if (selectedNodes.value.includes(nodeId)) {
+    selectedNodes.value = selectedNodes.value.filter(id => id !== nodeId)
+  } else {
+    if (selectedNodes.value.length < 2) {
+      selectedNodes.value = [...selectedNodes.value, nodeId]
+    } else {
+      selectedNodes.value = [nodeId]
+    }
+  }
+
+  if (selectedNodes.value.length === 2) {
+    const [a, b] = selectedNodes.value
+    toggleEdge(a, b)
+    selectedNodes.value = []
+  }
+}
+
+// 切换边
+const toggleEdge = (a, b) => {
+  if (a === b) return
+  const i = Math.min(a, b)
+  const j = Math.max(a, b)
+  const idx = edges.value.findIndex(e => 
+    (e.source === i && e.target === j) || (e.source === j && e.target === i)
+  )
+  
+  if (idx >= 0) {
+    edges.value.splice(idx, 1)
+    addLog(`移除边 (${i}, ${j})`)
+  } else {
+    edges.value.push({ source: i, target: j })
+    addLog(`新增边 (${i}, ${j})`)
+  }
+  
+  syncMatrixFromEdges()
+  // 修改边时清除分区结果
+  partition.value = {}
+  candidates.value = [
+    { value: null, solution: null },
+    { value: null, solution: null },
+    { value: null, solution: null }
+  ]
 }
 
 // 触发文件输入
@@ -224,6 +384,8 @@ const handleFileImport = (event) => {
       if (newMatrix.length > 0 && newMatrix[0].length > 0) {
         matrixSize.value = newMatrix.length
         matrix.value = newMatrix
+        generateNodes()
+        syncEdgesFromMatrix()
         addLog('数据导入成功')
       }
     } catch (error) {
@@ -260,6 +422,18 @@ const startSolve = async () => {
       currentTaskId.value = submitResponse.taskId
       addLog(`任务已提交，ID: ${submitResponse.taskId}`)
       
+      // 添加到任务历史
+      addTaskToHistory({
+        taskId: submitResponse.taskId,
+        taskName: taskData.taskName,
+        modelType: taskData.modelType,
+        timestamp: new Date().toISOString(),
+        matrixSize: taskData.matrixSize,
+        status: 'queued',
+        bestValue: '--',
+        solveTime: '--'
+      })
+      
       // 开始轮询任务状态
       await pollTaskStatus(submitResponse.taskId, startTime)
     } else {
@@ -293,11 +467,35 @@ const pollTaskStatus = async (taskId, startTime) => {
         solving.value = false
         
         // 更新结果
-        if (statusResponse.results && statusResponse.results.length > 0) {
-          candidates.value = statusResponse.results.map(result => ({
-            value: result.value || result.objective_value,
-            solution: JSON.stringify(result.solution || result.cut)
+        console.log("-----GET RESULT FROM BACKEND------")
+        console.log(statusResponse.results)
+        console.log("-----RESULT END------")
+        
+        // 修复：后端返回的是 results.candidates 数组
+        const resultCandidates = statusResponse.results?.candidates || []
+        if (resultCandidates.length > 0) {
+          candidates.value = resultCandidates.map(result => ({
+            value: result.value,
+            solution: JSON.stringify(result.solution)
           }))
+          console.log("更新候选结果:", candidates.value)
+          
+          // 更新图形分区显示
+          if (resultCandidates[0].solution) {
+            const solution = resultCandidates[0].solution
+            const newPartition = {}
+            solution.forEach((value, index) => {
+              newPartition[index] = value
+            })
+            partition.value = newPartition
+          }
+          
+          // 更新任务历史
+          updateTaskInHistory(taskId, {
+            status: 'completed',
+            bestValue: resultCandidates[0].value,
+            solveTime: `${duration}s`
+          })
         }
         
         addLog('求解完成')
@@ -309,15 +507,23 @@ const pollTaskStatus = async (taskId, startTime) => {
         solving.value = false
         addLog(statusResponse.message || '任务失败')
         
+        // 更新任务历史
+        updateTaskInHistory(taskId, {
+          status: statusResponse.state,
+          solveTime: '--'
+        })
+        
       } else if (statusResponse.state === 'processing') {
         // 任务处理中
         stateText.value = '计算中...'
         addLog('任务正在计算中')
+        updateTaskInHistory(taskId, { status: 'processing' })
         setTimeout(poll, pollInterval)
         
       } else if (statusResponse.state === 'queued') {
         // 任务排队中
         stateText.value = `排队中${statusResponse.queuePosition ? `(第${statusResponse.queuePosition}位)` : ''}`
+        updateTaskInHistory(taskId, { status: 'queued' })
         setTimeout(poll, pollInterval)
       }
       
@@ -384,7 +590,88 @@ const exportResults = () => {
   URL.revokeObjectURL(url)
 }
 
+// 任务历史相关方法
+const loadTaskHistory = () => {
+  try {
+    const stored = localStorage.getItem('maxcutTaskHistory')
+    if (stored) {
+      taskHistory.value = JSON.parse(stored)
+    }
+  } catch (error) {
+    console.error('加载任务历史失败:', error)
+    taskHistory.value = []
+  }
+}
+
+const saveTaskHistory = () => {
+  try {
+    localStorage.setItem('maxcutTaskHistory', JSON.stringify(taskHistory.value))
+  } catch (error) {
+    console.error('保存任务历史失败:', error)
+  }
+}
+
+const addTaskToHistory = (task) => {
+  taskHistory.value.unshift(task)
+  if (taskHistory.value.length > 50) {
+    taskHistory.value = taskHistory.value.slice(0, 50)
+  }
+  saveTaskHistory()
+}
+
+const updateTaskInHistory = (taskId, updates) => {
+  const task = taskHistory.value.find(t => t.taskId === taskId)
+  if (task) {
+    Object.assign(task, updates)
+    saveTaskHistory()
+  }
+}
+
+const clearHistory = () => {
+  taskHistory.value = []
+  saveTaskHistory()
+  addLog('任务历史已清空')
+}
+
+// 辅助函数
+const getModelTypeText = (type) => {
+  const types = {
+    classic: '经典计算',
+    sim: '量子芯片模拟',
+    cloud: '量子云服务'
+  }
+  return types[type] || type
+}
+
+const getStatusText = (status) => {
+  const statuses = {
+    queued: '排队中',
+    processing: '计算中',
+    completed: '已完成',
+    failed: '失败',
+    cancelled: '已取消'
+  }
+  return statuses[status] || status
+}
+
+const getStatusType = (status) => {
+  const types = {
+    queued: 'info',
+    processing: 'warning',
+    completed: 'success',
+    failed: 'danger',
+    cancelled: 'info'
+  }
+  return types[status] || 'info'
+}
+
+const formatDate = (timestamp) => {
+  const date = new Date(timestamp)
+  return `${date.toLocaleDateString('zh-CN')} ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 onMounted(() => {
+  loadTaskHistory()
   generateMatrix()
 })
 </script>
@@ -635,5 +922,24 @@ onMounted(() => {
 .label {
   color: #8C8FA3;
   font-size: 14px;
+}
+
+/* 任务历史列表 */
+.history-card { 
+  margin-top: 20px; 
+  background: #FFFFFF; 
+  border-radius: 20px; 
+  border: 1px solid #E6EAF5; 
+  box-shadow: 0 10px 20px rgba(9, 30, 66, 0.04); 
+}
+.history-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+.history-header h3 { 
+  margin: 0; 
+  color: #292929; 
+  font-weight: 600; 
 }
 </style> 

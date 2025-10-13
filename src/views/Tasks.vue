@@ -56,10 +56,12 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="160">
           <template #default="{ row }">
-            <el-button size="small" @click="viewTask(row)">查看</el-button>
-            <el-button size="small" type="danger" @click="deleteTask(row)" v-if="row.status !== 'processing'">删除</el-button>
+            <div class="action-buttons">
+              <el-button size="small" @click="viewTask(row)">查看</el-button>
+              <el-button size="small" type="danger" @click="deleteTask(row)" v-if="row.status !== 'processing'">删除</el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -415,5 +417,11 @@ onMounted(() => {
 
 .matrix-cell:last-child {
   border-right: none;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
 }
 </style> 

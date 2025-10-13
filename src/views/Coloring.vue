@@ -185,11 +185,45 @@
         </div>
       </div>
     </el-card>
+
+    <!-- 任务历史列表 -->
+    <el-card class="history-card">
+      <template #header>
+        <div class="history-header">
+          <h3>任务历史</h3>
+          <el-button size="small" @click="clearHistory">清空历史</el-button>
+        </div>
+      </template>
+      <el-table :data="taskHistory" stripe style="width: 100%">
+        <el-table-column prop="taskName" label="任务名" width="200" />
+        <el-table-column prop="modelType" label="模型" width="150">
+          <template #default="{ row }">
+            {{ getModelTypeText(row.modelType) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="timestamp" label="提交时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.timestamp) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="matrixSize" label="规模" width="80" />
+        <el-table-column prop="status" label="状态" width="120">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)">
+              {{ getStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="usedColors" label="使用颜色" width="100" />
+        <el-table-column prop="solveTime" label="求解时间" width="120" />
+      </el-table>
+    </el-card>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { submitTask, getTaskStatus, cancelTask as cancelTaskAPI } from '../api/index.js'
 import ColoringGraph from '../components/ColoringGraph.vue'
 
 // 响应式数据
@@ -226,6 +260,10 @@ const selectedNodes = ref([])
 const solveType = ref('classic')
 const solving = ref(false)
 const solveTime = ref('0s')
+const currentTaskId = ref(null)
+
+// 任务历史
+const taskHistory = ref([])
 
 // 计算属性
 const usedColors = computed(() => {
@@ -361,8 +399,8 @@ const toggleEdge = (a, b) => {
   }
   // 同步矩阵
   syncMatrixFromEdges()
-  // 着色冲突重新计算
-  // validateColoring() // 移除前端冲突检测
+  // 修改边时清除颜色结果
+  coloring.value = {}
 }
 
 const clearSelected = () => {
@@ -401,6 +439,9 @@ const syncEdgesFromMatrix = () => {
 // 邻接矩阵交互
 const setMatrixMode = (mode) => {
   matrixMode.value = mode
+  // 切换模式时清除颜色结果
+  coloring.value = {}
+  addLog('切换矩阵模式，清除颜色结果')
 }
 
 const generateRandomMatrix = () => {
@@ -416,6 +457,8 @@ const generateRandomMatrix = () => {
   adjacencyMatrix.value = newMatrix
   // 覆盖图结构
   syncEdgesFromMatrix()
+  // 清除颜色结果
+  coloring.value = {}
   addLog('随机生成邻接矩阵并覆盖当前图结构')
 }
 
@@ -455,6 +498,8 @@ const toggleMatrixCell = (i, j) => {
   adjacencyMatrix.value[i][j] = newValue
   adjacencyMatrix.value[j][i] = newValue
   syncEdgesFromMatrix()
+  // 修改矩阵时清除颜色结果
+  coloring.value = {}
 }
 
 const rebuildNodesLayout = () => {
@@ -484,72 +529,213 @@ const submitSolve = async () => {
   conflicts.value = 0
   logs.value = ['求解开始']
 
-  const graph = {
-    nodes: nodes.value.map(node => ({ id: node.id })),
-    edges: edges.value.map(edge => ({ source: edge.source, target: edge.target }))
-  }
-
-  let result = {}
-  let conflicts = 0
-  let usedColors = 0
-  let chromaticLowerBound = 0
-  let maxDegree = 0
-  let graphDensity = 0
-  let solveDuration = 0
+  const startTime = Date.now()
 
   try {
-    if (solveType.value === 'classic') {
-      const startTime = performance.now()
-      result = await solveClassic(graph)
-      solveDuration = (performance.now() - startTime) / 1000
-    } else if (solveType.value === 'sim') {
-      // 量子芯片模拟求解
-      // 这里需要调用量子模拟器API
-      // 例如：const result = await quantumSimulate(graph)
-      // result = result
-      // conflicts = result.conflicts
-      // usedColors = result.usedColors
-      // chromaticLowerBound = result.chromaticLowerBound
-      // maxDegree = result.maxDegree
-      // graphDensity = result.graphDensity
-      addLog('量子芯片模拟求解功能待实现')
-    } else if (solveType.value === 'cloud') {
-      // 量子云服务求解
-      // 这里需要调用量子云服务API
-      // 例如：const result = await quantumCloudService(graph)
-      // result = result
-      // conflicts = result.conflicts
-      // usedColors = result.usedColors
-      // chromaticLowerBound = result.chromaticLowerBound
-      // maxDegree = result.maxDegree
-      // graphDensity = result.graphDensity
-      addLog('量子云服务求解功能待实现')
+    // 准备任务数据
+    const taskData = {
+      taskName: `Coloring_${Date.now()}`,
+      modelType: solveType.value,
+      problemType: 'coloring',
+      matrixSize: nodeCount.value,
+      adjacencyMatrix: adjacencyMatrix.value
     }
-
-    // 更新着色结果
-    coloring.value = result
-    conflicts.value = conflicts
-    statusClass.value = conflicts > 0 ? 'status-fail' : 'status-success'
-    statusText.value = conflicts > 0 ? `冲突数: ${conflicts}` : '求解成功'
-    addLog(`使用${usedColors}种颜色，色数下界: ${chromaticLowerBound}，最大度数: ${maxDegree}，图密度: ${graphDensity.toFixed(3)}，求解耗时: ${solveDuration.toFixed(2)}s`)
+    
+    addLog('提交着色任务到后端...')
+    
+    // 提交任务到后端
+    const submitResponse = await submitTask(taskData)
+    
+    if (submitResponse.success) {
+      currentTaskId.value = submitResponse.taskId
+      addLog(`任务已提交，ID: ${submitResponse.taskId}`)
+      
+      // 添加到任务历史
+      addTaskToHistory({
+        taskId: submitResponse.taskId,
+        taskName: taskData.taskName,
+        modelType: taskData.modelType,
+        timestamp: new Date().toISOString(),
+        matrixSize: taskData.matrixSize,
+        status: 'queued',
+        usedColors: '--',
+        solveTime: '--'
+      })
+      
+      // 开始轮询任务状态
+      await pollTaskStatus(submitResponse.taskId, startTime)
+    } else {
+      throw new Error(submitResponse.message || '任务提交失败')
+    }
+    
   } catch (error) {
     console.error('求解失败:', error)
     addLog(`求解失败: ${error.message}`)
     statusClass.value = 'status-fail'
     statusText.value = '求解失败'
-  } finally {
     solving.value = false
-    solveTime.value = `${solveDuration.toFixed(2)}s`
   }
 }
 
-const cancelSolve = () => {
-  // 这里可以添加取消求解的逻辑，例如中断当前的求解进程
-  addLog('求解已取消')
-  statusClass.value = 'status-idle'
-  statusText.value = '等待操作'
+// 轮询任务状态
+const pollTaskStatus = async (taskId, startTime) => {
+  const pollInterval = 2000 // 2秒轮询一次
+  
+  const poll = async () => {
+    try {
+      const statusResponse = await getTaskStatus(taskId)
+      
+      if (statusResponse.state === 'completed') {
+        // 任务完成
+        const endTime = Date.now()
+        const duration = ((endTime - startTime) / 1000).toFixed(2)
+        
+        solveTime.value = `${duration}s`
+        solving.value = false
+        
+        // 解析后端返回的结果
+        console.log("着色问题返回结果:", statusResponse.results)
+        
+        const resultCandidates = statusResponse.results?.candidates || []
+        if (resultCandidates.length > 0) {
+          // 取第一个候选结果
+          const bestResult = resultCandidates[0]
+          
+          // 解析着色矩阵：solution是一个矩阵，第i行第j列为1表示节点i使用颜色j
+          const solutionMatrix = bestResult.solution
+          const newColoring = {}
+          let conflictCount = 0
+          
+          // 第一步：找出所有被使用的列（颜色）
+          const usedColumnsSet = new Set()
+          console.log("-----solutionMatrix START------")
+          console.log(solutionMatrix)
+          console.log("-----solutionMatrix END------")
+
+          for (let i = 0; i < solutionMatrix.length; i++) {
+            if (solutionMatrix[i] === 1) 
+              usedColumnsSet.add(i % (Math.sqrt(solutionMatrix.length)));
+          }
+          if (Array.isArray(solutionMatrix)) {
+            for (let i = 0; i < solutionMatrix.length; i++) {
+              if (Array.isArray(solutionMatrix[i])) {
+                for (let j = 0; j < solutionMatrix[i].length; j++) {
+                  if (solutionMatrix[i][j] === 1) {
+                    usedColumnsSet.add(j)
+                  }
+                }
+              }
+            }
+          }
+          console.log("-----usedColumnsSet START------")
+          console.log(usedColumnsSet)
+          console.log("-----usedColumnsSet END------")
+          // 第二步：将使用的列映射到连续的颜色索引
+          const usedColumns = Array.from(usedColumnsSet).sort((a, b) => a - b)
+          const columnToColorMap = {}
+          usedColumns.forEach((col, index) => {
+            columnToColorMap[col] = index
+          })
+          
+          console.log("使用的列:", usedColumns)
+          console.log("列到颜色的映射:", columnToColorMap)
+          
+          // 第三步：将矩阵转换为着色映射 {nodeId: colorIndex}
+          if (Array.isArray(solutionMatrix)) {
+
+            for (let i = 0; i < solutionMatrix.length; i++) {
+                if (solutionMatrix[i] === 1) {
+                  let color_num = i % Math.sqrt(solutionMatrix.length)
+                  newColoring[Math.floor(i / Math.sqrt(solutionMatrix.length))] = columnToColorMap[color_num]
+                }
+            }
+          }
+          
+          // 检查冲突
+          edges.value.forEach(edge => {
+            if (newColoring[edge.source] === newColoring[edge.target]) {
+              conflictCount++
+            }
+          })
+          
+          // 更新图着色
+          coloring.value = newColoring
+          conflicts.value = conflictCount
+          
+          const usedColorsCount = usedColumns.length
+          
+          statusClass.value = conflictCount > 0 ? 'status-fail' : 'status-success'
+          statusText.value = conflictCount > 0 ? `冲突数: ${conflictCount}` : '求解成功'
+          
+          console.log("最终着色结果:", newColoring)
+          console.log("使用颜色数:", usedColorsCount)
+          
+          addLog(`求解完成！使用${usedColorsCount}种颜色，目标值: ${bestResult.value}`)
+          addLog(`颜色分配: ${JSON.stringify(newColoring)}`)
+          if (conflictCount > 0) {
+            addLog(`警告：存在${conflictCount}个颜色冲突`)
+          }
+          
+          // 更新任务历史
+          updateTaskInHistory(taskId, {
+            status: 'completed',
+            usedColors: usedColorsCount,
+            solveTime: `${duration}s`
+          })
+        }
+        
+      } else if (statusResponse.state === 'failed' || statusResponse.state === 'cancelled') {
+        // 任务失败或取消
+        statusClass.value = 'status-fail'
+        statusText.value = statusResponse.state === 'cancelled' ? '已取消' : '求解失败'
+        solving.value = false
+        addLog(statusResponse.message || '任务失败')
+        
+        // 更新任务历史
+        updateTaskInHistory(taskId, {
+          status: statusResponse.state,
+          solveTime: '--'
+        })
+        
+      } else if (statusResponse.state === 'processing') {
+        // 任务处理中
+        statusText.value = '计算中...'
+        updateTaskInHistory(taskId, { status: 'processing' })
+        setTimeout(poll, pollInterval)
+        
+      } else if (statusResponse.state === 'queued') {
+        // 任务排队中
+        statusText.value = `排队中${statusResponse.queuePosition ? `(第${statusResponse.queuePosition}位)` : ''}`
+        updateTaskInHistory(taskId, { status: 'queued' })
+        setTimeout(poll, pollInterval)
+      }
+      
+    } catch (error) {
+      statusClass.value = 'status-fail'
+      statusText.value = '连接失败'
+      solving.value = false
+      addLog('无法获取任务状态: ' + error.message)
+    }
+  }
+  
+  // 开始轮询
+  setTimeout(poll, pollInterval)
+}
+
+const cancelSolve = async () => {
+  if (currentTaskId.value) {
+    try {
+      await cancelTaskAPI(currentTaskId.value)
+      addLog('取消任务请求已发送')
+    } catch (error) {
+      addLog('取消任务失败: ' + error.message)
+    }
+  }
+  
   solving.value = false
-  solveTime.value = '0s'
+  statusClass.value = 'status-idle'
+  statusText.value = '已取消'
+  currentTaskId.value = null
 }
 
 // 经典算法求解 (示例)
@@ -609,11 +795,20 @@ const solveClassic = async (graph) => {
   solution = bestSolution
   conflicts = bestConflicts
   usedColors = new Set(Object.values(solution)).size
-  chromaticLowerBound = Math.max(maxDegree.value + 1, Math.ceil(Math.sqrt(nodeCount.value)))
-  maxDegree = Math.max(...d)
-  graphDensity = m / (n * (n - 1) / 2)
+  
+  // 计算统计信息（不能直接赋值给computed属性）
+  const computedChromaticLowerBound = Math.max(maxDegree.value + 1, Math.ceil(Math.sqrt(nodeCount.value)))
+  const computedMaxDegree = Math.max(...d)
+  const computedGraphDensity = m / (n * (n - 1) / 2)
 
-  return { solution, conflicts, usedColors, chromaticLowerBound, maxDegree, graphDensity }
+  return { 
+    solution, 
+    conflicts, 
+    usedColors, 
+    chromaticLowerBound: computedChromaticLowerBound, 
+    maxDegree: computedMaxDegree, 
+    graphDensity: computedGraphDensity 
+  }
 }
 
 // 工具：日志
@@ -640,7 +835,88 @@ watch(nodeCount, () => {
   generateGraph()
 })
 
+// 任务历史相关方法
+const loadTaskHistory = () => {
+  try {
+    const stored = localStorage.getItem('coloringTaskHistory')
+    if (stored) {
+      taskHistory.value = JSON.parse(stored)
+    }
+  } catch (error) {
+    console.error('加载任务历史失败:', error)
+    taskHistory.value = []
+  }
+}
+
+const saveTaskHistory = () => {
+  try {
+    localStorage.setItem('coloringTaskHistory', JSON.stringify(taskHistory.value))
+  } catch (error) {
+    console.error('保存任务历史失败:', error)
+  }
+}
+
+const addTaskToHistory = (task) => {
+  taskHistory.value.unshift(task)
+  if (taskHistory.value.length > 50) {
+    taskHistory.value = taskHistory.value.slice(0, 50)
+  }
+  saveTaskHistory()
+}
+
+const updateTaskInHistory = (taskId, updates) => {
+  const task = taskHistory.value.find(t => t.taskId === taskId)
+  if (task) {
+    Object.assign(task, updates)
+    saveTaskHistory()
+  }
+}
+
+const clearHistory = () => {
+  taskHistory.value = []
+  saveTaskHistory()
+  addLog('任务历史已清空')
+}
+
+// 辅助函数
+const getModelTypeText = (type) => {
+  const types = {
+    classic: '经典计算',
+    sim: '量子芯片模拟',
+    cloud: '量子云服务'
+  }
+  return types[type] || type
+}
+
+const getStatusText = (status) => {
+  const statuses = {
+    queued: '排队中',
+    processing: '计算中',
+    completed: '已完成',
+    failed: '失败',
+    cancelled: '已取消'
+  }
+  return statuses[status] || status
+}
+
+const getStatusType = (status) => {
+  const types = {
+    queued: 'info',
+    processing: 'warning',
+    completed: 'success',
+    failed: 'danger',
+    cancelled: 'info'
+  }
+  return types[status] || 'info'
+}
+
+const formatDate = (timestamp) => {
+  const date = new Date(timestamp)
+  return `${date.toLocaleDateString('zh-CN')} ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+}
+
 // 初始化
+loadTaskHistory()
 generateGraph()
 </script>
 
@@ -709,4 +985,23 @@ generateGraph()
 .solve-area { display: flex; gap: 10px; margin-bottom: 20px; }
 .solve-btn { width: 120px; height: 48px; font-size: 16px; font-weight: 600; }
 .label { color: #8C8FA3; font-size: 14px; }
+
+/* 任务历史列表 */
+.history-card { 
+  margin-top: 20px; 
+  background: #FFFFFF; 
+  border-radius: 20px; 
+  border: 1px solid #E6EAF5; 
+  box-shadow: 0 10px 20px rgba(9, 30, 66, 0.04); 
+}
+.history-header { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+}
+.history-header h3 { 
+  margin: 0; 
+  color: #292929; 
+  font-weight: 600; 
+}
 </style> 

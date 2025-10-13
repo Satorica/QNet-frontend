@@ -15,7 +15,6 @@ const router = createRouter({
   history: createWebHistory(),
   routes
 })
-
 // 注册Element Plus图标
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)

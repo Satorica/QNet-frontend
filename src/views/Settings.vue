@@ -572,7 +572,13 @@ onMounted(() => {
 .setting-item label {
   font-weight: 500;
   color: #292929;
-  flex: 1;
+  flex: 0 0 auto;
+  min-width: 150px;
+}
+
+.setting-item :deep(.el-select),
+.setting-item :deep(.el-input-number) {
+  width: 200px;
 }
 
 .storage-info {
