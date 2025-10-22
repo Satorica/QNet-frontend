@@ -971,7 +971,14 @@ generateGraph()
 
 /* MaxCut风格样式 */
 .controls-top { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-.solve-type-group { display: flex; gap: 10px; }
+.solve-type-group { display: flex; gap: 12px; }
+.solve-type-group :deep(.el-radio-button__inner) {
+  border: 1px solid #DCDFE6;
+}
+.solve-type-group :deep(.el-radio-button:not(.is-active) .el-radio-button__inner) {
+  background: #FFFFFF;
+  border-color: #DCDFE6;
+}
 .solve-state { display: flex; align-items: center; gap: 12px; padding: 16px; background: #F6F7FA; border-radius: 12px; margin-bottom: 12px; }
 .state-icon { width: 16px; height: 16px; border-radius: 50%; }
 .state-text { font-weight: 500; color: #292929; }
@@ -983,7 +990,8 @@ generateGraph()
 .state-icon.status-fail { background: #E57550; }
 
 .solve-area { display: flex; gap: 10px; margin-bottom: 20px; }
-.solve-btn { width: 120px; height: 48px; font-size: 16px; font-weight: 600; }
+.solve-area .solve-btn { width: 120px; height: 48px; font-size: 16px; font-weight: 600; }
+.solve-area :deep(.el-button) { height: 48px; }
 .label { color: #8C8FA3; font-size: 14px; }
 
 /* 任务历史列表 */

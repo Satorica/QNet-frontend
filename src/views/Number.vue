@@ -87,7 +87,7 @@
               >
                 {{ solving ? '求解中...' : '开始求解' }}
               </el-button>
-              <el-button @click="cancelSolve" :disabled="!solving">取消</el-button>
+              <el-button @click="cancelSolve" :disabled="!solving">取消任务</el-button>
             </div>
 
             <!-- 求解状态 -->
@@ -96,7 +96,7 @@
                 <div class="status-icon"></div>
                 <span>{{ statusText }}</span>
               </div>
-              <div class="solve-time">求解时间：{{ solveTime }}</div>
+              <div class="solve-time">求解时间：{{ `solveTime }}</div>
             </div>
 
             <!-- 结果展示 -->
@@ -675,17 +675,35 @@ loadTaskHistory()
   font-size: 14px;
 }
 
+.config-item :deep(.el-radio-group) {
+  display: flex;
+  gap: 12px;
+}
+
+.config-item :deep(.el-radio-button__inner) {
+  border: 1px solid #DCDFE6;
+}
+
+.config-item :deep(.el-radio-button:not(.is-active) .el-radio-button__inner) {
+  background: #FFFFFF;
+  border-color: #DCDFE6;
+}
+
 .solve-section {
   display: flex;
   gap: 12px;
   margin-bottom: 20px;
 }
 
-.solve-btn {
+.solve-section .solve-btn {
   width: 160px;
   height: 48px;
   font-size: 16px;
   font-weight: 600;
+}
+
+.solve-section :deep(.el-button) {
+  height: 48px;
 }
 
 .solve-status {

@@ -702,6 +702,20 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+.solve-type-group {
+  display: flex;
+  gap: 12px;
+}
+
+.solve-type-group :deep(.el-radio-button__inner) {
+  border: 1px solid #DCDFE6;
+}
+
+.solve-type-group :deep(.el-radio-button:not(.is-active) .el-radio-button__inner) {
+  background: #FFFFFF;
+  border-color: #DCDFE6;
+}
+
 .matrix-header {
   display: flex;
   justify-content: space-between;
@@ -815,11 +829,15 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
-.solve-btn {
+.solve-area .solve-btn {
   width: 120px;
   height: 48px;
   font-size: 16px;
   font-weight: 600;
+}
+
+.solve-area :deep(.el-button) {
+  height: 48px;
 }
 
 .solve-state {
