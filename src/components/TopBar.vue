@@ -16,18 +16,56 @@
         <div class="time">{{ currentTime }}</div>
         <div class="date">{{ currentDate }}</div>
       </div>
-      <div class="avatar">王</div>
+      
+      <!-- 用户信息和菜单 -->
+      <el-dropdown v-if="isLoggedIn" @command="handleCommand" trigger="click">
+        <div class="user-info">
+          <div class="avatar">
+            {{ userInfo?.username?.charAt(0).toUpperCase() || 'U' }}
+          </div>
+          <span class="username">{{ userInfo?.username || '未登录' }}</span>
+        </div>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item disabled>
+              <div class="user-details">
+                <div><strong>用户名:</strong> {{ userInfo?.username }}</div>
+                <div v-if="userInfo?.email"><strong>邮箱:</strong> {{ userInfo?.email }}</div>
+                <div v-if="userInfo?.phone"><strong>手机:</strong> {{ userInfo?.phone }}</div>
+              </div>
+            </el-dropdown-item>
+            <el-dropdown-item divided command="logout">
+              <el-icon><SwitchButton /></el-icon>
+              <span>退出登录</span>
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
+      <!-- 未登录时显示 -->
+      <div v-else class="login-prompt">
+        <el-button type="primary" size="small" @click="goToLogin">登录</el-button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { SwitchButton } from '@element-plus/icons-vue'
+import { userManager } from '../utils/auth.js'
 
+const router = useRouter()
 const taskName = ref('')
 const currentTime = ref('')
 const currentDate = ref('')
 let timer = null
+
+// 获取用户信息和登录状态
+const userInfo = computed(() => userManager.getUserInfo())
+const isLoggedIn = computed(() => userManager.isLoggedIn())
 
 const updateClock = () => {
   const now = new Date()
@@ -46,6 +84,39 @@ const handleOk = () => {
     // emit('create-task', taskName.value)
     taskName.value = ''
   }
+}
+
+// 处理下拉菜单命令
+const handleCommand = async (command) => {
+  if (command === 'logout') {
+    try {
+      await ElMessageBox.confirm(
+        '确定要退出登录吗？',
+        '退出登录',
+        {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      )
+      
+      // 执行退出
+      await userManager.logout()
+      ElMessage.success('已退出登录')
+      
+      // 跳转到登录页
+      router.push('/login')
+    } catch (error) {
+      if (error !== 'cancel') {
+        console.error('退出登录失败:', error)
+      }
+    }
+  }
+}
+
+// 跳转到登录页
+const goToLogin = () => {
+  router.push('/login')
 }
 
 onMounted(() => {
@@ -101,6 +172,20 @@ onUnmounted(() => {
   margin-top: 2px;
 }
 
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.user-info:hover {
+  background: #F5F7FA;
+}
+
 .avatar {
   width: 36px;
   height: 36px;
@@ -112,5 +197,44 @@ onUnmounted(() => {
   color: white;
   font-weight: 600;
   font-size: 14px;
+  flex-shrink: 0;
+}
+
+.username {
+  font-size: 14px;
+  font-weight: 500;
+  color: #292929;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-details {
+  padding: 8px;
+  min-width: 200px;
+}
+
+.user-details div {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #606266;
+}
+
+.user-details strong {
+  color: #303133;
+}
+
+.login-prompt {
+  margin-left: 10px;
+}
+
+:deep(.el-dropdown-menu__item) {
+  padding: 10px 16px;
+}
+
+:deep(.el-dropdown-menu__item:not(.is-disabled):hover) {
+  background-color: #F5F7FA;
+  color: #4050F8;
 }
 </style> 

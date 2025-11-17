@@ -649,19 +649,113 @@ const handleFileImport = (event) => {
   reader.onload = (e) => {
     try {
       const content = e.target.result
-      const lines = content.trim().split('\n')
-      const newMatrix = lines.map(line => line.split(/[\,\s]+/).map(v => Math.max(0, parseFloat(v)) || 0))
-      if (newMatrix.length > 0 && newMatrix[0].length > 0 && newMatrix.length === newMatrix[0].length) {
-        cityCount.value = newMatrix.length
-        distanceMatrix.value = newMatrix
-        generateCities() // 重建城市布局与默认路径
-        addLog('数据导入成功（距离矩阵）并覆盖当前图结构')
-      } else {
-        addLog('导入失败：矩阵需为 N×N')
+      const lines = content.trim().split('\n').filter(line => line.trim())
+      
+      if (lines.length === 0) {
+        addLog('导入失败：文件为空')
+        return
       }
+      
+      const newMatrix = lines.map((line, lineIdx) => 
+        line.split(/[\,\s]+/).filter(cell => cell.trim()).map((cell, colIdx) => {
+          const val = cell.trim()
+          const num = parseFloat(val)
+          
+          // 检查是否为有效数字
+          if (isNaN(num)) {
+            throw new Error(`第${lineIdx + 1}行第${colIdx + 1}列包含非数字：${val}`)
+          }
+          
+          // 检查是否为负数
+          if (num < 0) {
+            throw new Error(`第${lineIdx + 1}行第${colIdx + 1}列为负数：${num}（距离必须非负）`)
+          }
+          
+          // 检查是否为整数或浮点数
+          if (!Number.isFinite(num)) {
+            throw new Error(`第${lineIdx + 1}行第${colIdx + 1}列不是有效数值：${val}`)
+          }
+          
+          return num
+        })
+      )
+      
+      // 验证1：检查是否为方阵
+      const size = newMatrix.length
+      if (size === 0) {
+        addLog('导入失败：矩阵为空')
+        return
+      }
+      
+      for (let i = 0; i < size; i++) {
+        if (newMatrix[i].length !== size) {
+          addLog(`导入失败：不是方阵（第${i + 1}行有${newMatrix[i].length}列，期望${size}列）`)
+          return
+        }
+      }
+      
+      // 验证2：检查对角线是否为0（无自环）
+      for (let i = 0; i < size; i++) {
+        if (newMatrix[i][i] !== 0) {
+          addLog(`导入失败：对角线元素[${i}][${i}]=${newMatrix[i][i]}，不允许自环（必须为0）`)
+          return
+        }
+      }
+      
+      // 验证3：检查是否对称
+      for (let i = 0; i < size; i++) {
+        for (let j = i + 1; j < size; j++) {
+          const diff = Math.abs(newMatrix[i][j] - newMatrix[j][i])
+          // 使用小的容差来处理浮点数精度问题
+          if (diff > 0.0001) {
+            addLog(`导入失败：矩阵不对称（[${i}][${j}]=${newMatrix[i][j]}，但[${j}][${i}]=${newMatrix[j][i]}）`)
+            return
+          }
+          // 确保完全对称
+          newMatrix[j][i] = newMatrix[i][j]
+        }
+      }
+      
+      // 验证4：检查规模是否在允许范围内
+      if (size < 3 || size > 24) {
+        addLog(`导入失败：矩阵规模${size}超出范围（允许3-24）`)
+        return
+      }
+      
+      // 验证5：检查是否所有非对角线元素都为0（这样的矩阵无意义）
+      let hasEdge = false
+      for (let i = 0; i < size; i++) {
+        for (let j = i + 1; j < size; j++) {
+          if (newMatrix[i][j] > 0) {
+            hasEdge = true
+            break
+          }
+        }
+        if (hasEdge) break
+      }
+      
+      if (!hasEdge) {
+        addLog('警告：矩阵中没有任何正权重边，TSP问题无意义')
+      }
+      
+      // 所有验证通过，导入数据
+      cityCount.value = size
+      distanceMatrix.value = newMatrix
+      generateCities() // 重建城市布局与默认路径
+      
+      // 计算边数（非零边）
+      let edgeCount = 0
+      for (let i = 0; i < size; i++) {
+        for (let j = i + 1; j < size; j++) {
+          if (newMatrix[i][j] > 0) edgeCount++
+        }
+      }
+      
+      addLog(`数据导入成功：${size}×${size}距离矩阵，${edgeCount}条非零边`)
+      
     } catch (err) {
-      console.error(err)
-      addLog('数据导入失败')
+      console.error('文件解析失败:', err)
+      addLog(`导入失败：${err.message}`)
     }
   }
   reader.readAsText(file)

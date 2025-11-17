@@ -96,7 +96,7 @@
                 <div class="status-icon"></div>
                 <span>{{ statusText }}</span>
               </div>
-              <div class="solve-time">求解时间：{{ `solveTime }}</div>
+              <div class="solve-time">求解时间：{{ `solveTime` }}</div>
             </div>
 
             <!-- 结果展示 -->

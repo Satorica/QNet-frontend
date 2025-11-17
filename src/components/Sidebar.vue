@@ -56,22 +56,32 @@
           <el-icon><Setting /></el-icon>
           <span>设置</span>
         </el-menu-item>
+        <el-menu-item class="logout-btn" @click="handleLogout">
+          <el-icon><SwitchButton /></el-icon>
+          <span>退出</span>
+        </el-menu-item>
       </el-menu>
-      
-      <div class="logout-btn" @click="handleLogout">
-        <el-icon><SwitchButton /></el-icon>
-        <span>退出</span>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
 import { TrendCharts, Odometer, MagicStick, Location, List, Setting, SwitchButton } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { userManager } from '../utils/auth.js'
 
-const handleLogout = () => {
-  // 退出逻辑
-  console.log('用户退出')
+const router = useRouter()
+
+const handleLogout = async () => {
+  try {
+    await userManager.logout()
+    ElMessage.success('已退出登录')
+    router.push('/login')
+  } catch (error) {
+    console.error('登出错误:', error)
+    ElMessage.error('登出失败')
+  }
 }
 </script>
 

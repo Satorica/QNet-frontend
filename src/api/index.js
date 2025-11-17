@@ -3,12 +3,12 @@ import axios from 'axios'
 // 服务器配置
 const SERVERS = {
   cloud: {
-    baseURL: 'http://47.99.240.72:8085/api',
+    baseURL: 'http://47.99.240.72:8085',
     name: '云服务器',
     type: 'cloud'
   },
   local: {
-    baseURL: 'http://47.99.240.72:5000/api',
+    baseURL: 'http://47.99.240.72:8085',
     name: '本地服务器',
     type: 'local'
   }
@@ -38,10 +38,22 @@ let serverStatus = {
   local: { online: true, lastCheck: 0 }
 }
 
+// 统一读取 token（支持 sessionStorage 与 localStorage）
+const getStoredToken = () => {
+  return sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken')
+}
+
 // 请求拦截器 - 云服务器
 cloudApi.interceptors.request.use(
   config => {
     console.log('发送请求到云服务器:', config.method?.toUpperCase(), config.url)
+
+    // 添加token到请求头
+    const token = getStoredToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
     return config
   },
   error => {
@@ -54,6 +66,13 @@ cloudApi.interceptors.request.use(
 localApi.interceptors.request.use(
   config => {
     console.log('发送请求到本地服务器:', config.method?.toUpperCase(), config.url)
+
+    // 添加token到请求头
+    const token = getStoredToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+
     return config
   },
   error => {
@@ -74,6 +93,12 @@ cloudApi.interceptors.response.use(
     console.error('云服务器响应错误:', error.response?.status, error.response?.data?.message || error.message)
     serverStatus.cloud.online = false
     serverStatus.cloud.lastCheck = Date.now()
+
+    // 处理token过期
+    if (error.response?.status === 401) {
+      handleTokenExpired()
+    }
+
     return Promise.reject(error)
   }
 )
@@ -90,9 +115,29 @@ localApi.interceptors.response.use(
     console.error('本地服务器响应错误:', error.response?.status, error.response?.data?.message || error.message)
     serverStatus.local.online = false
     serverStatus.local.lastCheck = Date.now()
+
+    // 处理token过期
+    if (error.response?.status === 401) {
+      handleTokenExpired()
+    }
+
     return Promise.reject(error)
   }
 )
+
+// 处理token过期
+const handleTokenExpired = () => {
+  // 清除本地存储的认证信息
+  localStorage.removeItem('accessToken')
+  localStorage.removeItem('refreshToken')
+  localStorage.removeItem('userInfo')
+  localStorage.removeItem('isLoggedIn')
+
+  // 跳转到登录页面
+  if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+    window.location.href = '/login'
+  }
+}
 
 // 检查服务器状态
 export const checkServerStatus = async () => {

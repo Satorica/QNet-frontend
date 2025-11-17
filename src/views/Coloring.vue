@@ -473,20 +473,92 @@ const handleFileImport = (event) => {
   reader.onload = (e) => {
     try {
       const content = e.target.result
-      const lines = content.trim().split('\n')
-      const newMatrix = lines.map(line => line.split(/[\,\s]+/).map(cell => parseInt(cell.trim()) || 0))
-      if (newMatrix.length > 0 && newMatrix[0].length > 0) {
-        nodeCount.value = newMatrix.length
-        adjacencyMatrix.value = newMatrix
-        // 覆盖图结构
-        rebuildNodesLayout()
-        syncEdgesFromMatrix()
-        coloring.value = {}
-        addLog('数据导入成功并覆盖当前图结构')
+      const lines = content.trim().split('\n').filter(line => line.trim())
+      
+      if (lines.length === 0) {
+        addLog('导入失败：文件为空')
+        return
       }
+      
+      const newMatrix = lines.map(line => 
+        line.split(/[\,\s]+/).filter(cell => cell.trim()).map(cell => {
+          const val = cell.trim()
+          if (val !== '0' && val !== '1') {
+            throw new Error(`包含非法字符：${val}（仅允许0和1）`)
+          }
+          return parseInt(val)
+        })
+      )
+      
+      // 验证1：检查是否为方阵
+      const size = newMatrix.length
+      if (size === 0) {
+        addLog('导入失败：矩阵为空')
+        return
+      }
+      
+      for (let i = 0; i < size; i++) {
+        if (newMatrix[i].length !== size) {
+          addLog(`导入失败：不是方阵（第${i + 1}行有${newMatrix[i].length}列，期望${size}列）`)
+          return
+        }
+      }
+      
+      // 验证2：检查是否只包含0和1
+      for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+          if (newMatrix[i][j] !== 0 && newMatrix[i][j] !== 1) {
+            addLog(`导入失败：矩阵[${i}][${j}]=${newMatrix[i][j]}，只允许0或1`)
+            return
+          }
+        }
+      }
+      
+      // 验证3：检查对角线是否为0（无自环）
+      for (let i = 0; i < size; i++) {
+        if (newMatrix[i][i] !== 0) {
+          addLog(`导入失败：对角线元素[${i}][${i}]=${newMatrix[i][i]}，不允许自环（必须为0）`)
+          return
+        }
+      }
+      
+      // 验证4：检查是否对称
+      for (let i = 0; i < size; i++) {
+        for (let j = i + 1; j < size; j++) {
+          if (newMatrix[i][j] !== newMatrix[j][i]) {
+            addLog(`导入失败：矩阵不对称（[${i}][${j}]=${newMatrix[i][j]}，但[${j}][${i}]=${newMatrix[j][i]}）`)
+            return
+          }
+        }
+      }
+      
+      // 验证5：检查规模是否在允许范围内
+      if (size < 3 || size > 24) {
+        addLog(`导入失败：矩阵规模${size}超出范围（允许3-24）`)
+        return
+      }
+      
+      // 所有验证通过，导入数据
+      nodeCount.value = size
+      adjacencyMatrix.value = newMatrix
+      // 覆盖图结构
+      rebuildNodesLayout()
+      syncEdgesFromMatrix()
+      coloring.value = {}
+      
+      // 计算边数
+      let edgeCount = 0
+      for (let i = 0; i < size; i++) {
+        for (let j = i + 1; j < size; j++) {
+          if (newMatrix[i][j] === 1) edgeCount++
+        }
+      }
+      
+      addLog(`数据导入成功：${size}×${size}邻接矩阵，${edgeCount}条边`)
+      
     } catch (error) {
       console.error('文件解析失败:', error)
-      addLog('数据导入失败')
+      addLog(`导入失败：${error.message}`)
     }
   }
   reader.readAsText(file)
