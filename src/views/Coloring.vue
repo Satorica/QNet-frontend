@@ -223,7 +223,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { submitTask, getTaskStatus, cancelTask as cancelTaskAPI } from '../api/index.js'
+import { submitTask, getTaskStatus, cancelTask as cancelTaskAPI, getTaskHistory } from '../api/index.js'
 import ColoringGraph from '../components/ColoringGraph.vue'
 
 // 响应式数据
@@ -622,17 +622,7 @@ const submitSolve = async () => {
       currentTaskId.value = submitResponse.taskId
       addLog(`任务已提交，ID: ${submitResponse.taskId}`)
       
-      // 添加到任务历史
-      addTaskToHistory({
-        taskId: submitResponse.taskId,
-        taskName: taskData.taskName,
-        modelType: taskData.modelType,
-        timestamp: new Date().toISOString(),
-        matrixSize: taskData.matrixSize,
-        status: 'queued',
-        usedColors: '--',
-        solveTime: '--'
-      })
+      // 任务已提交到后端，会自动保存到数据库，不需要手动添加到历史
       
       // 开始轮询任务状态
       await pollTaskStatus(submitResponse.taskId, startTime)
@@ -748,12 +738,8 @@ const pollTaskStatus = async (taskId, startTime) => {
             addLog(`警告：存在${conflictCount}个颜色冲突`)
           }
           
-          // 更新任务历史
-          updateTaskInHistory(taskId, {
-            status: 'completed',
-            usedColors: usedColorsCount,
-            solveTime: `${duration}s`
-          })
+          // 任务状态已更新到数据库，刷新任务历史
+          loadTaskHistory()
         }
         
       } else if (statusResponse.state === 'failed' || statusResponse.state === 'cancelled') {
@@ -763,22 +749,17 @@ const pollTaskStatus = async (taskId, startTime) => {
         solving.value = false
         addLog(statusResponse.message || '任务失败')
         
-        // 更新任务历史
-        updateTaskInHistory(taskId, {
-          status: statusResponse.state,
-          solveTime: '--'
-        })
+        // 任务状态已更新到数据库，刷新任务历史
+        loadTaskHistory()
         
       } else if (statusResponse.state === 'processing') {
         // 任务处理中
         statusText.value = '计算中...'
-        updateTaskInHistory(taskId, { status: 'processing' })
         setTimeout(poll, pollInterval)
         
       } else if (statusResponse.state === 'queued') {
         // 任务排队中
         statusText.value = `排队中${statusResponse.queuePosition ? `(第${statusResponse.queuePosition}位)` : ''}`
-        updateTaskInHistory(taskId, { status: 'queued' })
         setTimeout(poll, pollInterval)
       }
       
@@ -908,46 +889,36 @@ watch(nodeCount, () => {
 })
 
 // 任务历史相关方法
-const loadTaskHistory = () => {
+const loadTaskHistory = async () => {
   try {
-    const stored = localStorage.getItem('coloringTaskHistory')
-    if (stored) {
-      taskHistory.value = JSON.parse(stored)
+    const response = await getTaskHistory('coloring', 1, 50)
+    if (response.success && response.data) {
+      // 转换后端数据格式为前端格式
+      taskHistory.value = response.data.tasks.map(task => ({
+        taskId: task.taskId,
+        taskName: task.taskName,
+        modelType: task.modelType,
+        timestamp: task.timestamp,
+        matrixSize: task.matrixSize,
+        status: task.status,
+        usedColors: task.usedColors || '--',
+        solveTime: task.solveTime || '--'
+      }))
+    } else {
+      taskHistory.value = []
     }
   } catch (error) {
     console.error('加载任务历史失败:', error)
+    addLog('加载任务历史失败: ' + error.message)
     taskHistory.value = []
   }
 }
 
-const saveTaskHistory = () => {
-  try {
-    localStorage.setItem('coloringTaskHistory', JSON.stringify(taskHistory.value))
-  } catch (error) {
-    console.error('保存任务历史失败:', error)
-  }
-}
-
-const addTaskToHistory = (task) => {
-  taskHistory.value.unshift(task)
-  if (taskHistory.value.length > 50) {
-    taskHistory.value = taskHistory.value.slice(0, 50)
-  }
-  saveTaskHistory()
-}
-
-const updateTaskInHistory = (taskId, updates) => {
-  const task = taskHistory.value.find(t => t.taskId === taskId)
-  if (task) {
-    Object.assign(task, updates)
-    saveTaskHistory()
-  }
-}
-
-const clearHistory = () => {
+const clearHistory = async () => {
+  // 清空历史只是清空前端显示，实际数据仍在数据库中
+  // 如果需要真正删除，可以调用清理API（需要管理员权限）
   taskHistory.value = []
-  saveTaskHistory()
-  addLog('任务历史已清空')
+  addLog('已清空本地任务历史显示')
 }
 
 // 辅助函数
@@ -988,8 +959,9 @@ const formatDate = (timestamp) => {
 }
 
 // 初始化
-loadTaskHistory()
 generateGraph()
+// 异步加载任务历史
+loadTaskHistory()
 </script>
 
 <style scoped>

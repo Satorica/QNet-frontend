@@ -3,7 +3,7 @@
     <!-- 加载状态 -->
     <div v-if="!initialized" class="loading-container">
       <div class="loading-spinner"></div>
-      <p class="loading-text">正在加载...</p>
+      <p class="loading-text">{{ $t('app.loading') }}</p>
     </div>
     
     <!-- 登录和注册页面 - 全屏显示 -->

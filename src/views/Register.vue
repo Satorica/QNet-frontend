@@ -13,13 +13,13 @@
       <div class="register-header">
         <div class="logo-section">
           <div class="logo-icon">Q</div>
-          <h1 class="system-title">创建新账户</h1>
+          <h1 class="system-title">{{ $t('register.title') }}</h1>
         </div>
-        <p class="subtitle">加入量子Ising求解系统</p>
+        <p class="subtitle">{{ $t('register.subtitle') }}</p>
       </div>
 
       <!-- 注册方式切换 -->
-      <el-segmented v-model="registerType" :options="registerOptions" block size="large" class="register-type-switch" />
+      <el-segmented v-model="registerType" :options="translatedRegisterOptions" block size="large" class="register-type-switch" />
 
       <!-- 注册表单 -->
       <el-form
@@ -33,7 +33,7 @@
         <el-form-item prop="username">
           <el-input
             v-model="registerForm.username"
-            placeholder="用户名 (字母、数字、下划线)"
+            :placeholder="$t('register.username')"
             size="large"
             clearable
           >
@@ -48,7 +48,7 @@
           <el-form-item prop="email">
             <el-input
               v-model="registerForm.email"
-              placeholder="邮箱地址"
+              :placeholder="$t('register.email')"
               size="large"
               clearable
             >
@@ -62,7 +62,7 @@
             <div class="code-input-wrapper">
               <el-input
                 v-model="registerForm.emailCode"
-                placeholder="邮箱验证码"
+                :placeholder="$t('register.emailCode')"
                 size="large"
                 clearable
               >
@@ -88,7 +88,7 @@
           <el-form-item prop="phone">
             <el-input
               v-model="registerForm.phone"
-              placeholder="手机号码"
+              :placeholder="$t('register.phone')"
               size="large"
               clearable
             >
@@ -102,7 +102,7 @@
             <div class="code-input-wrapper">
               <el-input
                 v-model="registerForm.phoneCode"
-                placeholder="短信验证码"
+                :placeholder="$t('register.phoneCode')"
                 size="large"
                 clearable
               >
@@ -128,7 +128,7 @@
           <el-input
             v-model="registerForm.password"
             type="password"
-            placeholder="密码 (至少6位)"
+            :placeholder="$t('register.password')"
             size="large"
             show-password
             clearable
@@ -144,7 +144,7 @@
           <el-input
             v-model="registerForm.confirmPassword"
             type="password"
-            placeholder="确认密码"
+            :placeholder="$t('register.confirmPassword')"
             size="large"
             show-password
             clearable
@@ -158,10 +158,10 @@
         <!-- 用户协议 -->
         <el-form-item prop="agree">
           <el-checkbox v-model="registerForm.agree">
-            我已阅读并同意
-            <el-link type="primary" :underline="false">《用户协议》</el-link>
-            和
-            <el-link type="primary" :underline="false">《隐私政策》</el-link>
+            {{ $t('register.agree') }}
+            <el-link type="primary" :underline="false">{{ $t('register.userAgreement') }}</el-link>
+            {{ $t('register.and') }}
+            <el-link type="primary" :underline="false">{{ $t('register.privacyPolicy') }}</el-link>
           </el-checkbox>
         </el-form-item>
 
@@ -174,15 +174,15 @@
             :loading="loading"
             @click="handleRegister"
           >
-            注 册
+            {{ $t('register.registerButton') }}
           </el-button>
         </el-form-item>
 
         <!-- 登录链接 -->
         <div class="login-link">
-          已有账号？
+          {{ $t('register.hasAccount') }}
           <el-link type="primary" :underline="false" @click="goToLogin">
-            立即登录
+            {{ $t('register.login') }}
           </el-link>
         </div>
       </el-form>
@@ -190,7 +190,7 @@
 
     <!-- 版权信息 -->
     <div class="footer-info">
-      <p>© 2025 量子Ising求解系统 | 现代化量子优化平台</p>
+      <p>{{ $t('register.footer') }}</p>
     </div>
   </div>
 </template>
@@ -200,19 +200,21 @@ import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Message, Phone, Lock, Key } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { authApi } from '../api/auth.js'
 import { tokenManager, userManager, notificationManager } from '../utils/auth.js'
 
 const router = useRouter()
+const { t } = useI18n()
 const registerFormRef = ref(null)
 const loading = ref(false)
 
 // 注册方式
 const registerType = ref('email')
-const registerOptions = [
-  { label: '邮箱注册', value: 'email' },
-  { label: '手机注册', value: 'phone' }
-]
+const translatedRegisterOptions = computed(() => [
+  { label: t('register.type.email'), value: 'email' },
+  { label: t('register.type.phone'), value: 'phone' }
+])
 
 // 注册表单数据
 const registerForm = reactive({
@@ -230,22 +232,26 @@ const registerForm = reactive({
 const emailCodeDisabled = ref(false)
 const emailCodeCountdown = ref(0)
 const emailCodeText = computed(() => {
-  return emailCodeCountdown.value > 0 ? `${emailCodeCountdown.value}秒后重试` : '发送验证码'
+  return emailCodeCountdown.value > 0 
+    ? `${emailCodeCountdown.value}${t('register.resendCode')}` 
+    : t('register.sendCode')
 })
 
 // 手机验证码相关
 const phoneCodeDisabled = ref(false)
 const phoneCodeCountdown = ref(0)
 const phoneCodeText = computed(() => {
-  return phoneCodeCountdown.value > 0 ? `${phoneCodeCountdown.value}秒后重试` : '发送验证码'
+  return phoneCodeCountdown.value > 0 
+    ? `${phoneCodeCountdown.value}${t('register.resendCode')}` 
+    : t('register.sendCode')
 })
 
 // 表单验证规则
 const validateUsername = (rule, value, callback) => {
   if (!value) {
-    callback(new Error('请输入用户名'))
+    callback(new Error(t('register.validation.usernameRequired')))
   } else if (!/^[a-zA-Z0-9_]{3,20}$/.test(value)) {
-    callback(new Error('用户名为3-20位字母、数字或下划线'))
+    callback(new Error(t('register.validation.usernameFormat')))
   } else {
     callback()
   }
@@ -254,9 +260,9 @@ const validateUsername = (rule, value, callback) => {
 const validateEmail = (rule, value, callback) => {
   if (registerType.value === 'email') {
     if (!value) {
-      callback(new Error('请输入邮箱地址'))
+      callback(new Error(t('register.validation.emailRequired')))
     } else if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(value)) {
-      callback(new Error('请输入有效的邮箱地址'))
+      callback(new Error(t('register.validation.emailFormat')))
     } else {
       callback()
     }
@@ -268,9 +274,9 @@ const validateEmail = (rule, value, callback) => {
 const validatePhone = (rule, value, callback) => {
   if (registerType.value === 'phone') {
     if (!value) {
-      callback(new Error('请输入手机号码'))
+      callback(new Error(t('register.validation.phoneRequired')))
     } else if (!/^1[3-9]\d{9}$/.test(value)) {
-      callback(new Error('请输入有效的手机号码'))
+      callback(new Error(t('register.validation.phoneFormat')))
     } else {
       callback()
     }
@@ -282,7 +288,7 @@ const validatePhone = (rule, value, callback) => {
 const validateCode = (rule, value, callback) => {
   const isEmail = registerType.value === 'email'
   if ((isEmail && !registerForm.emailCode) || (!isEmail && !registerForm.phoneCode)) {
-    callback(new Error('请输入验证码'))
+    callback(new Error(t('register.validation.codeRequired')))
   } else {
     callback()
   }
@@ -290,9 +296,9 @@ const validateCode = (rule, value, callback) => {
 
 const validateConfirmPassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error('请再次输入密码'))
+    callback(new Error(t('register.validation.confirmRequired')))
   } else if (value !== registerForm.password) {
-    callback(new Error('两次输入的密码不一致'))
+    callback(new Error(t('register.validation.passwordMismatch')))
   } else {
     callback()
   }
@@ -300,34 +306,34 @@ const validateConfirmPassword = (rule, value, callback) => {
 
 const validateAgree = (rule, value, callback) => {
   if (!value) {
-    callback(new Error('请阅读并同意用户协议和隐私政策'))
+    callback(new Error(t('register.validation.agreeRequired')))
   } else {
     callback()
   }
 }
 
-const registerRules = {
+const registerRules = computed(() => ({
   username: [{ validator: validateUsername, trigger: 'blur' }],
   email: [{ validator: validateEmail, trigger: 'blur' }],
   emailCode: [{ validator: validateCode, trigger: 'blur' }],
   phone: [{ validator: validatePhone, trigger: 'blur' }],
   phoneCode: [{ validator: validateCode, trigger: 'blur' }],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { required: true, message: t('register.validation.passwordRequired'), trigger: 'blur' },
+    { min: 6, message: t('register.validation.passwordLength'), trigger: 'blur' }
   ],
   confirmPassword: [{ validator: validateConfirmPassword, trigger: 'blur' }],
   agree: [{ validator: validateAgree, trigger: 'change' }]
-}
+}))
 
 // 发送邮箱验证码
 const sendEmailCode = async () => {
   if (!registerForm.email) {
-    ElMessage.warning('请先输入邮箱地址')
+    ElMessage.warning(t('register.messages.enterEmail'))
     return
   }
   if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(registerForm.email)) {
-    ElMessage.warning('请输入有效的邮箱地址')
+    ElMessage.warning(t('register.messages.invalidEmail'))
     return
   }
 
@@ -339,7 +345,7 @@ const sendEmailCode = async () => {
     if (response.success) {
       // 目前后端传回来验证码
       notificationManager.showCodeNotification('email', response.code)
-      ElMessage.success('验证码已发送到您的邮箱')
+      ElMessage.success(t('register.messages.codeSent'))
       
       // 开始倒计时
       emailCodeDisabled.value = true
@@ -352,22 +358,22 @@ const sendEmailCode = async () => {
         }
       }, 1000)
     } else {
-      ElMessage.error(response.message || '发送验证码失败')
+      ElMessage.error(response.message || t('register.messages.codeFailed'))
     }
   } catch (error) {
-    console.error('发送邮箱验证码错误:', error)
-    ElMessage.error('发送验证码失败，请稍后重试')
+    console.error('Send email code error:', error)
+    ElMessage.error(t('register.messages.codeFailed'))
   }
 }
 
 // 发送手机验证码
 const sendPhoneCode = async () => {
   if (!registerForm.phone) {
-    ElMessage.warning('请先输入手机号码')
+    ElMessage.warning(t('register.messages.enterPhone'))
     return
   }
   if (!/^1[3-9]\d{9}$/.test(registerForm.phone)) {
-    ElMessage.warning('请输入有效的手机号码')
+    ElMessage.warning(t('register.messages.invalidPhone'))
     return
   }
 
@@ -381,7 +387,7 @@ const sendPhoneCode = async () => {
       // const mockCode = Math.floor(100000 + Math.random() * 900000).toString()
       notificationManager.showCodeNotification('phone', response.code)
       
-      ElMessage.success('验证码已发送到您的手机')
+      ElMessage.success(t('register.messages.codeSent'))
       
       // 开始倒计时
       phoneCodeDisabled.value = true
@@ -394,11 +400,11 @@ const sendPhoneCode = async () => {
         }
       }, 1000)
     } else {
-      ElMessage.error(response.message || '发送验证码失败')
+      ElMessage.error(response.message || t('register.messages.codeFailed'))
     }
   } catch (error) {
-    console.error('发送手机验证码错误:', error)
-    ElMessage.error('发送验证码失败，请稍后重试')
+    console.error('Send phone code error:', error)
+    ElMessage.error(t('register.messages.codeFailed'))
   }
 }
 
@@ -431,23 +437,23 @@ const handleRegister = async () => {
         const response = await authApi.register(registerData)
         
         if (response.success) {
-          ElMessage.success('注册成功！即将跳转到登录页面...')
+          ElMessage.success(t('register.messages.success'))
           
           // 跳转到登录页
           setTimeout(() => {
             router.push('/login')
           }, 1500)
         } else {
-          ElMessage.error(response.message || '注册失败')
+          ElMessage.error(response.message || t('register.messages.failed'))
         }
       } catch (error) {
-        console.error('注册错误:', error)
-        ElMessage.error(error.response?.data?.message || '注册失败，请检查网络连接')
+        console.error('Register error:', error)
+        ElMessage.error(error.response?.data?.message || t('register.messages.networkError'))
       } finally {
         loading.value = false
       }
     } else {
-      ElMessage.error('请正确填写表单')
+      ElMessage.error(t('register.messages.formError'))
       return false
     }
   })

@@ -5,20 +5,20 @@
         <div class="page-header">
           <div class="title-section">
             <div class="title-bar"></div>
-            <h2>系统设置</h2>
+            <h2>{{ $t('settings.title') }}</h2>
           </div>
           <p class="description">
-            配置系统参数和用户偏好设置
+            {{ $t('settings.description') }}
           </p>
         </div>
 
         <el-tabs v-model="activeTab" class="settings-tabs">
           <!-- 基础设置 -->
-          <el-tab-pane label="基础设置" name="basic">
+          <el-tab-pane :label="$t('settings.tabs.basic')" name="basic">
             <div class="settings-section">
-              <h3>显示设置</h3>
+              <h3>{{ $t('settings.display.title') }}</h3>
               <div class="setting-item">
-                <label>界面语言</label>
+                <label>{{ $t('settings.display.language') }}</label>
                 <el-select v-model="settings.language" @change="updateSetting('language')">
                   <el-option label="简体中文" value="zh-CN" />
                   <el-option label="English" value="en-US" />
@@ -26,16 +26,16 @@
               </div>
               
               <div class="setting-item">
-                <label>主题模式</label>
+                <label>{{ $t('settings.display.theme') }}</label>
                 <el-radio-group v-model="settings.theme" @change="updateSetting('theme')">
-                  <el-radio label="light">浅色</el-radio>
-                  <el-radio label="dark">深色</el-radio>
-                  <el-radio label="auto">跟随系统</el-radio>
+                  <el-radio label="light">{{ $t('settings.theme.light') }}</el-radio>
+                  <el-radio label="dark">{{ $t('settings.theme.dark') }}</el-radio>
+                  <el-radio label="auto">{{ $t('settings.theme.auto') }}</el-radio>
                 </el-radio-group>
               </div>
 
               <div class="setting-item">
-                <label>显示动画</label>
+                <label>{{ $t('settings.display.animations') }}</label>
                 <el-switch
                   v-model="settings.animations"
                   @change="updateSetting('animations')"
@@ -46,18 +46,18 @@
             <el-divider />
 
             <div class="settings-section">
-              <h3>默认配置</h3>
+              <h3>{{ $t('settings.defaults.title') }}</h3>
               <div class="setting-item">
-                <label>默认求解模型</label>
+                <label>{{ $t('settings.defaults.solveType') }}</label>
                 <el-select v-model="settings.defaultSolveType" @change="updateSetting('defaultSolveType')">
-                  <el-option label="经典计算" value="classic" />
-                  <el-option label="量子芯片模拟" value="sim" />
-                  <el-option label="量子云服务" value="cloud" />
+                  <el-option :label="$t('settings.solveTypes.classic')" value="classic" />
+                  <el-option :label="$t('settings.solveTypes.sim')" value="sim" />
+                  <el-option :label="$t('settings.solveTypes.cloud')" value="cloud" />
                 </el-select>
               </div>
 
               <div class="setting-item">
-                <label>默认矩阵规模</label>
+                <label>{{ $t('settings.defaults.matrixSize') }}</label>
                 <el-input-number
                   v-model="settings.defaultMatrixSize"
                   :min="2"
@@ -67,7 +67,7 @@
               </div>
 
               <div class="setting-item">
-                <label>自动保存结果</label>
+                <label>{{ $t('settings.defaults.autoSave') }}</label>
                 <el-switch
                   v-model="settings.autoSaveResults"
                   @change="updateSetting('autoSaveResults')"
@@ -77,11 +77,11 @@
           </el-tab-pane>
 
           <!-- 性能设置 -->
-          <el-tab-pane label="性能设置" name="performance">
+          <el-tab-pane :label="$t('settings.tabs.performance')" name="performance">
             <div class="settings-section">
-              <h3>计算性能</h3>
+              <h3>{{ $t('settings.performance.compute') }}</h3>
               <div class="setting-item">
-                <label>最大并发任务数</label>
+                <label>{{ $t('settings.performance.maxTasks') }}</label>
                 <el-input-number
                   v-model="settings.maxConcurrentTasks"
                   :min="1"
@@ -91,7 +91,7 @@
               </div>
 
               <div class="setting-item">
-                <label>任务超时时间（秒）</label>
+                <label>{{ $t('settings.performance.timeout') }}</label>
                 <el-input-number
                   v-model="settings.taskTimeout"
                   :min="30"
@@ -101,7 +101,7 @@
               </div>
 
               <div class="setting-item">
-                <label>内存使用限制（MB）</label>
+                <label>{{ $t('settings.performance.memoryLimit') }}</label>
                 <el-input-number
                   v-model="settings.memoryLimit"
                   :min="512"
@@ -114,9 +114,9 @@
             <el-divider />
 
             <div class="settings-section">
-              <h3>图形渲染</h3>
+              <h3>{{ $t('settings.performance.graphics') }}</h3>
               <div class="setting-item">
-                <label>启用硬件加速</label>
+                <label>{{ $t('settings.performance.hardwareAccel') }}</label>
                 <el-switch
                   v-model="settings.hardwareAcceleration"
                   @change="updateSetting('hardwareAcceleration')"
@@ -124,16 +124,16 @@
               </div>
 
               <div class="setting-item">
-                <label>图形质量</label>
+                <label>{{ $t('settings.performance.quality') }}</label>
                 <el-select v-model="settings.graphicsQuality" @change="updateSetting('graphicsQuality')">
-                  <el-option label="低" value="low" />
-                  <el-option label="中" value="medium" />
-                  <el-option label="高" value="high" />
+                  <el-option :label="$t('settings.quality.low')" value="low" />
+                  <el-option :label="$t('settings.quality.medium')" value="medium" />
+                  <el-option :label="$t('settings.quality.high')" value="high" />
                 </el-select>
               </div>
 
               <div class="setting-item">
-                <label>最大节点数</label>
+                <label>{{ $t('settings.performance.maxNodes') }}</label>
                 <el-input-number
                   v-model="settings.maxNodes"
                   :min="10"
@@ -145,19 +145,19 @@
           </el-tab-pane>
 
           <!-- 数据管理 -->
-          <el-tab-pane label="数据管理" name="data">
+          <el-tab-pane :label="$t('settings.tabs.data')" name="data">
             <div class="settings-section">
-              <h3>存储设置</h3>
+              <h3>{{ $t('settings.data.storage') }}</h3>
               <div class="setting-item">
-                <label>数据存储位置</label>
+                <label>{{ $t('settings.data.dataPath') }}</label>
                 <div class="storage-info">
                   <el-input v-model="settings.dataPath" readonly />
-                  <el-button @click="selectDataPath">选择路径</el-button>
+                  <el-button @click="selectDataPath">{{ $t('settings.data.selectPath') }}</el-button>
                 </div>
               </div>
 
               <div class="setting-item">
-                <label>最大任务历史数</label>
+                <label>{{ $t('settings.data.maxHistory') }}</label>
                 <el-input-number
                   v-model="settings.maxTaskHistory"
                   :min="50"
@@ -167,7 +167,7 @@
               </div>
 
               <div class="setting-item">
-                <label>自动清理过期数据</label>
+                <label>{{ $t('settings.data.autoCleanup') }}</label>
                 <el-switch
                   v-model="settings.autoCleanup"
                   @change="updateSetting('autoCleanup')"
@@ -178,65 +178,65 @@
             <el-divider />
 
             <div class="settings-section">
-              <h3>数据操作</h3>
+              <h3>{{ $t('settings.data.actions') }}</h3>
               <div class="data-actions">
-                <el-button @click="exportSettings">导出设置</el-button>
-                <el-button @click="importSettings">导入设置</el-button>
-                <el-button @click="clearAllData" type="warning">清空所有数据</el-button>
-                <el-button @click="resetSettings" type="danger">重置设置</el-button>
+                <el-button @click="exportSettings">{{ $t('settings.data.export') }}</el-button>
+                <el-button @click="importSettings">{{ $t('settings.data.import') }}</el-button>
+                <el-button @click="clearAllData" type="warning">{{ $t('settings.data.clearAll') }}</el-button>
+                <el-button @click="resetSettings" type="danger">{{ $t('settings.data.reset') }}</el-button>
               </div>
             </div>
 
             <div class="storage-stats">
-              <h4>存储统计</h4>
+              <h4>{{ $t('settings.storage.stats') }}</h4>
               <div class="stats-grid">
                 <div class="stat-card">
                   <div class="stat-value">{{ storageStats.tasks }}</div>
-                  <div class="stat-label">任务数量</div>
+                  <div class="stat-label">{{ $t('settings.storage.tasks') }}</div>
                 </div>
                 <div class="stat-card">
                   <div class="stat-value">{{ storageStats.size }}</div>
-                  <div class="stat-label">数据大小</div>
+                  <div class="stat-label">{{ $t('settings.storage.size') }}</div>
                 </div>
                 <div class="stat-card">
                   <div class="stat-value">{{ storageStats.lastUpdate }}</div>
-                  <div class="stat-label">最后更新</div>
+                  <div class="stat-label">{{ $t('settings.storage.lastUpdate') }}</div>
                 </div>
               </div>
             </div>
           </el-tab-pane>
 
           <!-- 关于 -->
-          <el-tab-pane label="关于" name="about">
+          <el-tab-pane :label="$t('settings.tabs.about')" name="about">
             <div class="about-section">
               <div class="app-info">
                 <div class="app-logo">Q</div>
-                <h2>量子Ising求解系统</h2>
-                <p class="version">版本 2.0.0</p>
+                <h2>{{ $t('settings.about.appName') }}</h2>
+                <p class="version">{{ $t('settings.about.version') }}</p>
                 <p class="description">
-                  基于Vue 3和Element Plus构建的现代化量子优化问题求解平台
+                  {{ $t('settings.about.description') }}
                 </p>
               </div>
 
               <el-divider />
 
               <div class="system-info">
-                <h3>系统信息</h3>
+                <h3>{{ $t('settings.about.system') }}</h3>
                 <div class="info-grid">
                   <div class="info-item">
-                    <span class="label">框架版本：</span>
+                    <span class="label">{{ $t('settings.about.framework') }}</span>
                     <span class="value">Vue 3.4.0</span>
                   </div>
                   <div class="info-item">
-                    <span class="label">UI库：</span>
+                    <span class="label">{{ $t('settings.about.uiLib') }}</span>
                     <span class="value">Element Plus 2.4.4</span>
                   </div>
                   <div class="info-item">
-                    <span class="label">构建工具：</span>
+                    <span class="label">{{ $t('settings.about.buildTool') }}</span>
                     <span class="value">Vite 5.0.8</span>
                   </div>
                   <div class="info-item">
-                    <span class="label">浏览器：</span>
+                    <span class="label">{{ $t('settings.about.browser') }}</span>
                     <span class="value">{{ browserInfo }}</span>
                   </div>
                 </div>
@@ -245,19 +245,19 @@
               <el-divider />
 
               <div class="links-section">
-                <h3>相关链接</h3>
+                <h3>{{ $t('settings.about.links') }}</h3>
                 <div class="links-grid">
                   <el-button type="primary" plain @click="openLink('https://github.com')">
-                    项目主页
+                    {{ $t('settings.about.homepage') }}
                   </el-button>
                   <el-button type="success" plain @click="openLink('https://github.com')">
-                    使用文档
+                    {{ $t('settings.about.docs') }}
                   </el-button>
                   <el-button type="warning" plain @click="openLink('https://github.com')">
-                    问题反馈
+                    {{ $t('settings.about.feedback') }}
                   </el-button>
                   <el-button type="info" plain @click="checkUpdates">
-                    检查更新
+                    {{ $t('settings.about.checkUpdate') }}
                   </el-button>
                 </div>
               </div>
@@ -271,7 +271,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
+const { locale, t } = useI18n()
 const activeTab = ref('basic')
 
 // 设置项
@@ -317,19 +320,23 @@ const loadSettings = () => {
     if (stored) {
       const parsedSettings = JSON.parse(stored)
       settings.value = { ...settings.value, ...parsedSettings }
+      // 同步语言设置到i18n
+      if (parsedSettings.language) {
+        locale.value = parsedSettings.language
+      }
     }
   } catch (error) {
-    console.error('加载设置失败:', error)
+    console.error(t('settings.messages.loadFailed'), error)
   }
 }
 
 const saveSettings = () => {
   try {
     localStorage.setItem('quantumSolverSettings', JSON.stringify(settings.value))
-    ElMessage.success('设置已保存')
+    ElMessage.success(t('settings.messages.saved'))
   } catch (error) {
-    console.error('保存设置失败:', error)
-    ElMessage.error('保存设置失败')
+    console.error(t('settings.messages.saveFailed'), error)
+    ElMessage.error(t('settings.messages.saveFailed'))
   }
 }
 
@@ -372,17 +379,22 @@ const applyAnimations = () => {
 }
 
 const applyLanguage = () => {
-  // 这里可以集成i18n
-  ElMessage.info('语言设置将在重启后生效')
+  // 切换i18n语言
+  locale.value = settings.value.language
+  ElMessage.success(t('settings.messages.languageChanged'))
 }
 
 const selectDataPath = () => {
   // 模拟文件路径选择
-  ElMessageBox.prompt('请输入数据存储路径', '选择路径', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    inputValue: settings.value.dataPath
-  }).then(({ value }) => {
+  ElMessageBox.prompt(
+    t('settings.messages.pathPrompt'), 
+    t('settings.messages.selectPathTitle'), 
+    {
+      confirmButtonText: t('settings.messages.confirm'),
+      cancelButtonText: t('settings.messages.cancel'),
+      inputValue: settings.value.dataPath
+    }
+  ).then(({ value }) => {
     settings.value.dataPath = value
     updateSetting('dataPath')
   }).catch(() => {})
@@ -403,7 +415,7 @@ const exportSettings = () => {
   link.click()
   URL.revokeObjectURL(url)
   
-  ElMessage.success('设置已导出')
+  ElMessage.success(t('settings.messages.exported'))
 }
 
 const importSettings = () => {
@@ -422,12 +434,12 @@ const importSettings = () => {
         if (data.settings) {
           settings.value = { ...settings.value, ...data.settings }
           saveSettings()
-          ElMessage.success('设置已导入')
+          ElMessage.success(t('settings.messages.imported'))
         } else {
-          ElMessage.error('无效的设置文件')
+          ElMessage.error(t('settings.messages.invalidFile'))
         }
       } catch (error) {
-        ElMessage.error('导入失败')
+        ElMessage.error(t('settings.messages.importFailed'))
       }
     }
     reader.readAsText(file)
@@ -438,28 +450,28 @@ const importSettings = () => {
 
 const clearAllData = () => {
   ElMessageBox.confirm(
-    '确定要清空所有数据吗？此操作不可恢复！',
-    '警告',
+    t('settings.messages.confirmClear'),
+    t('settings.messages.warning'),
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+      confirmButtonText: t('settings.messages.confirm'),
+      cancelButtonText: t('settings.messages.cancel'),
       type: 'warning'
     }
   ).then(() => {
     localStorage.removeItem('quantumTasks')
     localStorage.removeItem('quantumSolverSettings')
     updateStorageStats()
-    ElMessage.success('所有数据已清空')
+    ElMessage.success(t('settings.messages.dataCleared'))
   }).catch(() => {})
 }
 
 const resetSettings = () => {
   ElMessageBox.confirm(
-    '确定要重置所有设置为默认值吗？',
-    '确认重置',
+    t('settings.messages.confirmReset'),
+    t('settings.messages.confirmResetTitle'),
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+      confirmButtonText: t('settings.messages.confirm'),
+      cancelButtonText: t('settings.messages.cancel'),
       type: 'warning'
     }
   ).then(() => {
@@ -473,9 +485,9 @@ const openLink = (url) => {
 }
 
 const checkUpdates = () => {
-  ElMessage.info('正在检查更新...')
+  ElMessage.info(t('settings.messages.checking'))
   setTimeout(() => {
-    ElMessage.success('当前已是最新版本')
+    ElMessage.success(t('settings.messages.upToDate'))
   }, 1500)
 }
 

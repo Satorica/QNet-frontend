@@ -152,7 +152,7 @@ export const checkServerStatus = async () => {
   }
 
   try {
-    const localResponse = await localApi.get('/server-info')
+    const localResponse = await localApi.get('/server-status')
     status.local = localResponse.data.success
   } catch (error) {
     console.warn('本地服务器不可用:', error.message)
@@ -235,6 +235,33 @@ export const cancelTask = async (taskId) => {
 // 获取服务器状态信息
 export const getServerStatus = () => {
   return { ...serverStatus }
+}
+
+// 获取任务历史
+export const getTaskHistory = async (problemType = null, page = 1, pageSize = 50) => {
+  try {
+    const params = {
+      page,
+      pageSize
+    }
+    if (problemType) {
+      params.problemType = problemType
+    }
+    const response = await cloudApi.get('/tasks/history', { params })
+    return response.data
+  } catch (error) {
+    throw error
+  }
+}
+
+// 清理任务（可选，管理员功能）
+export const cleanupTasks = async (retentionDays = 30) => {
+  try {
+    const response = await cloudApi.post('/tasks/cleanup', { retentionDays })
+    return response.data
+  } catch (error) {
+    throw error
+  }
 }
 
 // 导出API实例以备直接使用

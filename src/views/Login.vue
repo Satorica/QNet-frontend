@@ -13,9 +13,9 @@
       <div class="login-header">
         <div class="logo-section">
           <div class="logo-icon">Q</div>
-          <h1 class="system-title">量子Ising求解系统</h1>
+          <h1 class="system-title">{{ $t('login.title') }}</h1>
         </div>
-        <p class="subtitle">现代化量子优化问题求解平台</p>
+        <p class="subtitle">{{ $t('login.subtitle') }}</p>
       </div>
 
       <!-- 登录表单 -->
@@ -29,7 +29,7 @@
         <el-form-item prop="account">
           <el-input
             v-model="loginForm.account"
-            placeholder="用户名 / 邮箱 / 手机号"
+            :placeholder="$t('login.account')"
             size="large"
             clearable
           >
@@ -43,7 +43,7 @@
           <el-input
             v-model="loginForm.password"
             type="password"
-            placeholder="密码"
+            :placeholder="$t('login.password')"
             size="large"
             show-password
             clearable
@@ -56,8 +56,8 @@
 
         <el-form-item>
           <div class="form-options">
-            <el-checkbox v-model="loginForm.remember">记住我</el-checkbox>
-            <el-link type="primary" :underline="false">忘记密码?</el-link>
+            <el-checkbox v-model="loginForm.remember">{{ $t('login.remember') }}</el-checkbox>
+            <el-link type="primary" :underline="false">{{ $t('login.forgotPassword') }}</el-link>
           </div>
         </el-form-item>
 
@@ -69,14 +69,14 @@
             :loading="loading"
             @click="handleLogin"
           >
-            登 录
+            {{ $t('login.loginButton') }}
           </el-button>
         </el-form-item>
 
         <div class="register-link">
-          还没有账号？
+          {{ $t('login.noAccount') }}
           <el-link type="primary" :underline="false" @click="goToRegister">
-            立即注册
+            {{ $t('login.register') }}
           </el-link>
         </div>
       </el-form>
@@ -84,20 +84,22 @@
 
     <!-- 版权信息 -->
     <div class="footer-info">
-      <p>© 2025 量子Ising求解系统 | 现代化量子优化平台</p>
+      <p>{{ $t('login.footer') }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { authApi } from '../api/auth.js'
 import { tokenManager, userManager } from '../utils/auth.js'
 
 const router = useRouter()
+const { t } = useI18n()
 const loginFormRef = ref(null)
 const loading = ref(false)
 
@@ -109,15 +111,15 @@ const loginForm = reactive({
 })
 
 // 表单验证规则
-const loginRules = {
+const loginRules = computed(() => ({
   account: [
-    { required: true, message: '请输入用户名/邮箱/手机号', trigger: 'blur' }
+    { required: true, message: t('login.validation.accountRequired'), trigger: 'blur' }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+    { required: true, message: t('login.validation.passwordRequired'), trigger: 'blur' },
+    { min: 6, message: t('login.validation.passwordLength'), trigger: 'blur' }
   ]
-}
+}))
 
 // 处理登录
 const handleLogin = async () => {
@@ -137,22 +139,22 @@ const handleLogin = async () => {
           tokenManager.setToken(response.data.accessToken, response.data.refreshToken, remember)
           userManager.setUserInfo(response.data.user, remember)
           
-          ElMessage.success('登录成功！')
+          ElMessage.success(t('login.messages.success'))
           
           // 跳转到主页或重定向页面
           const redirect = router.currentRoute.value.query.redirect || '/maxcut'
           router.push(redirect)
         } else {
-          ElMessage.error(response.message || '登录失败')
+          ElMessage.error(response.message || t('login.messages.failed'))
         }
       } catch (error) {
-        console.error('登录错误:', error)
-        ElMessage.error(error.response?.data?.message || '登录失败，请检查网络连接')
+        console.error('Login error:', error)
+        ElMessage.error(error.response?.data?.message || t('login.messages.networkError'))
       } finally {
         loading.value = false
       }
     } else {
-      ElMessage.error('请正确填写表单')
+      ElMessage.error(t('login.messages.formError'))
       return false
     }
   })

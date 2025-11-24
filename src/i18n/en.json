@@ -1,0 +1,331 @@
+{
+    "app": {
+        "loading": "Loading..."
+    },
+    "sidebar": {
+        "title": "Quantum Ising Solver",
+        "subtitle": "Visual Solving & Task Management",
+        "menu": {
+            "maxcut": "Max-Cut Problem",
+            "number": "Number Partition",
+            "coloring": "Graph Coloring",
+            "tsp": "Traveling Salesman",
+            "tasks": "Tasks",
+            "settings": "Settings",
+            "logout": "Logout"
+        },
+        "messages": {
+            "logoutSuccess": "Logged out successfully",
+            "logoutFailed": "Logout failed"
+        }
+    },
+    "topbar": {
+        "taskInput": "Enter task name:",
+        "weekdays": [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday"
+        ],
+        "userInfo": {
+            "username": "Username",
+            "email": "Email",
+            "phone": "Phone",
+            "notLoggedIn": "Not logged in"
+        },
+        "login": "Login",
+        "logout": "Logout",
+        "confirmLogout": "Are you sure you want to logout?",
+        "messages": {
+            "logoutSuccess": "Logged out successfully"
+        }
+    },
+    "login": {
+        "title": "Quantum Ising Solver",
+        "subtitle": "Modern Quantum Optimization Platform",
+        "account": "Username / Email / Phone",
+        "password": "Password",
+        "remember": "Remember me",
+        "forgotPassword": "Forgot password?",
+        "loginButton": "Login",
+        "noAccount": "Don't have an account?",
+        "register": "Sign up now",
+        "footer": "© 2025 Quantum Ising Solver | Modern Quantum Optimization Platform",
+        "validation": {
+            "accountRequired": "Please enter username/email/phone",
+            "passwordRequired": "Please enter password",
+            "passwordLength": "Password must be at least 6 characters"
+        },
+        "messages": {
+            "success": "Login successful!",
+            "failed": "Login failed",
+            "networkError": "Login failed, please check network connection",
+            "formError": "Please fill in the form correctly"
+        }
+    },
+    "register": {
+        "title": "Create New Account",
+        "subtitle": "Join Quantum Ising Solver",
+        "type": {
+            "email": "Email Registration",
+            "phone": "Phone Registration"
+        },
+        "username": "Username (letters, numbers, underscores)",
+        "email": "Email Address",
+        "phone": "Phone Number",
+        "emailCode": "Email Verification Code",
+        "phoneCode": "SMS Verification Code",
+        "sendCode": "Send Code",
+        "resendCode": "seconds to retry",
+        "password": "Password (at least 6 characters)",
+        "confirmPassword": "Confirm Password",
+        "agree": "I have read and agree to",
+        "userAgreement": "Terms of Service",
+        "and": "and",
+        "privacyPolicy": "Privacy Policy",
+        "registerButton": "Register",
+        "hasAccount": "Already have an account?",
+        "login": "Login now",
+        "footer": "© 2025 Quantum Ising Solver | Modern Quantum Optimization Platform",
+        "validation": {
+            "usernameRequired": "Please enter username",
+            "usernameFormat": "Username must be 3-20 characters (letters, numbers, underscores)",
+            "emailRequired": "Please enter email address",
+            "emailFormat": "Please enter a valid email address",
+            "phoneRequired": "Please enter phone number",
+            "phoneFormat": "Please enter a valid phone number",
+            "codeRequired": "Please enter verification code",
+            "passwordRequired": "Please enter password",
+            "passwordLength": "Password must be at least 6 characters",
+            "confirmRequired": "Please confirm password",
+            "passwordMismatch": "Passwords do not match",
+            "agreeRequired": "Please read and agree to the terms and privacy policy"
+        },
+        "messages": {
+            "enterEmail": "Please enter email address first",
+            "enterPhone": "Please enter phone number first",
+            "invalidEmail": "Please enter a valid email address",
+            "invalidPhone": "Please enter a valid phone number",
+            "codeSent": "Verification code sent",
+            "codeFailed": "Failed to send verification code",
+            "success": "Registration successful! Redirecting to login...",
+            "failed": "Registration failed",
+            "networkError": "Registration failed, please check network connection",
+            "formError": "Please fill in the form correctly"
+        }
+    },
+    "tasks": {
+        "title": "Task List",
+        "pageSize": "Per page",
+        "search": "Search by model/task",
+        "refresh": "Refresh Tasks",
+        "table": {
+            "taskName": "Task Name",
+            "problemType": "Problem Type",
+            "model": "Model",
+            "submitTime": "Submit Time",
+            "scale": "Scale",
+            "status": "Status",
+            "actions": "Actions",
+            "view": "View",
+            "delete": "Delete"
+        },
+        "problemTypes": {
+            "maxcut": "Max-Cut",
+            "number": "Number Partition",
+            "coloring": "Graph Coloring",
+            "tsp": "TSP"
+        },
+        "modelTypes": {
+            "classic": "Classic Computing",
+            "sim": "Quantum Simulation",
+            "cloud": "Quantum Cloud"
+        },
+        "status": {
+            "processing": "Processing",
+            "completed": "Completed",
+            "failed": "Failed",
+            "timeout": "Timeout",
+            "error": "Error",
+            "unknown": "Unknown"
+        },
+        "detail": {
+            "title": "Task Details",
+            "results": "Results",
+            "candidate": "Candidate",
+            "value": "Objective Value",
+            "solution": "Solution Vector",
+            "matrix": "Adjacency Matrix"
+        },
+        "messages": {
+            "refreshed": "Task list refreshed",
+            "confirmDelete": "Are you sure you want to delete task \"{name}\"?",
+            "confirmTitle": "Confirm Delete",
+            "deleted": "Task deleted"
+        }
+    },
+    "settings": {
+        "title": "System Settings",
+        "description": "Configure system parameters and user preferences",
+        "tabs": {
+            "basic": "Basic Settings",
+            "performance": "Performance",
+            "data": "Data Management",
+            "about": "About"
+        },
+        "display": {
+            "title": "Display Settings",
+            "language": "Interface Language",
+            "theme": "Theme Mode",
+            "animations": "Enable Animations"
+        },
+        "theme": {
+            "light": "Light",
+            "dark": "Dark",
+            "auto": "System"
+        },
+        "defaults": {
+            "title": "Default Configuration",
+            "solveType": "Default Solve Model",
+            "matrixSize": "Default Matrix Size",
+            "autoSave": "Auto Save Results"
+        },
+        "solveTypes": {
+            "classic": "Classic Computing",
+            "sim": "Quantum Chip Simulation",
+            "cloud": "Quantum Cloud Service"
+        },
+        "performance": {
+            "compute": "Computing Performance",
+            "maxTasks": "Max Concurrent Tasks",
+            "timeout": "Task Timeout (seconds)",
+            "memoryLimit": "Memory Limit (MB)",
+            "graphics": "Graphics Rendering",
+            "hardwareAccel": "Enable Hardware Acceleration",
+            "quality": "Graphics Quality",
+            "maxNodes": "Max Nodes"
+        },
+        "quality": {
+            "low": "Low",
+            "medium": "Medium",
+            "high": "High"
+        },
+        "data": {
+            "storage": "Storage Settings",
+            "dataPath": "Data Storage Path",
+            "selectPath": "Select Path",
+            "maxHistory": "Max Task History",
+            "autoCleanup": "Auto Cleanup Expired Data",
+            "actions": "Data Operations",
+            "export": "Export Settings",
+            "import": "Import Settings",
+            "clearAll": "Clear All Data",
+            "reset": "Reset Settings"
+        },
+        "storage": {
+            "stats": "Storage Statistics",
+            "tasks": "Tasks",
+            "size": "Data Size",
+            "lastUpdate": "Last Update"
+        },
+        "about": {
+            "appName": "Quantum Ising Solver",
+            "version": "Version 2.0.0",
+            "description": "Modern quantum optimization problem solving platform built with Vue 3 and Element Plus",
+            "system": "System Information",
+            "framework": "Framework Version:",
+            "uiLib": "UI Library:",
+            "buildTool": "Build Tool:",
+            "browser": "Browser:",
+            "links": "Related Links",
+            "homepage": "Project Homepage",
+            "docs": "Documentation",
+            "feedback": "Feedback",
+            "checkUpdate": "Check Updates"
+        },
+        "messages": {
+            "saved": "Settings saved",
+            "saveFailed": "Failed to save settings",
+            "loadFailed": "Failed to load settings",
+            "languageChanged": "Language updated",
+            "exported": "Settings exported",
+            "imported": "Settings imported",
+            "importFailed": "Import failed",
+            "invalidFile": "Invalid settings file",
+            "dataCleared": "All data cleared",
+            "checking": "Checking for updates...",
+            "upToDate": "You're up to date",
+            "confirmClear": "Are you sure you want to clear all data? This action cannot be undone!",
+            "confirmReset": "Are you sure you want to reset all settings to defaults?",
+            "warning": "Warning",
+            "confirmResetTitle": "Confirm Reset",
+            "confirm": "Confirm",
+            "cancel": "Cancel",
+            "pathPrompt": "Please enter data storage path",
+            "selectPathTitle": "Select Path"
+        }
+    },
+    "common": {
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "save": "Save",
+        "delete": "Delete",
+        "edit": "Edit",
+        "close": "Close",
+        "loading": "Loading...",
+        "success": "Success",
+        "error": "Error",
+        "warning": "Warning"
+    },
+    "solver": {
+        "modelSelect": "Select Solving Model:",
+        "models": {
+            "classic": "Classic Computing",
+            "sim": "Quantum Chip Simulation",
+            "cloud": "Quantum Cloud Service"
+        },
+        "inputMatrix": "Please enter the adjacency matrix:",
+        "problemScale": "Problem Scale:",
+        "generateMatrix": "Generate Matrix",
+        "custom": "Custom",
+        "randomGenerate": "Random",
+        "dataImport": "Import Data (txt/csv)",
+        "mode": "Mode: ",
+        "editMode": "Edit",
+        "viewMode": "View",
+        "matrixTip": "Mutually transform (adjacency matrix ↔ graph). Click matrix cells to edit connections (custom mode only).",
+        "solve": "Solve",
+        "solving": "Solving...",
+        "cancelTask": "Cancel Task",
+        "status": {
+            "ready": "Ready",
+            "processing": "Processing",
+            "completed": "Completed",
+            "failed": "Failed",
+            "cancelled": "Cancelled"
+        },
+        "results": "Results",
+        "noResults": "No results yet",
+        "candidate": "Candidate",
+        "objValue": "Objective Value",
+        "solution": "Solution Vector",
+        "partition": "Partition",
+        "cutEdges": "Cut Edges",
+        "taskInfo": "Task Info",
+        "taskName": "Task Name",
+        "submitTime": "Submit Time",
+        "computeTime": "Compute Time",
+        "messages": {
+            "matrixGenerated": "Matrix generated",
+            "importSuccess": "Import successful",
+            "importFailed": "Import failed",
+            "invalidFormat": "Invalid file format",
+            "taskSubmitted": "Task submitted",
+            "taskCancelled": "Task cancelled",
+            "solveFailed": "Solving failed"
+        }
+    }
+}

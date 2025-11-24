@@ -5,8 +5,8 @@
       <div class="brand">
         <div class="logo">Q</div>
         <div>
-          <div class="title">量子Ising求解系统</div>
-          <div class="subtitle">可视化求解与任务管理</div>
+          <div class="title">{{ $t('sidebar.title') }}</div>
+          <div class="subtitle">{{ $t('sidebar.subtitle') }}</div>
         </div>
       </div>
 
@@ -21,19 +21,19 @@
       >
         <el-menu-item index="/maxcut">
           <el-icon><TrendCharts /></el-icon>
-          <span>图分割问题</span>
+          <span>{{ $t('sidebar.menu.maxcut') }}</span>
         </el-menu-item>
         <el-menu-item index="/number">
           <el-icon><Odometer /></el-icon>
-          <span>数分问题</span>
+          <span>{{ $t('sidebar.menu.number') }}</span>
         </el-menu-item>
         <el-menu-item index="/coloring">
           <el-icon><MagicStick /></el-icon>
-          <span>图着色问题</span>
+          <span>{{ $t('sidebar.menu.coloring') }}</span>
         </el-menu-item>
         <el-menu-item index="/tsp">
           <el-icon><Location /></el-icon>
-          <span>旅行商问题</span>
+          <span>{{ $t('sidebar.menu.tsp') }}</span>
         </el-menu-item>
       </el-menu>
     </div>
@@ -50,15 +50,15 @@
       >
         <el-menu-item index="/tasks">
           <el-icon><List /></el-icon>
-          <span>任务情况</span>
+          <span>{{ $t('sidebar.menu.tasks') }}</span>
         </el-menu-item>
         <el-menu-item index="/settings">
           <el-icon><Setting /></el-icon>
-          <span>设置</span>
+          <span>{{ $t('sidebar.menu.settings') }}</span>
         </el-menu-item>
         <el-menu-item class="logout-btn" @click="handleLogout">
           <el-icon><SwitchButton /></el-icon>
-          <span>退出</span>
+          <span>{{ $t('sidebar.menu.logout') }}</span>
         </el-menu-item>
       </el-menu>
     </div>
@@ -69,18 +69,20 @@
 import { TrendCharts, Odometer, MagicStick, Location, List, Setting, SwitchButton } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { userManager } from '../utils/auth.js'
 
 const router = useRouter()
+const { t } = useI18n()
 
 const handleLogout = async () => {
   try {
     await userManager.logout()
-    ElMessage.success('已退出登录')
+    ElMessage.success(t('sidebar.messages.logoutSuccess'))
     router.push('/login')
   } catch (error) {
-    console.error('登出错误:', error)
-    ElMessage.error('登出失败')
+    console.error('Logout error:', error)
+    ElMessage.error(t('sidebar.messages.logoutFailed'))
   }
 }
 </script>

@@ -1,0 +1,331 @@
+{
+    "app": {
+        "loading": "正在加载..."
+    },
+    "sidebar": {
+        "title": "量子Ising求解系统",
+        "subtitle": "可视化求解与任务管理",
+        "menu": {
+            "maxcut": "图分割问题",
+            "number": "数分问题",
+            "coloring": "图着色问题",
+            "tsp": "旅行商问题",
+            "tasks": "任务情况",
+            "settings": "设置",
+            "logout": "退出"
+        },
+        "messages": {
+            "logoutSuccess": "已退出登录",
+            "logoutFailed": "登出失败"
+        }
+    },
+    "topbar": {
+        "taskInput": "请输入任务名：",
+        "weekdays": [
+            "星期日",
+            "星期一",
+            "星期二",
+            "星期三",
+            "星期四",
+            "星期五",
+            "星期六"
+        ],
+        "userInfo": {
+            "username": "用户名",
+            "email": "邮箱",
+            "phone": "手机",
+            "notLoggedIn": "未登录"
+        },
+        "login": "登录",
+        "logout": "退出登录",
+        "confirmLogout": "确定要退出登录吗？",
+        "messages": {
+            "logoutSuccess": "已退出登录"
+        }
+    },
+    "login": {
+        "title": "量子Ising求解系统",
+        "subtitle": "现代化量子优化问题求解平台",
+        "account": "用户名 / 邮箱 / 手机号",
+        "password": "密码",
+        "remember": "记住我",
+        "forgotPassword": "忘记密码?",
+        "loginButton": "登 录",
+        "noAccount": "还没有账号？",
+        "register": "立即注册",
+        "footer": "© 2025 量子Ising求解系统 | 现代化量子优化平台",
+        "validation": {
+            "accountRequired": "请输入用户名/邮箱/手机号",
+            "passwordRequired": "请输入密码",
+            "passwordLength": "密码长度不能少于6位"
+        },
+        "messages": {
+            "success": "登录成功！",
+            "failed": "登录失败",
+            "networkError": "登录失败，请检查网络连接",
+            "formError": "请正确填写表单"
+        }
+    },
+    "register": {
+        "title": "创建新账户",
+        "subtitle": "加入量子Ising求解系统",
+        "type": {
+            "email": "邮箱注册",
+            "phone": "手机注册"
+        },
+        "username": "用户名 (字母、数字、下划线)",
+        "email": "邮箱地址",
+        "phone": "手机号码",
+        "emailCode": "邮箱验证码",
+        "phoneCode": "短信验证码",
+        "sendCode": "发送验证码",
+        "resendCode": "秒后重试",
+        "password": "密码 (至少6位)",
+        "confirmPassword": "确认密码",
+        "agree": "我已阅读并同意",
+        "userAgreement": "《用户协议》",
+        "and": "和",
+        "privacyPolicy": "《隐私政策》",
+        "registerButton": "注 册",
+        "hasAccount": "已有账号？",
+        "login": "立即登录",
+        "footer": "© 2025 量子Ising求解系统 | 现代化量子优化平台",
+        "validation": {
+            "usernameRequired": "请输入用户名",
+            "usernameFormat": "用户名为3-20位字母、数字或下划线",
+            "emailRequired": "请输入邮箱地址",
+            "emailFormat": "请输入有效的邮箱地址",
+            "phoneRequired": "请输入手机号码",
+            "phoneFormat": "请输入有效的手机号码",
+            "codeRequired": "请输入验证码",
+            "passwordRequired": "请输入密码",
+            "passwordLength": "密码长度不能少于6位",
+            "confirmRequired": "请再次输入密码",
+            "passwordMismatch": "两次输入的密码不一致",
+            "agreeRequired": "请阅读并同意用户协议和隐私政策"
+        },
+        "messages": {
+            "enterEmail": "请先输入邮箱地址",
+            "enterPhone": "请先输入手机号码",
+            "invalidEmail": "请输入有效的邮箱地址",
+            "invalidPhone": "请输入有效的手机号码",
+            "codeSent": "验证码已发送",
+            "codeFailed": "发送验证码失败",
+            "success": "注册成功！即将跳转到登录页面...",
+            "failed": "注册失败",
+            "networkError": "注册失败，请检查网络连接",
+            "formError": "请正确填写表单"
+        }
+    },
+    "tasks": {
+        "title": "任务列表",
+        "pageSize": "每页",
+        "search": "模型/任务搜索",
+        "refresh": "刷新任务",
+        "table": {
+            "taskName": "任务名",
+            "problemType": "问题类型",
+            "model": "模型",
+            "submitTime": "提交时间",
+            "scale": "规模",
+            "status": "状态",
+            "actions": "操作",
+            "view": "查看",
+            "delete": "删除"
+        },
+        "problemTypes": {
+            "maxcut": "图分割",
+            "number": "数字分割",
+            "coloring": "图着色",
+            "tsp": "旅行商"
+        },
+        "modelTypes": {
+            "classic": "经典计算",
+            "sim": "量子芯片模拟",
+            "cloud": "量子云服务"
+        },
+        "status": {
+            "processing": "运行中",
+            "completed": "已完成",
+            "failed": "失败",
+            "timeout": "超时",
+            "error": "错误",
+            "unknown": "未知"
+        },
+        "detail": {
+            "title": "任务详情",
+            "results": "求解结果",
+            "candidate": "候选解",
+            "value": "目标值",
+            "solution": "解向量",
+            "matrix": "邻接矩阵"
+        },
+        "messages": {
+            "refreshed": "任务列表已刷新",
+            "confirmDelete": "确定要删除任务吗？",
+            "confirmTitle": "确认删除",
+            "deleted": "任务已删除"
+        }
+    },
+    "settings": {
+        "title": "系统设置",
+        "description": "配置系统参数和用户偏好设置",
+        "tabs": {
+            "basic": "基础设置",
+            "performance": "性能设置",
+            "data": "数据管理",
+            "about": "关于"
+        },
+        "display": {
+            "title": "显示设置",
+            "language": "界面语言",
+            "theme": "主题模式",
+            "animations": "显示动画"
+        },
+        "theme": {
+            "light": "浅色",
+            "dark": "深色",
+            "auto": "跟随系统"
+        },
+        "defaults": {
+            "title": "默认配置",
+            "solveType": "默认求解模型",
+            "matrixSize": "默认矩阵规模",
+            "autoSave": "自动保存结果"
+        },
+        "solveTypes": {
+            "classic": "经典计算",
+            "sim": "量子芯片模拟",
+            "cloud": "量子云服务"
+        },
+        "performance": {
+            "compute": "计算性能",
+            "maxTasks": "最大并发任务数",
+            "timeout": "任务超时时间（秒）",
+            "memoryLimit": "内存使用限制（MB）",
+            "graphics": "图形渲染",
+            "hardwareAccel": "启用硬件加速",
+            "quality": "图形质量",
+            "maxNodes": "最大节点数"
+        },
+        "quality": {
+            "low": "低",
+            "medium": "中",
+            "high": "高"
+        },
+        "data": {
+            "storage": "存储设置",
+            "dataPath": "数据存储位置",
+            "selectPath": "选择路径",
+            "maxHistory": "最大任务历史数",
+            "autoCleanup": "自动清理过期数据",
+            "actions": "数据操作",
+            "export": "导出设置",
+            "import": "导入设置",
+            "clearAll": "清空所有数据",
+            "reset": "重置设置"
+        },
+        "storage": {
+            "stats": "存储统计",
+            "tasks": "任务数量",
+            "size": "数据大小",
+            "lastUpdate": "最后更新"
+        },
+        "about": {
+            "appName": "量子Ising求解系统",
+            "version": "版本 2.0.0",
+            "description": "基于Vue 3和Element Plus构建的现代化量子优化问题求解平台",
+            "system": "系统信息",
+            "framework": "框架版本：",
+            "uiLib": "UI库：",
+            "buildTool": "构建工具：",
+            "browser": "浏览器：",
+            "links": "相关链接",
+            "homepage": "项目主页",
+            "docs": "使用文档",
+            "feedback": "问题反馈",
+            "checkUpdate": "检查更新"
+        },
+        "messages": {
+            "saved": "设置已保存",
+            "saveFailed": "保存设置失败",
+            "loadFailed": "加载设置失败",
+            "languageChanged": "语言设置已更新",
+            "exported": "设置已导出",
+            "imported": "设置已导入",
+            "importFailed": "导入失败",
+            "invalidFile": "无效的设置文件",
+            "dataCleared": "所有数据已清空",
+            "checking": "正在检查更新...",
+            "upToDate": "当前已是最新版本",
+            "confirmClear": "确定要清空所有数据吗？此操作不可恢复！",
+            "confirmReset": "确定要重置所有设置为默认值吗？",
+            "warning": "警告",
+            "confirmResetTitle": "确认重置",
+            "confirm": "确定",
+            "cancel": "取消",
+            "pathPrompt": "请输入数据存储路径",
+            "selectPathTitle": "选择路径"
+        }
+    },
+    "common": {
+        "confirm": "确定",
+        "cancel": "取消",
+        "save": "保存",
+        "delete": "删除",
+        "edit": "编辑",
+        "close": "关闭",
+        "loading": "加载中...",
+        "success": "成功",
+        "error": "错误",
+        "warning": "警告"
+    },
+    "solver": {
+        "modelSelect": "求解模型选择：",
+        "models": {
+            "classic": "经典计算",
+            "sim": "量子芯片模拟计算",
+            "cloud": "量子云服务计算"
+        },
+        "inputMatrix": "请输入图的邻接矩阵：",
+        "problemScale": "求解问题规模：",
+        "generateMatrix": "生成矩阵",
+        "custom": "自定义",
+        "randomGenerate": "随机生成",
+        "dataImport": "数据导入(txt/csv)",
+        "mode": "模式：",
+        "editMode": "编辑",
+        "viewMode": "查看",
+        "matrixTip": "互相转化（邻接矩阵 ↔ 图）。点击矩阵单元格可编辑连接关系（仅自定义模式）。",
+        "solve": "求解",
+        "solving": "求解中...",
+        "cancelTask": "取消任务",
+        "status": {
+            "ready": "就绪",
+            "processing": "运行中",
+            "completed": "完成",
+            "failed": "失败",
+            "cancelled": "已取消"
+        },
+        "results": "求解结果",
+        "noResults": "暂无结果",
+        "candidate": "候选解",
+        "objValue": "目标值",
+        "solution": "解向量",
+        "partition": "分组",
+        "cutEdges": "割边数",
+        "taskInfo": "任务信息",
+        "taskName": "任务名称",
+        "submitTime": "提交时间",
+        "computeTime": "计算耗时",
+        "messages": {
+            "matrixGenerated": "矩阵已生成",
+            "importSuccess": "导入成功",
+            "importFailed": "导入失败",
+            "invalidFormat": "文件格式不正确",
+            "taskSubmitted": "任务已提交",
+            "taskCancelled": "任务已取消",
+            "solveFailed": "求解失败"
+        }
+    }
+}

@@ -3,20 +3,20 @@
     <el-card class="task-card">
       <template #header>
         <div class="task-header">
-          <h3>任务列表</h3>
+          <h3>{{ $t('tasks.title') }}</h3>
           <div class="task-controls">
             <el-select v-model="pageSize" @change="handlePageSizeChange" style="width: 120px">
-              <el-option label="每页 5" :value="5" />
-              <el-option label="每页 10" :value="10" />
-              <el-option label="每页 20" :value="20" />
+              <el-option :label="`${$t('tasks.pageSize')} 5`" :value="5" />
+              <el-option :label="`${$t('tasks.pageSize')} 10`" :value="10" />
+              <el-option :label="`${$t('tasks.pageSize')} 20`" :value="20" />
             </el-select>
             <el-input
               v-model="searchText"
-              placeholder="模型/任务搜索"
+              :placeholder="$t('tasks.search')"
               style="width: 200px"
               @input="handleSearch"
             />
-            <el-button @click="refreshTasks">刷新任务</el-button>
+            <el-button @click="refreshTasks">{{ $t('tasks.refresh') }}</el-button>
           </div>
         </div>
       </template>
@@ -28,39 +28,39 @@
         stripe
         @row-click="handleRowClick"
       >
-        <el-table-column prop="taskName" label="任务名" width="180">
+        <el-table-column prop="taskName" :label="$t('tasks.table.taskName')" width="180">
           <template #default="{ row }">
             <el-link type="primary" @click="viewTask(row)">{{ row.taskName }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="problemType" label="问题类型" width="120">
+        <el-table-column prop="problemType" :label="$t('tasks.table.problemType')" width="120">
           <template #default="{ row }">
             {{ getProblemTypeText(row.problemType) }}
           </template>
         </el-table-column>
-        <el-table-column prop="modelType" label="模型" width="150">
+        <el-table-column prop="modelType" :label="$t('tasks.table.model')" width="150">
           <template #default="{ row }">
             {{ getModelTypeText(row.modelType) }}
           </template>
         </el-table-column>
-        <el-table-column prop="timestamp" label="提交时间" width="180">
+        <el-table-column prop="timestamp" :label="$t('tasks.table.submitTime')" width="180">
           <template #default="{ row }">
             {{ formatDate(row.timestamp) }}
           </template>
         </el-table-column>
-        <el-table-column prop="matrixSize" label="规模" width="80" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="matrixSize" :label="$t('tasks.table.scale')" width="80" />
+        <el-table-column prop="status" :label="$t('tasks.table.status')" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160">
+        <el-table-column :label="$t('tasks.table.actions')" width="160">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button size="small" @click="viewTask(row)">查看</el-button>
-              <el-button size="small" type="danger" @click="deleteTask(row)" v-if="row.status !== 'processing'">删除</el-button>
+              <el-button size="small" @click="viewTask(row)">{{ $t('tasks.table.view') }}</el-button>
+              <el-button size="small" type="danger" @click="deleteTask(row)" v-if="row.status !== 'processing'">{{ $t('tasks.table.delete') }}</el-button>
             </div>
           </template>
         </el-table-column>
@@ -83,17 +83,17 @@
     <!-- 任务详情对话框 -->
     <el-dialog
       v-model="taskDetailVisible"
-      title="任务详情"
+      :title="$t('tasks.detail.title')"
       width="50%"
     >
       <div v-if="selectedTask" class="task-detail">
         <el-descriptions :column="2" border>
-          <el-descriptions-item label="任务名">{{ selectedTask.taskName }}</el-descriptions-item>
-          <el-descriptions-item label="问题类型">{{ getProblemTypeText(selectedTask.problemType) }}</el-descriptions-item>
-          <el-descriptions-item label="模型类型">{{ getModelTypeText(selectedTask.modelType) }}</el-descriptions-item>
-          <el-descriptions-item label="提交时间">{{ formatDate(selectedTask.timestamp) }}</el-descriptions-item>
-          <el-descriptions-item label="规模">{{ selectedTask.matrixSize }}</el-descriptions-item>
-          <el-descriptions-item label="状态">
+          <el-descriptions-item :label="$t('tasks.table.taskName')">{{ selectedTask.taskName }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('tasks.table.problemType')">{{ getProblemTypeText(selectedTask.problemType) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('tasks.table.model')">{{ getModelTypeText(selectedTask.modelType) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('tasks.table.submitTime')">{{ formatDate(selectedTask.timestamp) }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('tasks.table.scale')">{{ selectedTask.matrixSize }}</el-descriptions-item>
+          <el-descriptions-item :label="$t('tasks.table.status')">
             <el-tag :type="getStatusType(selectedTask.status)">
               {{ getStatusText(selectedTask.status) }}
             </el-tag>
@@ -101,16 +101,16 @@
         </el-descriptions>
 
         <div v-if="selectedTask.results" class="task-results">
-          <h4>求解结果</h4>
+          <h4>{{ $t('tasks.detail.results') }}</h4>
           <div v-for="(result, index) in selectedTask.results" :key="index" class="result-item">
-            <strong>候选解 {{ index + 1 }}：</strong>
-            <div>目标值：{{ result.value }}</div>
-            <div>解向量：{{ result.solution }}</div>
+            <strong>{{ $t('tasks.detail.candidate') }} {{ index + 1 }}：</strong>
+            <div>{{ $t('tasks.detail.value') }}：{{ result.value }}</div>
+            <div>{{ $t('tasks.detail.solution') }}：{{ result.solution }}</div>
           </div>
         </div>
 
         <div v-if="selectedTask.matrix" class="task-matrix">
-          <h4>邻接矩阵</h4>
+          <h4>{{ $t('tasks.detail.matrix') }}</h4>
           <div class="matrix-display">
             <div v-for="(row, i) in selectedTask.matrix" :key="i" class="matrix-row">
               <span v-for="(cell, j) in row" :key="j" class="matrix-cell">{{ cell }}</span>
@@ -125,8 +125,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 
 const router = useRouter()
+const { t } = useI18n()
 
 // 响应式数据
 const tasks = ref([])
@@ -224,7 +227,7 @@ const generateMockResults = () => {
 
 const refreshTasks = () => {
   loadTasks()
-  ElMessage.success('任务列表已刷新')
+  ElMessage.success(t('tasks.messages.refreshed'))
 }
 
 const handlePageSizeChange = (size) => {
@@ -251,11 +254,11 @@ const viewTask = (task) => {
 
 const deleteTask = (task) => {
   ElMessageBox.confirm(
-    `确定要删除任务"${task.taskName}"吗？`,
-    '确认删除',
+    t('tasks.messages.confirmDelete', { name: task.taskName }),
+    t('tasks.messages.confirmTitle'),
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
+      confirmButtonText: t('common.confirm'),
+      cancelButtonText: t('common.cancel'),
       type: 'warning'
     }
   ).then(() => {
@@ -263,7 +266,7 @@ const deleteTask = (task) => {
     if (index > -1) {
       tasks.value.splice(index, 1)
       saveTasks()
-      ElMessage.success('任务已删除')
+      ElMessage.success(t('tasks.messages.deleted'))
     }
   }).catch(() => {
     // 用户取消
@@ -272,33 +275,15 @@ const deleteTask = (task) => {
 
 // 辅助函数
 const getProblemTypeText = (type) => {
-  const types = {
-    maxcut: '图分割',
-    number: '数字分割',
-    coloring: '图着色',
-    tsp: '旅行商'
-  }
-  return types[type] || type
+  return t(`tasks.problemTypes.${type}`, type)
 }
 
 const getModelTypeText = (type) => {
-  const types = {
-    classic: '经典计算',
-    sim: '量子芯片模拟',
-    cloud: '量子云服务'
-  }
-  return types[type] || type
+  return t(`tasks.modelTypes.${type}`, type)
 }
 
 const getStatusText = (status) => {
-  const statuses = {
-    processing: '运行中',
-    completed: '已完成',
-    failed: '失败',
-    timeout: '超时',
-    error: '错误'
-  }
-  return statuses[status] || '未知'
+  return t(`tasks.status.${status}`, t('tasks.status.unknown'))
 }
 
 const getStatusType = (status) => {

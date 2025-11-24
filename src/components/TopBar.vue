@@ -4,7 +4,7 @@
       <div class="task-input">
         <el-input
           v-model="taskName"
-          placeholder="请输入任务名："
+          :placeholder="$t('topbar.taskInput')"
           style="width: 300px"
         />
         <el-button type="primary" @click="handleOk">OK</el-button>
@@ -23,20 +23,20 @@
           <div class="avatar">
             {{ userInfo?.username?.charAt(0).toUpperCase() || 'U' }}
           </div>
-          <span class="username">{{ userInfo?.username || '未登录' }}</span>
+          <span class="username">{{ userInfo?.username || $t('topbar.userInfo.notLoggedIn') }}</span>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item disabled>
               <div class="user-details">
-                <div><strong>用户名:</strong> {{ userInfo?.username }}</div>
-                <div v-if="userInfo?.email"><strong>邮箱:</strong> {{ userInfo?.email }}</div>
-                <div v-if="userInfo?.phone"><strong>手机:</strong> {{ userInfo?.phone }}</div>
+                <div><strong>{{ $t('topbar.userInfo.username') }}:</strong> {{ userInfo?.username }}</div>
+                <div v-if="userInfo?.email"><strong>{{ $t('topbar.userInfo.email') }}:</strong> {{ userInfo?.email }}</div>
+                <div v-if="userInfo?.phone"><strong>{{ $t('topbar.userInfo.phone') }}:</strong> {{ userInfo?.phone }}</div>
               </div>
             </el-dropdown-item>
             <el-dropdown-item divided command="logout">
               <el-icon><SwitchButton /></el-icon>
-              <span>退出登录</span>
+              <span>{{ $t('topbar.logout') }}</span>
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -44,7 +44,7 @@
 
       <!-- 未登录时显示 -->
       <div v-else class="login-prompt">
-        <el-button type="primary" size="small" @click="goToLogin">登录</el-button>
+        <el-button type="primary" size="small" @click="goToLogin">{{ $t('topbar.login') }}</el-button>
       </div>
     </div>
   </div>
@@ -55,9 +55,11 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { SwitchButton } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { userManager } from '../utils/auth.js'
 
 const router = useRouter()
+const { t } = useI18n()
 const taskName = ref('')
 const currentTime = ref('')
 const currentDate = ref('')
@@ -73,7 +75,7 @@ const updateClock = () => {
   
   currentTime.value = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
   
-  const days = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+  const days = t('topbar.weekdays', { returnObjects: true })
   currentDate.value = `${days[now.getDay()]} ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
 }
 
@@ -91,24 +93,24 @@ const handleCommand = async (command) => {
   if (command === 'logout') {
     try {
       await ElMessageBox.confirm(
-        '确定要退出登录吗？',
-        '退出登录',
+        t('topbar.confirmLogout'),
+        t('topbar.logout'),
         {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
+          confirmButtonText: t('common.confirm'),
+          cancelButtonText: t('common.cancel'),
           type: 'warning'
         }
       )
       
       // 执行退出
       await userManager.logout()
-      ElMessage.success('已退出登录')
+      ElMessage.success(t('topbar.messages.logoutSuccess'))
       
       // 跳转到登录页
       router.push('/login')
     } catch (error) {
       if (error !== 'cancel') {
-        console.error('退出登录失败:', error)
+        console.error('Logout error:', error)
       }
     }
   }
