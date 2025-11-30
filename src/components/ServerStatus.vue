@@ -15,7 +15,7 @@
           <div class="server-icon">☁️</div>
           <div class="server-info">
             <h4>云服务器</h4>
-            <p class="server-url">47.99.240.72:5000</p>
+            <p class="server-url">120.55.188.36:5000</p>
           </div>
           <div class="status-indicator" :class="{ online: cloudStatus.online }">
             {{ cloudStatus.online ? '在线' : '离线' }}

@@ -3,12 +3,12 @@ import axios from 'axios'
 // 服务器配置
 const SERVERS = {
   cloud: {
-    baseURL: 'http://47.99.240.72:8085',
+    baseURL: 'http://120.55.188.36:8085',
     name: '云服务器',
     type: 'cloud'
   },
   local: {
-    baseURL: 'http://47.99.240.72:8085',
+    baseURL: 'http://120.55.188.36:8085',
     name: '本地服务器',
     type: 'local'
   }
@@ -144,7 +144,7 @@ export const checkServerStatus = async () => {
   const status = { cloud: false, local: false }
 
   try {
-    const cloudResponse = await cloudApi.get('/server-status')
+    const cloudResponse = await cloudApi.get('/api/server-status')
     status.cloud = cloudResponse.data.success
   } catch (error) {
     console.warn('云服务器不可用:', error.message)
@@ -152,7 +152,7 @@ export const checkServerStatus = async () => {
   }
 
   try {
-    const localResponse = await localApi.get('/server-status')
+    const localResponse = await localApi.get('/api/server-status')
     status.local = localResponse.data.success
   } catch (error) {
     console.warn('本地服务器不可用:', error.message)
@@ -173,7 +173,7 @@ export const submitTask = async (taskData) => {
     // 首先尝试云服务器（推荐方式）
     if (serverStatus.cloud.online) {
       console.log('使用云服务器提交任务')
-      const response = await cloudApi.post('/submit-task', taskData)
+      const response = await cloudApi.post('/api/submit-task', taskData)
       return {
         ...response.data,
         serverType: 'cloud',
@@ -184,7 +184,7 @@ export const submitTask = async (taskData) => {
     // 云服务器不可用时，直接使用本地服务器
     if (serverStatus.local.online) {
       console.log('云服务器不可用，直接使用本地服务器')
-      const response = await localApi.post('/submit-task', taskData)
+      const response = await localApi.post('/api/submit-task', taskData)
       return {
         ...response.data,
         serverType: 'local',
@@ -198,7 +198,7 @@ export const submitTask = async (taskData) => {
     if (error.message.includes('云服务器') || error.code === 'ECONNREFUSED') {
       try {
         console.log('云服务器失败，尝试本地服务器')
-        const response = await localApi.post('/submit-task', taskData)
+        const response = await localApi.post('/api/submit-task', taskData)
         return {
           ...response.data,
           serverType: 'local',
@@ -215,7 +215,7 @@ export const submitTask = async (taskData) => {
 // 获取任务状态（仅用于云服务器）
 export const getTaskStatus = async (taskId) => {
   try {
-    const response = await cloudApi.get(`/task-status/${taskId}`)
+    const response = await cloudApi.get(`/api/task-status/${taskId}`)
     return response.data
   } catch (error) {
     throw error
@@ -225,7 +225,7 @@ export const getTaskStatus = async (taskId) => {
 // 取消任务（仅用于云服务器）
 export const cancelTask = async (taskId) => {
   try {
-    const response = await cloudApi.post(`/cancel-task/${taskId}`)
+    const response = await cloudApi.post(`/api/cancel-task/${taskId}`)
     return response.data
   } catch (error) {
     throw error
@@ -247,7 +247,7 @@ export const getTaskHistory = async (problemType = null, page = 1, pageSize = 50
     if (problemType) {
       params.problemType = problemType
     }
-    const response = await cloudApi.get('/tasks/history', { params })
+    const response = await cloudApi.get('/api/tasks/history', { params })
     return response.data
   } catch (error) {
     throw error
@@ -257,7 +257,7 @@ export const getTaskHistory = async (problemType = null, page = 1, pageSize = 50
 // 清理任务（可选，管理员功能）
 export const cleanupTasks = async (retentionDays = 30) => {
   try {
-    const response = await cloudApi.post('/tasks/cleanup', { retentionDays })
+    const response = await cloudApi.post('/api/tasks/cleanup', { retentionDays })
     return response.data
   } catch (error) {
     throw error

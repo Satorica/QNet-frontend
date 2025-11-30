@@ -659,6 +659,17 @@ const loadTaskHistory = async () => {
   }
 }
 
+// 更新任务历史中的任务状态
+const updateTaskInHistory = (taskId, updates) => {
+  const taskIndex = taskHistory.value.findIndex(task => task.taskId === taskId)
+  if (taskIndex !== -1) {
+    taskHistory.value[taskIndex] = {
+      ...taskHistory.value[taskIndex],
+      ...updates
+    }
+  }
+}
+
 const clearHistory = async () => {
   // 清空历史只是清空前端显示，实际数据仍在数据库中
   // 如果需要真正删除，可以调用清理API（需要管理员权限）
