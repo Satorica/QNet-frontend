@@ -214,6 +214,11 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="taskId" label="操作" width="120">
+          <template #default="{ row }">
+            <el-button type="danger" size="small" @click="handleDeleteTask(row)">删除</el-button>
+          </template>
+        </el-table-column>
         <el-table-column prop="usedColors" label="使用颜色" width="100" />
         <el-table-column prop="solveTime" label="求解时间" width="120" />
       </el-table>
@@ -223,7 +228,8 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { submitTask, getTaskStatus, cancelTask as cancelTaskAPI, getTaskHistory } from '../api/index.js'
+import { submitTask, getTaskStatus, cancelTask as cancelTaskAPI, getTaskHistory, deleteTask } from '../api/index.js'
+import { ElMessageBox } from 'element-plus'
 import ColoringGraph from '../components/ColoringGraph.vue'
 
 // 响应式数据
@@ -580,6 +586,30 @@ const rebuildNodesLayout = () => {
     x: 200 + 150 * Math.cos(2 * Math.PI * i / nodeCount.value),
     y: 200 + 150 * Math.sin(2 * Math.PI * i / nodeCount.value)
   }))
+}
+
+const handleDeleteTask = (row) => {
+  console.log(row)
+  try {
+    const confirm  = await ElMessageBox.confirm('确定删除该任务吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+
+    if (confirm) {
+      const response = await deleteTask(row.taskId)
+      if (response.success) {
+        addLog(`任务已删除: ${row.taskId}`)
+        loadTaskHistory()
+      } else {
+        addLog(`删除任务失败: ${response.message}`)
+      }
+    }
+  } catch (error) {
+    console.error('删除任务失败:', error)
+    addLog(`删除任务失败: ${error.message}`)
+  }
 }
 
 // 颜色交互（保留以便候选结果展示）

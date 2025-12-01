@@ -264,6 +264,15 @@ export const cleanupTasks = async (retentionDays = 30) => {
   }
 }
 
+export const deleteTask = async (taskId) => {
+  try {
+    const response = await cloudApi.post(`/api/tasks/delete/${taskId}`, { taskId })
+    return response.data
+  } catch (error) {
+    throw error
+  }
+}
+
 // 导出API实例以备直接使用
 export { cloudApi, localApi }
 export default cloudApi 
