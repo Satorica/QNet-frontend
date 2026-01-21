@@ -26,6 +26,7 @@
         :data="paginatedTasks"
         style="width: 100%"
         stripe
+        v-loading="loading"
         @row-click="handleRowClick"
       >
         <el-table-column prop="taskName" :label="$t('tasks.table.taskName')" width="180">
@@ -56,11 +57,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('tasks.table.actions')" width="160">
+        <el-table-column :label="$t('tasks.table.actions')" width="200">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button size="small" @click="viewTask(row)">{{ $t('tasks.table.view') }}</el-button>
-              <el-button size="small" type="danger" @click="deleteTask(row)" v-if="row.status !== 'processing'">{{ $t('tasks.table.delete') }}</el-button>
+              <el-button type="primary" size="small" @click.stop="viewTask(row)">{{ $t('tasks.table.view') }}</el-button>
+              <el-button size="small" type="danger" @click.stop="deleteTask(row)">{{ $t('tasks.table.delete') }}</el-button>
             </div>
           </template>
         </el-table-column>
@@ -84,40 +85,113 @@
     <el-dialog
       v-model="taskDetailVisible"
       :title="$t('tasks.detail.title')"
-      width="50%"
+      width="800px"
+      :close-on-click-modal="false"
     >
       <div v-if="selectedTask" class="task-detail">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item :label="$t('tasks.table.taskName')">{{ selectedTask.taskName }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('tasks.table.problemType')">{{ getProblemTypeText(selectedTask.problemType) }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('tasks.table.model')">{{ getModelTypeText(selectedTask.modelType) }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('tasks.table.submitTime')">{{ formatDate(selectedTask.timestamp) }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('tasks.table.scale')">{{ selectedTask.matrixSize }}</el-descriptions-item>
-          <el-descriptions-item :label="$t('tasks.table.status')">
-            <el-tag :type="getStatusType(selectedTask.status)">
-              {{ getStatusText(selectedTask.status) }}
-            </el-tag>
-          </el-descriptions-item>
-        </el-descriptions>
-
-        <div v-if="selectedTask.results" class="task-results">
-          <h4>{{ $t('tasks.detail.results') }}</h4>
-          <div v-for="(result, index) in selectedTask.results" :key="index" class="result-item">
-            <strong>{{ $t('tasks.detail.candidate') }} {{ index + 1 }}：</strong>
-            <div>{{ $t('tasks.detail.value') }}：{{ result.value }}</div>
-            <div>{{ $t('tasks.detail.solution') }}：{{ result.solution }}</div>
-          </div>
-        </div>
-
-        <div v-if="selectedTask.matrix" class="task-matrix">
-          <h4>{{ $t('tasks.detail.matrix') }}</h4>
-          <div class="matrix-display">
-            <div v-for="(row, i) in selectedTask.matrix" :key="i" class="matrix-row">
-              <span v-for="(cell, j) in row" :key="j" class="matrix-cell">{{ cell }}</span>
+        <!-- 基本信息 -->
+        <el-card class="detail-section">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">基本信息</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">任务名称：</span>
+              <span class="detail-value">{{ selectedTask.taskName }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">任务ID：</span>
+              <span class="detail-value">{{ selectedTask.taskId }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">问题类型：</span>
+              <span class="detail-value">{{ getProblemTypeText(selectedTask.problemType) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">求解模型：</span>
+              <span class="detail-value">{{ getModelTypeText(selectedTask.modelType) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">问题规模：</span>
+              <span class="detail-value">{{ selectedTask.matrixSize }} {{ getProblemTypeSizeUnit(selectedTask.problemType) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">提交时间：</span>
+              <span class="detail-value">{{ formatDate(selectedTask.timestamp) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">任务状态：</span>
+              <el-tag :type="getStatusType(selectedTask.status)">
+                {{ getStatusText(selectedTask.status) }}
+              </el-tag>
             </div>
           </div>
-        </div>
+        </el-card>
+
+        <!-- 结果信息 -->
+        <el-card class="detail-section" v-if="selectedTask.status === 'completed' && taskDetailResults">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">结果信息</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">求解时间：</span>
+              <span class="detail-value">{{ taskDetailResults.runtime ? taskDetailResults.runtime.toFixed(2) + 's' : selectedTask.solveTime || '--' }}</span>
+            </div>
+            <div class="detail-row" v-if="selectedTask.problemType === 'coloring'">
+              <span class="detail-label">使用颜色数：</span>
+              <span class="detail-value highlight">{{ selectedTask.usedColors || '--' }}</span>
+            </div>
+            <div class="detail-row" v-else>
+              <span class="detail-label">最优值：</span>
+              <span class="detail-value highlight">{{ selectedTask.bestValue || '--' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">候选解数量：</span>
+              <span class="detail-value">{{ taskDetailResults.candidates ? taskDetailResults.candidates.length : 0 }}</span>
+            </div>
+          </div>
+
+          <!-- 候选解列表 -->
+          <div class="candidates-list">
+            <div class="candidates-header">候选解详情</div>
+            <div v-for="(candidate, index) in taskDetailResults.candidates" :key="index" class="candidate-item">
+              <div class="candidate-header">
+                <span class="candidate-rank">候选解 {{ candidate.rank || (index + 1) }}</span>
+                <span class="candidate-value">目标值：{{ candidate.value }}</span>
+              </div>
+              <div class="candidate-solution">
+                <span class="solution-label">解向量：</span>
+                <span class="solution-value">{{ formatSolution(candidate.solution) }}</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 失败/取消信息 -->
+        <el-card class="detail-section" v-if="selectedTask.status === 'failed' || selectedTask.status === 'cancelled'">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">{{ selectedTask.status === 'failed' ? '失败信息' : '取消信息' }}</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">消息：</span>
+              <span class="detail-value">{{ selectedTask.message || '无详细信息' }}</span>
+            </div>
+          </div>
+        </el-card>
       </div>
+
+      <template #footer>
+        <el-button @click="taskDetailVisible = false">关闭</el-button>
+        <el-button type="primary" @click="exportTaskDetail" v-if="selectedTask && selectedTask.status === 'completed'">导出结果</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -127,6 +201,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import { getTaskHistory, deleteTask as deleteTaskAPI, getTaskStatus } from '../api/index.js'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -138,6 +213,8 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const taskDetailVisible = ref(false)
 const selectedTask = ref(null)
+const taskDetailResults = ref(null)
+const loading = ref(false)
 
 // 计算属性
 const filteredTasks = computed(() => {
@@ -158,71 +235,52 @@ const paginatedTasks = computed(() => {
 })
 
 // 方法
-const loadTasks = () => {
+const loadTasks = async () => {
   try {
-    const stored = localStorage.getItem('quantumTasks')
-    if (stored) {
-      tasks.value = JSON.parse(stored)
-    } else {
-      // 生成一些模拟数据
-      tasks.value = generateMockTasks()
-      saveTasks()
+    loading.value = true
+    const allTasks = []
+    
+    // 获取所有四种问题类型的任务历史
+    const problemTypes = ['maxcut', 'coloring', 'number_partition', 'tsp']
+    
+    for (const problemType of problemTypes) {
+      try {
+        const response = await getTaskHistory(problemType, 1, 100) // 获取每种类型最多100个任务
+        if (response.success && response.data && response.data.tasks) {
+          // 将任务添加到总列表中
+          allTasks.push(...response.data.tasks.map(task => ({
+            ...task,
+            // 统一字段名称
+            timestamp: task.timestamp,
+            matrixSize: task.matrixSize,
+            status: task.status,
+            taskName: task.taskName,
+            taskId: task.taskId,
+            problemType: task.problemType,
+            modelType: task.modelType,
+            message: task.message,
+            // 保留额外信息
+            bestValue: task.bestValue,
+            usedColors: task.usedColors,
+            solveTime: task.solveTime
+          })))
+        }
+      } catch (error) {
+        console.error(`加载${problemType}任务失败:`, error)
+      }
     }
+    
+    // 按时间倒序排序
+    allTasks.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+    
+    tasks.value = allTasks
+    ElMessage.success(`成功加载 ${allTasks.length} 个任务`)
   } catch (error) {
     console.error('加载任务失败:', error)
-    tasks.value = generateMockTasks()
-    saveTasks()
+    ElMessage.error('加载任务失败')
+  } finally {
+    loading.value = false
   }
-}
-
-const saveTasks = () => {
-  localStorage.setItem('quantumTasks', JSON.stringify(tasks.value))
-}
-
-const generateMockTasks = () => {
-  const mockTasks = []
-  const problemTypes = ['maxcut', 'number', 'coloring', 'tsp']
-  const modelTypes = ['classic', 'sim', 'cloud']
-  const statuses = ['completed', 'processing', 'failed', 'timeout']
-
-  for (let i = 0; i < 15; i++) {
-    const problemType = problemTypes[Math.floor(Math.random() * problemTypes.length)]
-    const modelType = modelTypes[Math.floor(Math.random() * modelTypes.length)]
-    const status = statuses[Math.floor(Math.random() * statuses.length)]
-    
-    mockTasks.push({
-      taskId: `task_${Date.now()}_${i}`,
-      taskName: `任务${i + 1}`,
-      problemType,
-      modelType,
-      status,
-      timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      matrixSize: Math.floor(Math.random() * 15) + 4,
-      matrix: generateRandomMatrix(6),
-      results: status === 'completed' ? generateMockResults() : null
-    })
-  }
-
-  return mockTasks
-}
-
-const generateRandomMatrix = (size) => {
-  const matrix = Array(size).fill().map(() => Array(size).fill(0))
-  for (let i = 0; i < size; i++) {
-    for (let j = i + 1; j < size; j++) {
-      const connected = Math.random() > 0.6 ? 1 : 0
-      matrix[i][j] = connected
-      matrix[j][i] = connected
-    }
-  }
-  return matrix
-}
-
-const generateMockResults = () => {
-  return Array(3).fill().map((_, i) => ({
-    value: Math.floor(Math.random() * 1000),
-    solution: JSON.stringify(Array(6).fill().map(() => Math.random() > 0.5 ? 1 : 0))
-  }))
 }
 
 const refreshTasks = () => {
@@ -247,12 +305,27 @@ const handleRowClick = (row) => {
   viewTask(row)
 }
 
-const viewTask = (task) => {
-  selectedTask.value = task
-  taskDetailVisible.value = true
+const viewTask = async (task) => {
+  try {
+    selectedTask.value = task
+    taskDetailVisible.value = true
+    
+    // 如果任务已完成，获取详细结果
+    if (task.status === 'completed') {
+      const statusResponse = await getTaskStatus(task.taskId)
+      if (statusResponse.results) {
+        taskDetailResults.value = statusResponse.results
+      }
+    } else {
+      taskDetailResults.value = null
+    }
+  } catch (error) {
+    console.error('获取任务详情失败:', error)
+    ElMessage.error('获取任务详情失败')
+  }
 }
 
-const deleteTask = (task) => {
+const deleteTask = async (task) => {
   ElMessageBox.confirm(
     t('tasks.messages.confirmDelete', { name: task.taskName }),
     t('tasks.messages.confirmTitle'),
@@ -261,12 +334,22 @@ const deleteTask = (task) => {
       cancelButtonText: t('common.cancel'),
       type: 'warning'
     }
-  ).then(() => {
-    const index = tasks.value.findIndex(t => t.taskId === task.taskId)
-    if (index > -1) {
-      tasks.value.splice(index, 1)
-      saveTasks()
-      ElMessage.success(t('tasks.messages.deleted'))
+  ).then(async () => {
+    try {
+      const response = await deleteTaskAPI(task.taskId)
+      if (response.success) {
+        // 从列表中移除该任务
+        const index = tasks.value.findIndex(t => t.taskId === task.taskId)
+        if (index > -1) {
+          tasks.value.splice(index, 1)
+        }
+        ElMessage.success(t('tasks.messages.deleted'))
+      } else {
+        ElMessage.error('删除任务失败: ' + response.message)
+      }
+    } catch (error) {
+      console.error('删除任务失败:', error)
+      ElMessage.error('删除任务失败')
     }
   }).catch(() => {
     // 用户取消
@@ -275,6 +358,10 @@ const deleteTask = (task) => {
 
 // 辅助函数
 const getProblemTypeText = (type) => {
+  // 处理 number_partition 的别名
+  if (type === 'number_partition') {
+    return t('tasks.problemTypes.number', '数字分割')
+  }
   return t(`tasks.problemTypes.${type}`, type)
 }
 
@@ -300,6 +387,52 @@ const getStatusType = (status) => {
 const formatDate = (timestamp) => {
   const date = new Date(timestamp)
   return `${date.toLocaleDateString('zh-CN')} ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+const getProblemTypeSizeUnit = (type) => {
+  const units = {
+    'maxcut': '个节点',
+    'coloring': '个节点',
+    'number_partition': '个数字',
+    'tsp': '个城市'
+  }
+  return units[type] || '个节点'
+}
+
+const formatSolution = (solution) => {
+  if (Array.isArray(solution)) {
+    // 如果解向量太长，只显示前20个元素
+    if (solution.length > 20) {
+      return JSON.stringify(solution.slice(0, 20)) + '...'
+    }
+    return JSON.stringify(solution)
+  }
+  return JSON.stringify(solution)
+}
+
+const exportTaskDetail = () => {
+  if (!selectedTask.value) return
+  
+  const data = {
+    taskInfo: {
+      taskId: selectedTask.value.taskId,
+      taskName: selectedTask.value.taskName,
+      problemType: selectedTask.value.problemType,
+      modelType: selectedTask.value.modelType,
+      matrixSize: selectedTask.value.matrixSize,
+      timestamp: selectedTask.value.timestamp,
+      status: selectedTask.value.status
+    },
+    results: taskDetailResults.value
+  }
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `task-${selectedTask.value.taskId}-detail.json`
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 onMounted(() => {
@@ -408,5 +541,115 @@ onMounted(() => {
   display: flex;
   gap: 8px;
   justify-content: center;
+}
+
+/* 任务详情对话框样式 */
+.detail-section {
+  margin-bottom: 20px;
+  border: 1px solid #E6EAF5;
+  border-radius: 12px;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-title {
+  font-weight: 600;
+  color: #292929;
+  font-size: 16px;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #F0F0F0;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  min-width: 120px;
+  color: #666;
+  font-size: 14px;
+}
+
+.detail-value {
+  flex: 1;
+  color: #292929;
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.detail-value.highlight {
+  color: #4050F8;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.candidates-list {
+  margin-top: 16px;
+}
+
+.candidates-header {
+  font-weight: 600;
+  color: #292929;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #E6EAF5;
+}
+
+.candidate-item {
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #FAFBFC;
+  border: 1px solid #E6EAF5;
+  border-radius: 8px;
+}
+
+.candidate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.candidate-rank {
+  font-weight: 600;
+  color: #4050F8;
+}
+
+.candidate-value {
+  color: #666;
+  font-size: 14px;
+}
+
+.candidate-solution {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.solution-label {
+  color: #666;
+  min-width: 70px;
+}
+
+.solution-value {
+  flex: 1;
+  color: #292929;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
 }
 </style> 

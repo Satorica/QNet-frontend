@@ -186,17 +186,132 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="taskId" label="操作" width="200">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" @click="handleViewTaskDetail(row)">查看详情</el-button>
+            <el-button type="danger" size="small" @click="handleDeleteTask(row)">删除</el-button>
+          </template>
+        </el-table-column>
         <el-table-column prop="bestValue" label="最优值" width="100" />
         <el-table-column prop="solveTime" label="求解时间" width="120" />
       </el-table>
     </el-card>
+
+    <!-- 任务详情弹窗 -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="任务详细信息"
+      width="800px"
+      :close-on-click-modal="false"
+    >
+      <div v-if="selectedTask" class="task-detail">
+        <!-- 基本信息卡片 -->
+        <el-card class="detail-section">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">基本信息</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">任务名称：</span>
+              <span class="detail-value">{{ selectedTask.taskName }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">任务ID：</span>
+              <span class="detail-value">{{ selectedTask.taskId }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">问题类型：</span>
+              <span class="detail-value">旅行商问题 (TSP)</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">求解模型：</span>
+              <span class="detail-value">{{ getModelTypeText(selectedTask.modelType) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">问题规模：</span>
+              <span class="detail-value">{{ selectedTask.matrixSize }} 个城市</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">提交时间：</span>
+              <span class="detail-value">{{ formatDate(selectedTask.timestamp) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">任务状态：</span>
+              <el-tag :type="getStatusType(selectedTask.status)">
+                {{ getStatusText(selectedTask.status) }}
+              </el-tag>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 结果信息卡片 -->
+        <el-card class="detail-section" v-if="selectedTask.status === 'completed' && taskDetailResults">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">结果信息</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">求解时间：</span>
+              <span class="detail-value">{{ taskDetailResults.runtime ? taskDetailResults.runtime.toFixed(2) + 's' : selectedTask.solveTime || '--' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">最短路径长度：</span>
+              <span class="detail-value highlight">{{ selectedTask.bestValue || '--' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">候选解数量：</span>
+              <span class="detail-value">{{ taskDetailResults.candidates ? taskDetailResults.candidates.length : 0 }}</span>
+            </div>
+          </div>
+
+          <!-- 候选解列表 -->
+          <div class="candidates-list">
+            <div class="candidates-header">候选解详情</div>
+            <div v-for="(candidate, index) in taskDetailResults.candidates" :key="index" class="candidate-item">
+              <div class="candidate-header">
+                <span class="candidate-rank">候选解 {{ candidate.rank || (index + 1) }}</span>
+                <span class="candidate-value">路径长度：{{ candidate.value }}</span>
+              </div>
+              <div class="candidate-solution">
+                <span class="solution-label">解向量：</span>
+                <span class="solution-value">{{ JSON.stringify(candidate.solution) }}</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 失败信息 -->
+        <el-card class="detail-section" v-if="selectedTask.status === 'failed' || selectedTask.status === 'cancelled'">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">{{ selectedTask.status === 'failed' ? '失败信息' : '取消信息' }}</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">消息：</span>
+              <span class="detail-value">{{ selectedTask.message || '无详细信息' }}</span>
+            </div>
+          </div>
+        </el-card>
+      </div>
+
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="exportTaskDetail" v-if="selectedTask && selectedTask.status === 'completed'">导出结果</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import TSPGraph from '../components/TSPGraph.vue'
-import { submitTask, getTaskStatus, cancelTask, getTaskHistory } from '../api/index.js'
+import { submitTask, getTaskStatus, cancelTask, getTaskHistory, deleteTask } from '../api/index.js'
 import { ElMessageBox } from 'element-plus'
 
 // 响应式数据
@@ -216,6 +331,11 @@ const currentTaskId = ref(null)
 
 // 任务历史
 const taskHistory = ref([])
+
+// 任务详情对话框
+const detailDialogVisible = ref(false)
+const selectedTask = ref(null)
+const taskDetailResults = ref(null)
 
 const cities = ref([])
 const currentRoute = ref([])
@@ -1028,6 +1148,78 @@ const formatDate = (timestamp) => {
   return `${date.toLocaleDateString('zh-CN')} ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
 }
 
+// 删除任务
+const handleDeleteTask = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定删除该任务吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+
+    const response = await deleteTask(row.taskId)
+    if (response.success) {
+      addLog(`任务已删除: ${row.taskId}`)
+      loadTaskHistory()
+    } else {
+      addLog(`删除任务失败: ${response.message}`)
+    }
+  } catch (error) {
+    // 用户取消删除或删除失败
+    if (error !== 'cancel') {
+      console.error('删除任务失败:', error)
+      addLog(`删除任务失败: ${error.message || '未知错误'}`)
+    }
+  }
+}
+
+// 查看任务详情
+const handleViewTaskDetail = async (row) => {
+  try {
+    selectedTask.value = row
+    detailDialogVisible.value = true
+    
+    // 如果任务已完成，获取详细结果
+    if (row.status === 'completed') {
+      const statusResponse = await getTaskStatus(row.taskId)
+      if (statusResponse.results) {
+        taskDetailResults.value = statusResponse.results
+      }
+    } else {
+      taskDetailResults.value = null
+    }
+  } catch (error) {
+    console.error('获取任务详情失败:', error)
+    addLog('获取任务详情失败: ' + error.message)
+  }
+}
+
+// 导出任务详情
+const exportTaskDetail = () => {
+  if (!selectedTask.value) return
+  
+  const data = {
+    taskInfo: {
+      taskId: selectedTask.value.taskId,
+      taskName: selectedTask.value.taskName,
+      problemType: 'tsp',
+      modelType: selectedTask.value.modelType,
+      matrixSize: selectedTask.value.matrixSize,
+      timestamp: selectedTask.value.timestamp,
+      status: selectedTask.value.status
+    },
+    results: taskDetailResults.value
+  }
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `task-${selectedTask.value.taskId}-detail.json`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 // 初始化
 generateCitiesAndMatrix()
 // 异步加载任务历史
@@ -1388,5 +1580,120 @@ loadTaskHistory()
   margin: 0; 
   color: #292929; 
   font-weight: 600; 
+}
+
+/* 任务详情对话框样式 */
+.task-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.detail-section {
+  border: 1px solid #E6EAF5;
+  border-radius: 12px;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-title {
+  font-weight: 600;
+  color: #292929;
+  font-size: 16px;
+}
+
+.detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #F0F0F0;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  min-width: 120px;
+  color: #666;
+  font-size: 14px;
+}
+
+.detail-value {
+  flex: 1;
+  color: #292929;
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.detail-value.highlight {
+  color: #4050F8;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.candidates-list {
+  margin-top: 16px;
+}
+
+.candidates-header {
+  font-weight: 600;
+  color: #292929;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #E6EAF5;
+}
+
+.candidate-item {
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #FAFBFC;
+  border: 1px solid #E6EAF5;
+  border-radius: 8px;
+}
+
+.candidate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.candidate-rank {
+  font-weight: 600;
+  color: #4050F8;
+}
+
+.candidate-value {
+  color: #666;
+  font-size: 14px;
+}
+
+.candidate-solution {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.solution-label {
+  color: #666;
+  min-width: 70px;
+}
+
+.solution-value {
+  flex: 1;
+  color: #292929;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
 }
 </style> 

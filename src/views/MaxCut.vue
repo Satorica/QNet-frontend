@@ -73,6 +73,22 @@
               :selected-nodes="selectedNodes"
               @node-click="onGraphNodeClick"
             />
+            
+            <!-- 图例说明 -->
+            <div v-if="Object.keys(partition).length > 0" class="graph-legend">
+              <div class="legend-item">
+                <div class="legend-color" style="background: #FF6B6B;"></div>
+                <span>分区 A</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-color" style="background: #4ECDC4;"></div>
+                <span>分区 B</span>
+              </div>
+              <div class="legend-item">
+                <div class="legend-edge" style="background: #FFA726;"></div>
+                <span>被切割的边</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -161,16 +177,132 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="taskId" label="操作" width="200">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" @click="handleViewTaskDetail(row)">查看详情</el-button>
+            <el-button type="danger" size="small" @click="handleDeleteTask(row)">删除</el-button>
+          </template>
+        </el-table-column>
         <el-table-column prop="bestValue" label="最优值" width="100" />
         <el-table-column prop="solveTime" label="求解时间" width="120" />
       </el-table>
     </el-card>
+
+    <!-- 任务详情弹窗 -->
+    <el-dialog
+      v-model="detailDialogVisible"
+      title="任务详细信息"
+      width="800px"
+      :close-on-click-modal="false"
+    >
+      <div v-if="selectedTask" class="task-detail">
+        <!-- 基本信息卡片 -->
+        <el-card class="detail-section">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">基本信息</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">任务名称：</span>
+              <span class="detail-value">{{ selectedTask.taskName }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">任务ID：</span>
+              <span class="detail-value">{{ selectedTask.taskId }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">问题类型：</span>
+              <span class="detail-value">MaxCut 最大割问题</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">求解模型：</span>
+              <span class="detail-value">{{ getModelTypeText(selectedTask.modelType) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">问题规模：</span>
+              <span class="detail-value">{{ selectedTask.matrixSize }} 个节点</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">提交时间：</span>
+              <span class="detail-value">{{ formatDate(selectedTask.timestamp) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">任务状态：</span>
+              <el-tag :type="getStatusType(selectedTask.status)">
+                {{ getStatusText(selectedTask.status) }}
+              </el-tag>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 结果信息卡片 -->
+        <el-card class="detail-section" v-if="selectedTask.status === 'completed' && taskDetailResults">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">结果信息</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">求解时间：</span>
+              <span class="detail-value">{{ taskDetailResults.runtime ? taskDetailResults.runtime.toFixed(2) + 's' : selectedTask.solveTime || '--' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">最优目标值：</span>
+              <span class="detail-value highlight">{{ selectedTask.bestValue || '--' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">候选解数量：</span>
+              <span class="detail-value">{{ taskDetailResults.candidates ? taskDetailResults.candidates.length : 0 }}</span>
+            </div>
+          </div>
+
+          <!-- 候选解列表 -->
+          <div class="candidates-list">
+            <div class="candidates-header">候选解详情</div>
+            <div v-for="(candidate, index) in taskDetailResults.candidates" :key="index" class="candidate-item">
+              <div class="candidate-header">
+                <span class="candidate-rank">候选解 {{ candidate.rank || (index + 1) }}</span>
+                <span class="candidate-value">目标值：{{ candidate.value }}</span>
+              </div>
+              <div class="candidate-solution">
+                <span class="solution-label">解向量：</span>
+                <span class="solution-value">{{ JSON.stringify(candidate.solution) }}</span>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 失败信息 -->
+        <el-card class="detail-section" v-if="selectedTask.status === 'failed' || selectedTask.status === 'cancelled'">
+          <template #header>
+            <div class="detail-header">
+              <span class="detail-title">{{ selectedTask.status === 'failed' ? '失败信息' : '取消信息' }}</span>
+            </div>
+          </template>
+          <div class="detail-content">
+            <div class="detail-row">
+              <span class="detail-label">消息：</span>
+              <span class="detail-value">{{ selectedTask.message || '无详细信息' }}</span>
+            </div>
+          </div>
+        </el-card>
+      </div>
+
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="exportTaskDetail" v-if="selectedTask && selectedTask.status === 'completed'">导出结果</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { submitTask, getTaskStatus, cancelTask, getTaskHistory } from '../api/index.js'
+import { submitTask, getTaskStatus, cancelTask, getTaskHistory, deleteTask } from '../api/index.js'
+import { ElMessageBox } from 'element-plus'
 import MaxCutGraph from '../components/MaxCutGraph.vue'
 
 // 响应式数据
@@ -194,6 +326,11 @@ const fileInput = ref(null)
 
 // 任务历史
 const taskHistory = ref([])
+
+// 任务详情对话框
+const detailDialogVisible = ref(false)
+const selectedTask = ref(null)
+const taskDetailResults = ref(null)
 
 // 图形可视化数据
 const nodes = ref([])
@@ -530,14 +667,25 @@ const pollTaskStatus = async (taskId, startTime) => {
           }))
           console.log("更新候选结果:", candidates.value)
           
-          // 更新图形分区显示
+          // 更新图形分区显示 - 将解向量转换为两种颜色的分区
           if (resultCandidates[0].solution) {
             const solution = resultCandidates[0].solution
             const newPartition = {}
+            
+            // 后端可能返回 1/-1 或 0/1，统一转换为 0/1
             solution.forEach((value, index) => {
-              newPartition[index] = value
+              // 如果值是 -1，转换为 0；如果是 1，保持为 1
+              // 如果已经是 0/1，直接使用
+              if (value === -1 || value === 0) {
+                newPartition[index] = 0  // 第一个分区（红色）
+              } else if (value === 1) {
+                newPartition[index] = 1  // 第二个分区（蓝绿色）
+              }
             })
+            
             partition.value = newPartition
+            console.log("分区结果:", newPartition)
+            addLog(`图着色完成：${Object.values(newPartition).filter(v => v === 0).length} 个节点在分区A（红色），${Object.values(newPartition).filter(v => v === 1).length} 个节点在分区B（蓝绿色）`)
           }
           
           // 任务状态已更新到数据库，刷新任务历史
@@ -714,6 +862,78 @@ const formatDate = (timestamp) => {
   return `${date.toLocaleDateString('zh-CN')} ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
 }
 
+// 删除任务
+const handleDeleteTask = async (row) => {
+  try {
+    await ElMessageBox.confirm('确定删除该任务吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+
+    const response = await deleteTask(row.taskId)
+    if (response.success) {
+      addLog(`任务已删除: ${row.taskId}`)
+      loadTaskHistory()
+    } else {
+      addLog(`删除任务失败: ${response.message}`)
+    }
+  } catch (error) {
+    // 用户取消删除或删除失败
+    if (error !== 'cancel') {
+      console.error('删除任务失败:', error)
+      addLog(`删除任务失败: ${error.message || '未知错误'}`)
+    }
+  }
+}
+
+// 查看任务详情
+const handleViewTaskDetail = async (row) => {
+  try {
+    selectedTask.value = row
+    detailDialogVisible.value = true
+    
+    // 如果任务已完成，获取详细结果
+    if (row.status === 'completed') {
+      const statusResponse = await getTaskStatus(row.taskId)
+      if (statusResponse.results) {
+        taskDetailResults.value = statusResponse.results
+      }
+    } else {
+      taskDetailResults.value = null
+    }
+  } catch (error) {
+    console.error('获取任务详情失败:', error)
+    addLog(`获取任务详情失败: ${error.message}`)
+  }
+}
+
+// 导出任务详情
+const exportTaskDetail = () => {
+  if (!selectedTask.value) return
+  
+  const data = {
+    taskInfo: {
+      taskId: selectedTask.value.taskId,
+      taskName: selectedTask.value.taskName,
+      problemType: 'maxcut',
+      modelType: selectedTask.value.modelType,
+      matrixSize: selectedTask.value.matrixSize,
+      timestamp: selectedTask.value.timestamp,
+      status: selectedTask.value.status
+    },
+    results: taskDetailResults.value
+  }
+  
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `task-${selectedTask.value.taskId}-detail.json`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 onMounted(() => {
   generateMatrix()
   // 异步加载任务历史
@@ -859,8 +1079,42 @@ onMounted(() => {
   border-radius: 8px;
   background: #FAFBFC;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.graph-legend {
+  display: flex;
+  gap: 20px;
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.legend-edge {
+  width: 30px;
+  height: 3px;
+  border-radius: 2px;
 }
 
 .graph-placeholder {
@@ -956,7 +1210,9 @@ onMounted(() => {
 }
 
 .candidates {
-  space-y: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .candidate {
@@ -1004,5 +1260,132 @@ onMounted(() => {
   margin: 0; 
   color: #292929; 
   font-weight: 600; 
+}
+
+/* 任务详情弹窗样式 */
+.task-detail {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.detail-section {
+  margin-bottom: 16px;
+  border-radius: 12px;
+  border: 1px solid #E6EAF5;
+}
+
+.detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-title {
+  font-weight: 600;
+  color: #292929;
+  font-size: 16px;
+}
+
+.detail-content {
+  padding: 8px 0;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #F6F7FA;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  min-width: 120px;
+  color: #8C8FA3;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #292929;
+  font-size: 14px;
+  word-break: break-all;
+}
+
+.detail-value.highlight {
+  color: #4050F8;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* 候选解列表样式 */
+.candidates-list {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #E6EAF5;
+}
+
+.candidates-header {
+  font-weight: 600;
+  color: #292929;
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+
+.candidate-item {
+  background: #F6F7FA;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.candidate-item:last-child {
+  margin-bottom: 0;
+}
+
+.candidate-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.candidate-rank {
+  font-weight: 500;
+  color: #292929;
+  font-size: 14px;
+}
+
+.candidate-value {
+  color: #4050F8;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.candidate-solution {
+  display: flex;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.solution-label {
+  color: #8C8FA3;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.solution-value {
+  color: #666;
+  word-break: break-all;
+  font-family: 'Courier New', monospace;
+  background: #FFFFFF;
+  padding: 4px 8px;
+  border-radius: 4px;
 }
 </style> 
