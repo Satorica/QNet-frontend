@@ -1,278 +1,311 @@
-import axios from 'axios'
+import axios from "axios";
+
+const isDev = import.meta.env.DEV;
+const prodApiBaseURL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+const runtimeBaseURL = isDev ? "" : prodApiBaseURL;
 
 // 服务器配置
 const SERVERS = {
   cloud: {
-    baseURL: 'http://120.55.188.36:8085',
-    name: '云服务器',
-    type: 'cloud'
+    baseURL: runtimeBaseURL,
+    name: "云服务器",
+    type: "cloud",
   },
   local: {
-    baseURL: 'http://120.55.188.36:8085',
-    name: '本地服务器',
-    type: 'local'
-  }
-}
+    baseURL: runtimeBaseURL,
+    name: "本地服务器",
+    type: "local",
+  },
+};
 
 // 创建云服务器 axios 实例
 const cloudApi = axios.create({
   baseURL: SERVERS.cloud.baseURL,
   timeout: 30000,
   headers: {
-    'Content-Type': 'application/json'
-  }
-})
+    "Content-Type": "application/json",
+  },
+});
 
 // 创建本地服务器 axios 实例
 const localApi = axios.create({
   baseURL: SERVERS.local.baseURL,
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json'
-  }
-})
+    "Content-Type": "application/json",
+  },
+});
 
 // 服务器状态
 let serverStatus = {
   cloud: { online: true, lastCheck: 0 },
-  local: { online: true, lastCheck: 0 }
-}
+  local: { online: true, lastCheck: 0 },
+};
 
 // 统一读取 token（支持 sessionStorage 与 localStorage）
 const getStoredToken = () => {
-  return sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken')
-}
+  return (
+    sessionStorage.getItem("accessToken") || localStorage.getItem("accessToken")
+  );
+};
 
 // 请求拦截器 - 云服务器
 cloudApi.interceptors.request.use(
-  config => {
-    console.log('发送请求到云服务器:', config.method?.toUpperCase(), config.url)
+  (config) => {
+    console.log(
+      "发送请求到云服务器:",
+      config.method?.toUpperCase(),
+      config.url,
+    );
 
     // 添加token到请求头
-    const token = getStoredToken()
+    const token = getStoredToken();
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
-    return config
+    return config;
   },
-  error => {
-    console.error('云服务器请求错误:', error)
-    return Promise.reject(error)
-  }
-)
+  (error) => {
+    console.error("云服务器请求错误:", error);
+    return Promise.reject(error);
+  },
+);
 
 // 请求拦截器 - 本地服务器
 localApi.interceptors.request.use(
-  config => {
-    console.log('发送请求到本地服务器:', config.method?.toUpperCase(), config.url)
+  (config) => {
+    console.log(
+      "发送请求到本地服务器:",
+      config.method?.toUpperCase(),
+      config.url,
+    );
 
     // 添加token到请求头
-    const token = getStoredToken()
+    const token = getStoredToken();
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
-    return config
+    return config;
   },
-  error => {
-    console.error('本地服务器请求错误:', error)
-    return Promise.reject(error)
-  }
-)
+  (error) => {
+    console.error("本地服务器请求错误:", error);
+    return Promise.reject(error);
+  },
+);
 
 // 响应拦截器 - 云服务器
 cloudApi.interceptors.response.use(
-  response => {
-    console.log('收到云服务器响应:', response.status, response.config.url)
-    serverStatus.cloud.online = true
-    serverStatus.cloud.lastCheck = Date.now()
-    return response
+  (response) => {
+    console.log("收到云服务器响应:", response.status, response.config.url);
+    serverStatus.cloud.online = true;
+    serverStatus.cloud.lastCheck = Date.now();
+    return response;
   },
-  error => {
-    console.error('云服务器响应错误:', error.response?.status, error.response?.data?.message || error.message)
-    serverStatus.cloud.online = false
-    serverStatus.cloud.lastCheck = Date.now()
+  (error) => {
+    console.error(
+      "云服务器响应错误:",
+      error.response?.status,
+      error.response?.data?.message || error.message,
+    );
+    serverStatus.cloud.online = false;
+    serverStatus.cloud.lastCheck = Date.now();
 
     // 处理token过期
     if (error.response?.status === 401) {
-      handleTokenExpired()
+      handleTokenExpired();
     }
 
-    return Promise.reject(error)
-  }
-)
+    return Promise.reject(error);
+  },
+);
 
 // 响应拦截器 - 本地服务器
 localApi.interceptors.response.use(
-  response => {
-    console.log('收到本地服务器响应:', response.status, response.config.url)
-    serverStatus.local.online = true
-    serverStatus.local.lastCheck = Date.now()
-    return response
+  (response) => {
+    console.log("收到本地服务器响应:", response.status, response.config.url);
+    serverStatus.local.online = true;
+    serverStatus.local.lastCheck = Date.now();
+    return response;
   },
-  error => {
-    console.error('本地服务器响应错误:', error.response?.status, error.response?.data?.message || error.message)
-    serverStatus.local.online = false
-    serverStatus.local.lastCheck = Date.now()
+  (error) => {
+    console.error(
+      "本地服务器响应错误:",
+      error.response?.status,
+      error.response?.data?.message || error.message,
+    );
+    serverStatus.local.online = false;
+    serverStatus.local.lastCheck = Date.now();
 
     // 处理token过期
     if (error.response?.status === 401) {
-      handleTokenExpired()
+      handleTokenExpired();
     }
 
-    return Promise.reject(error)
-  }
-)
+    return Promise.reject(error);
+  },
+);
 
 // 处理token过期
 const handleTokenExpired = () => {
   // 清除本地存储的认证信息
-  localStorage.removeItem('accessToken')
-  localStorage.removeItem('refreshToken')
-  localStorage.removeItem('userInfo')
-  localStorage.removeItem('isLoggedIn')
+  localStorage.removeItem("accessToken");
+  localStorage.removeItem("refreshToken");
+  localStorage.removeItem("userInfo");
+  localStorage.removeItem("isLoggedIn");
 
   // 跳转到登录页面
-  if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-    window.location.href = '/login'
+  if (
+    window.location.pathname !== "/login" &&
+    window.location.pathname !== "/register"
+  ) {
+    window.location.href = "/login";
   }
-}
+};
 
 // 检查服务器状态
 export const checkServerStatus = async () => {
-  const status = { cloud: false, local: false }
+  const status = { cloud: false, local: false };
 
   try {
-    const cloudResponse = await cloudApi.get('/api/server-status')
-    status.cloud = cloudResponse.data.success
+    const cloudResponse = await cloudApi.get("/api/server-status");
+    status.cloud = cloudResponse.data.success;
   } catch (error) {
-    console.warn('云服务器不可用:', error.message)
-    status.cloud = false
+    console.warn("云服务器不可用:", error.message);
+    status.cloud = false;
   }
 
   try {
-    const localResponse = await localApi.get('/api/server-status')
-    status.local = localResponse.data.success
+    const localResponse = await localApi.get("/api/server-status");
+    status.local = localResponse.data.success;
   } catch (error) {
-    console.warn('本地服务器不可用:', error.message)
-    status.local = false
+    console.warn("本地服务器不可用:", error.message);
+    status.local = false;
   }
 
-  serverStatus.cloud.online = status.cloud
-  serverStatus.local.online = status.local
-  serverStatus.cloud.lastCheck = Date.now()
-  serverStatus.local.lastCheck = Date.now()
+  serverStatus.cloud.online = status.cloud;
+  serverStatus.local.online = status.local;
+  serverStatus.cloud.lastCheck = Date.now();
+  serverStatus.local.lastCheck = Date.now();
 
-  return status
-}
+  return status;
+};
 
 // 智能提交任务 - 优先使用云服务器进行队列管理
 export const submitTask = async (taskData) => {
   try {
     // 首先尝试云服务器（推荐方式）
     if (serverStatus.cloud.online) {
-      console.log('使用云服务器提交任务')
-      const response = await cloudApi.post('/api/submit-task', taskData)
+      console.log("使用云服务器提交任务");
+      const response = await cloudApi.post("/api/submit-task", taskData);
       return {
         ...response.data,
-        serverType: 'cloud',
-        usePolling: true // 云服务器需要轮询状态
-      }
+        serverType: "cloud",
+        usePolling: true, // 云服务器需要轮询状态
+      };
     }
 
     // 云服务器不可用时，直接使用本地服务器
     if (serverStatus.local.online) {
-      console.log('云服务器不可用，直接使用本地服务器')
-      const response = await localApi.post('/api/submit-task', taskData)
+      console.log("云服务器不可用，直接使用本地服务器");
+      const response = await localApi.post("/api/submit-task", taskData);
       return {
         ...response.data,
-        serverType: 'local',
-        usePolling: false // 本地服务器直接返回结果
-      }
+        serverType: "local",
+        usePolling: false, // 本地服务器直接返回结果
+      };
     }
 
-    throw new Error('所有服务器都不可用')
+    throw new Error("所有服务器都不可用");
   } catch (error) {
     // 如果云服务器失败，尝试本地服务器
-    if (error.message.includes('云服务器') || error.code === 'ECONNREFUSED') {
+    if (error.message.includes("云服务器") || error.code === "ECONNREFUSED") {
       try {
-        console.log('云服务器失败，尝试本地服务器')
-        const response = await localApi.post('/api/submit-task', taskData)
+        console.log("云服务器失败，尝试本地服务器");
+        const response = await localApi.post("/api/submit-task", taskData);
         return {
           ...response.data,
-          serverType: 'local',
-          usePolling: false
-        }
+          serverType: "local",
+          usePolling: false,
+        };
       } catch (localError) {
-        throw new Error('所有服务器都不可用')
+        throw new Error("所有服务器都不可用");
       }
     }
-    throw error
+    throw error;
   }
-}
+};
 
 // 获取任务状态（仅用于云服务器）
 export const getTaskStatus = async (taskId) => {
   try {
-    const response = await cloudApi.get(`/api/task-status/${taskId}`)
-    return response.data
+    const response = await cloudApi.get(`/api/task-status/${taskId}`);
+    return response.data;
   } catch (error) {
-    throw error
+    throw error;
   }
-}
+};
 
 // 取消任务（仅用于云服务器）
 export const cancelTask = async (taskId) => {
   try {
-    const response = await cloudApi.post(`/api/cancel-task/${taskId}`)
-    return response.data
+    const response = await cloudApi.post(`/api/cancel-task/${taskId}`);
+    return response.data;
   } catch (error) {
-    throw error
+    throw error;
   }
-}
+};
 
 // 获取服务器状态信息
 export const getServerStatus = () => {
-  return { ...serverStatus }
-}
+  return { ...serverStatus };
+};
 
 // 获取任务历史
-export const getTaskHistory = async (problemType = null, page = 1, pageSize = 50) => {
+export const getTaskHistory = async (
+  problemType = null,
+  page = 1,
+  pageSize = 50,
+) => {
   try {
     const params = {
       page,
-      pageSize
-    }
+      pageSize,
+    };
     if (problemType) {
-      params.problemType = problemType
+      params.problemType = problemType;
     }
-    const response = await cloudApi.get('/api/tasks/history', { params })
-    return response.data
+    const response = await cloudApi.get("/api/tasks/history", { params });
+    return response.data;
   } catch (error) {
-    throw error
+    throw error;
   }
-}
+};
 
 // 清理任务（可选，管理员功能）
 export const cleanupTasks = async (retentionDays = 30) => {
   try {
-    const response = await cloudApi.post('/api/tasks/cleanup', { retentionDays })
-    return response.data
+    const response = await cloudApi.post("/api/tasks/cleanup", {
+      retentionDays,
+    });
+    return response.data;
   } catch (error) {
-    throw error
+    throw error;
   }
-}
+};
 
 export const deleteTask = async (taskId) => {
   try {
-    const response = await cloudApi.post(`/api/tasks/delete/${taskId}`, { taskId })
-    return response.data
+    const response = await cloudApi.post(`/api/tasks/delete/${taskId}`, {
+      taskId,
+    });
+    return response.data;
   } catch (error) {
-    throw error
+    throw error;
   }
-}
+};
 
 // 导出API实例以备直接使用
-export { cloudApi, localApi }
-export default cloudApi 
+export { cloudApi, localApi };
+export default cloudApi;
