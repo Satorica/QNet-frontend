@@ -16,27 +16,38 @@
         <div class="time">{{ currentTime }}</div>
         <div class="date">{{ currentDate }}</div>
       </div>
-      
+
       <!-- 用户信息和菜单 -->
       <el-dropdown v-if="isLoggedIn" @command="handleCommand" trigger="click">
         <div class="user-info">
           <div class="avatar">
-            {{ userInfo?.username?.charAt(0).toUpperCase() || 'U' }}
+            {{ userInfo?.username?.charAt(0).toUpperCase() || "U" }}
           </div>
-          <span class="username">{{ userInfo?.username || $t('topbar.userInfo.notLoggedIn') }}</span>
+          <span class="username">{{
+            userInfo?.username || $t("topbar.userInfo.notLoggedIn")
+          }}</span>
         </div>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item disabled>
               <div class="user-details">
-                <div><strong>{{ $t('topbar.userInfo.username') }}:</strong> {{ userInfo?.username }}</div>
-                <div v-if="userInfo?.email"><strong>{{ $t('topbar.userInfo.email') }}:</strong> {{ userInfo?.email }}</div>
-                <div v-if="userInfo?.phone"><strong>{{ $t('topbar.userInfo.phone') }}:</strong> {{ userInfo?.phone }}</div>
+                <div>
+                  <strong>{{ $t("topbar.userInfo.username") }}:</strong>
+                  {{ userInfo?.username }}
+                </div>
+                <div v-if="userInfo?.email">
+                  <strong>{{ $t("topbar.userInfo.email") }}:</strong>
+                  {{ userInfo?.email }}
+                </div>
+                <div v-if="userInfo?.phone">
+                  <strong>{{ $t("topbar.userInfo.phone") }}:</strong>
+                  {{ userInfo?.phone }}
+                </div>
               </div>
             </el-dropdown-item>
             <el-dropdown-item divided command="logout">
               <el-icon><SwitchButton /></el-icon>
-              <span>{{ $t('topbar.logout') }}</span>
+              <span>{{ $t("topbar.logout") }}</span>
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -44,106 +55,136 @@
 
       <!-- 未登录时显示 -->
       <div v-else class="login-prompt">
-        <el-button type="primary" size="small" @click="goToLogin">{{ $t('topbar.login') }}</el-button>
+        <el-button type="primary" size="small" @click="goToLogin">{{
+          $t("topbar.login")
+        }}</el-button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { SwitchButton } from '@element-plus/icons-vue'
-import { useI18n } from 'vue-i18n'
-import { userManager } from '../utils/auth.js'
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useRouter } from "vue-router";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { SwitchButton } from "@element-plus/icons-vue";
+import { useI18n } from "vue-i18n";
+import { userManager } from "../utils/auth.js";
+import { checkTaskName } from "../api/index.js";
 
-const router = useRouter()
-const { t } = useI18n()
-const taskName = ref('')
-const currentTime = ref('')
-const currentDate = ref('')
-let timer = null
+const router = useRouter();
+const { t } = useI18n();
+const taskName = ref("");
+const currentTime = ref("");
+const currentDate = ref("");
+let timer = null;
 
 // 获取用户信息和登录状态
-const userInfo = computed(() => userManager.getUserInfo())
-const isLoggedIn = computed(() => userManager.isLoggedIn())
+const userInfo = computed(() => userManager.getUserInfo());
+const isLoggedIn = computed(() => userManager.isLoggedIn());
 
 const updateClock = () => {
-  const now = new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  
-  currentTime.value = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
-  
-  const days = t('topbar.weekdays', { returnObjects: true })
-  currentDate.value = `${days[now.getDay()]} ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-}
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
 
-const handleOk = () => {
-  if (taskName.value.trim()) {
-    console.log('创建任务:', taskName.value)
-    // 触发任务创建事件
-    // emit('create-task', taskName.value)
-    taskName.value = ''
+  currentTime.value = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(
+    now.getSeconds()
+  )}`;
+
+  const days = t("topbar.weekdays", { returnObjects: true });
+  currentDate.value = `${days[now.getDay()]} ${now.getFullYear()}-${pad(
+    now.getMonth() + 1
+  )}-${pad(now.getDate())}`;
+};
+
+const handleOk = async () => {
+  const name = taskName.value.trim();
+
+  if (!name) {
+    ElMessage.warning("请输入任务名称");
+    return;
   }
-}
+
+  try {
+    await checkTaskName(name);
+    ElMessage.success("任务名称可用");
+
+    // 这里保存“当前待使用的自定义名称”
+    // 比如 customTaskName.value = name
+  } catch (error) {
+    const status = error.response?.status;
+    const message = error.response?.data?.message || "检查任务名称失败";
+
+    if (status === 400) {
+      ElMessage.error(message); // 任务名称已存在 / 名称为空
+      return;
+    }
+
+    if (status === 401) {
+      ElMessage.error("请先登录");
+      return;
+    }
+
+    ElMessage.error(message);
+  }
+};
 
 // 处理下拉菜单命令
 const handleCommand = async (command) => {
-  if (command === 'logout') {
+  if (command === "logout") {
     try {
       await ElMessageBox.confirm(
-        t('topbar.confirmLogout'),
-        t('topbar.logout'),
+        t("topbar.confirmLogout"),
+        t("topbar.logout"),
         {
-          confirmButtonText: t('common.confirm'),
-          cancelButtonText: t('common.cancel'),
-          type: 'warning'
+          confirmButtonText: t("common.confirm"),
+          cancelButtonText: t("common.cancel"),
+          type: "warning",
         }
-      )
-      
+      );
+
       // 执行退出
-      await userManager.logout()
-      ElMessage.success(t('topbar.messages.logoutSuccess'))
-      
+      await userManager.logout();
+      ElMessage.success(t("topbar.messages.logoutSuccess"));
+
       // 跳转到登录页
-      router.push('/login')
+      router.push("/login");
     } catch (error) {
-      if (error !== 'cancel') {
-        console.error('Logout error:', error)
+      if (error !== "cancel") {
+        console.error("Logout error:", error);
       }
     }
   }
-}
+};
 
 // 跳转到登录页
 const goToLogin = () => {
-  router.push('/login')
-}
+  router.push("/login");
+};
 
 onMounted(() => {
-  updateClock()
-  timer = setInterval(updateClock, 1000)
-})
+  updateClock();
+  timer = setInterval(updateClock, 1000);
+});
 
 onUnmounted(() => {
   if (timer) {
-    clearInterval(timer)
+    clearInterval(timer);
   }
-})
+});
 </script>
 
 <style scoped>
 .topbar {
   height: 70px;
-  background: #FFFFFF;
+  background: #ffffff;
   border-radius: 16px;
   padding: 0 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   box-shadow: 0 4px 12px rgba(9, 30, 66, 0.08);
-  border: 1px solid #E6EAF5;
+  border: 1px solid #e6eaf5;
 }
 
 .task-input {
@@ -170,7 +211,7 @@ onUnmounted(() => {
 
 .date {
   font-size: 12px;
-  color: #8C8FA3;
+  color: #8c8fa3;
   margin-top: 2px;
 }
 
@@ -185,14 +226,14 @@ onUnmounted(() => {
 }
 
 .user-info:hover {
-  background: #F5F7FA;
+  background: #f5f7fa;
 }
 
 .avatar {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4050F8, #7848E8);
+  background: linear-gradient(135deg, #4050f8, #7848e8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -236,7 +277,7 @@ onUnmounted(() => {
 }
 
 :deep(.el-dropdown-menu__item:not(.is-disabled):hover) {
-  background-color: #F5F7FA;
-  color: #4050F8;
+  background-color: #f5f7fa;
+  color: #4050f8;
 }
 </style> 

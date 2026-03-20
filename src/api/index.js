@@ -1,7 +1,10 @@
 import axios from "axios";
 
 const isDev = import.meta.env.DEV;
-const prodApiBaseURL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/+$/, "");
+const prodApiBaseURL = (import.meta.env.VITE_API_BASE_URL || "").replace(
+  /\/+$/,
+  "",
+);
 const runtimeBaseURL = isDev ? "" : prodApiBaseURL;
 
 // 服务器配置
@@ -255,6 +258,14 @@ export const cancelTask = async (taskId) => {
   } catch (error) {
     throw error;
   }
+};
+
+//  查询任务名称是否重复
+export const checkTaskName = async (taskName) => {
+  const response = await cloudApi.post("/api/tasks/check-name", {
+    taskName,
+  });
+  return response.data;
 };
 
 // 获取服务器状态信息
