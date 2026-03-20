@@ -341,6 +341,9 @@ import { ref, computed, watch } from 'vue'
 import { submitTask, getTaskStatus, cancelTask as cancelTaskAPI, getTaskHistory, deleteTask } from '../api/index.js'
 import { ElMessageBox } from 'element-plus'
 import ColoringGraph from '../components/ColoringGraph.vue'
+import { useCustomTaskName } from '../composables/customTaskName.js'
+
+const { customTaskName, clearCustomTaskName } = useCustomTaskName()
 
 // 响应式数据
 const nodeCount = ref(8)
@@ -798,7 +801,7 @@ const submitSolve = async () => {
   try {
     // 准备任务数据
     const taskData = {
-      taskName: `Coloring_${Date.now()}`,
+      taskName: customTaskName.value || `Coloring_${Date.now()}`,
       modelType: solveType.value,
       problemType: 'coloring',
       matrixSize: nodeCount.value,
@@ -811,6 +814,7 @@ const submitSolve = async () => {
     const submitResponse = await submitTask(taskData)
     
     if (submitResponse.success) {
+      clearCustomTaskName()
       currentTaskId.value = submitResponse.taskId
       addLog(`任务已提交，ID: ${submitResponse.taskId}`)
       
@@ -823,6 +827,7 @@ const submitSolve = async () => {
     }
     
   } catch (error) {
+    clearCustomTaskName()
     console.error('求解失败:', error)
     addLog(`求解失败: ${error.message}`)
     statusClass.value = 'status-fail'

@@ -313,6 +313,9 @@
 import { ref, computed } from 'vue'
 import { submitTask, getTaskStatus, cancelTask, getTaskHistory, deleteTask } from '../api/index.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useCustomTaskName } from '../composables/customTaskName.js'
+
+const { customTaskName, clearCustomTaskName } = useCustomTaskName()
 
 // 响应式数据
 const numberInput = ref('')
@@ -417,7 +420,7 @@ const startSolve = async () => {
   try {
     // 准备任务数据
     const taskData = {
-      taskName: `NumberPartition_${Date.now()}`,
+      taskName: customTaskName.value || `NumberPartition_${Date.now()}`,
       problemType: 'number_partition',
       modelType: solveType.value, // classic | sim | cloud
       matrixSize: numbers.value.length,
@@ -428,6 +431,7 @@ const startSolve = async () => {
     const submitResponse = await submitTask(taskData)
     
     if (submitResponse.success) {
+      clearCustomTaskName()
       currentTaskId.value = submitResponse.taskId
       addLog(`任务已提交，ID: ${submitResponse.taskId}`)
       
@@ -440,6 +444,7 @@ const startSolve = async () => {
     }
     
   } catch (error) {
+    clearCustomTaskName()
     statusClass.value = 'status-fail'
     statusText.value = '求解失败'
     addLog('求解失败：' + error.message)

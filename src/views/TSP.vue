@@ -313,6 +313,9 @@ import { ref, computed } from 'vue'
 import TSPGraph from '../components/TSPGraph.vue'
 import { submitTask, getTaskStatus, cancelTask, getTaskHistory, deleteTask } from '../api/index.js'
 import { ElMessageBox } from 'element-plus'
+import { useCustomTaskName } from '../composables/customTaskName.js'
+
+const { customTaskName, clearCustomTaskName } = useCustomTaskName()
 
 // 响应式数据
 const cityCount = ref(8)
@@ -905,7 +908,7 @@ const submitSolve = async () => {
     const start = Date.now()
 
     const payload = {
-      taskName: `TSP_${Date.now()}`,
+      taskName: customTaskName.value || `TSP_${Date.now()}`,
       problemType: 'tsp',
       modelType: solveType.value, // classic | sim | cloud
       algorithm: algorithm.value,
@@ -916,6 +919,7 @@ const submitSolve = async () => {
 
     const res = await submitTask(payload)
     if (res?.success) {
+      clearCustomTaskName()
       currentTaskId.value = res.taskId
       addLog(`任务已提交，ID: ${res.taskId}`)
       
@@ -927,6 +931,7 @@ const submitSolve = async () => {
       throw new Error(res?.message || '提交失败')
     }
   } catch (e) {
+    clearCustomTaskName()
     statusClass.value = 'status-fail'
     statusText.value = '提交失败'
     addLog('提交失败：' + e.message)

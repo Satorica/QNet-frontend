@@ -64,20 +64,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
-import { useRouter } from "vue-router";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
+import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { SwitchButton } from "@element-plus/icons-vue";
 import { useI18n } from "vue-i18n";
 import { userManager } from "../utils/auth.js";
 import { checkTaskName } from "../api/index.js";
+import { useCustomTaskName } from "../composables/customTaskName.js";
 
 const router = useRouter();
+const route = useRoute();
 const { t } = useI18n();
 const taskName = ref("");
 const currentTime = ref("");
 const currentDate = ref("");
 let timer = null;
+
+const { setCustomTaskName, customTaskName, clearCustomTaskName } =
+  useCustomTaskName();
 
 // 获取用户信息和登录状态
 const userInfo = computed(() => userManager.getUserInfo());
@@ -103,10 +108,9 @@ const handleOk = async () => {
   if (name) {
     try {
       await checkTaskName(name);
-      ElMessage.success("任务名称可用");
-
-      // 这里保存“当前待使用的自定义名称”
-      // 比如 customTaskName.value = name
+      setCustomTaskName(name);
+      taskName.value = name;
+      ElMessage.success("任务名称已保存");
     } catch (error) {
       const status = error.response?.status;
       const message = error.response?.data?.message || "检查任务名称失败";
@@ -125,6 +129,21 @@ const handleOk = async () => {
     }
   }
 };
+
+watch(
+  () => route.path,
+  () => {
+    clearCustomTaskName();
+  }
+);
+watch(
+  () => customTaskName.value,
+  (value) => {
+    if (!value) {
+      taskName.value = "";
+    }
+  }
+);
 
 // 处理下拉菜单命令
 const handleCommand = async (command) => {

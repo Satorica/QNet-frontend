@@ -304,6 +304,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { submitTask, getTaskStatus, cancelTask, getTaskHistory, deleteTask } from '../api/index.js'
 import { ElMessageBox } from 'element-plus'
 import MaxCutGraph from '../components/MaxCutGraph.vue'
+import { useCustomTaskName } from '../composables/customTaskName.js'
+
+const { customTaskName, clearCustomTaskName } = useCustomTaskName()
 
 // 响应式数据
 const solveType = ref('classic')
@@ -605,7 +608,7 @@ const startSolve = async () => {
   try {
     // 准备任务数据
     const taskData = {
-      taskName: `MaxCut_${Date.now()}`,
+      taskName: customTaskName.value || `MaxCut_${Date.now()}`,
       modelType: solveType.value,
       problemType: 'maxcut',
       matrixSize: matrixSize.value,
@@ -616,6 +619,7 @@ const startSolve = async () => {
     const submitResponse = await submitTask(taskData)
     
     if (submitResponse.success) {
+      clearCustomTaskName()
       currentTaskId.value = submitResponse.taskId
       addLog(`任务已提交，ID: ${submitResponse.taskId}`)
       
@@ -628,6 +632,7 @@ const startSolve = async () => {
     }
     
   } catch (error) {
+    clearCustomTaskName()
     stateClass.value = 'state-fail'
     stateText.value = '求解失败'
     addLog('求解失败: ' + error.message)
