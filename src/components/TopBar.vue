@@ -100,32 +100,29 @@ const updateClock = () => {
 const handleOk = async () => {
   const name = taskName.value.trim();
 
-  if (!name) {
-    ElMessage.warning("请输入任务名称");
-    return;
-  }
+  if (name) {
+    try {
+      await checkTaskName(name);
+      ElMessage.success("任务名称可用");
 
-  try {
-    await checkTaskName(name);
-    ElMessage.success("任务名称可用");
+      // 这里保存“当前待使用的自定义名称”
+      // 比如 customTaskName.value = name
+    } catch (error) {
+      const status = error.response?.status;
+      const message = error.response?.data?.message || "检查任务名称失败";
 
-    // 这里保存“当前待使用的自定义名称”
-    // 比如 customTaskName.value = name
-  } catch (error) {
-    const status = error.response?.status;
-    const message = error.response?.data?.message || "检查任务名称失败";
+      if (status === 400) {
+        ElMessage.error(message); // 任务名称已存在 / 名称为空
+        return;
+      }
 
-    if (status === 400) {
-      ElMessage.error(message); // 任务名称已存在 / 名称为空
-      return;
+      if (status === 401) {
+        ElMessage.error("请先登录");
+        return;
+      }
+
+      ElMessage.error(message);
     }
-
-    if (status === 401) {
-      ElMessage.error("请先登录");
-      return;
-    }
-
-    ElMessage.error(message);
   }
 };
 
