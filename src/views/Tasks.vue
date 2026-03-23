@@ -43,7 +43,7 @@
         style="width: 100%"
         table-layout="fixed"
         stripe
-        v-loading="loading"
+        v-loading="historyLoading"
         size="large"
       >
         <el-table-column
@@ -333,7 +333,7 @@ const total = ref(0);
 const taskDetailVisible = ref(false);
 const selectedTask = ref(null);
 const taskDetailResults = ref(null);
-const loading = ref(false);
+const historyLoading = ref(false);
 const modelTypeOptions = ["classic", "sim", "cloud"];
 
 // 方法
@@ -346,7 +346,7 @@ const loadTasks = async (params = {}) => {
   };
 
   try {
-    loading.value = true;
+    historyLoading.value = true;
     const response = await getTaskHistory(requestParams);
 
     if (response.success && response.data) {
@@ -364,7 +364,7 @@ const loadTasks = async (params = {}) => {
     total.value = 0;
     ElMessage.error("加载任务失败");
   } finally {
-    loading.value = false;
+    historyLoading.value = false;
   }
 };
 

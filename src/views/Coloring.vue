@@ -191,38 +191,73 @@
       <template #header>
         <div class="history-header">
           <h3>任务历史</h3>
-          <el-button size="small" @click="clearHistory">清空历史</el-button>
+          <div class="history-actions">
+            <el-input
+              v-model="historyTaskName"
+              placeholder="请输入任务名称"
+              style="width: 220px"
+              clearable
+              @keyup.enter="handleHistorySearch"
+            />
+            <el-button type="primary" @click="handleHistorySearch">确定</el-button>
+            <el-button @click="handleHistoryReset">重置</el-button>
+          </div>
         </div>
       </template>
-      <el-table :data="taskHistory" stripe style="width: 100%">
-        <el-table-column prop="taskName" label="任务名" width="200" />
-        <el-table-column prop="modelType" label="模型" width="150">
+      <el-table
+        class="history-table"
+        :data="taskHistory"
+        row-key="taskId"
+        stripe
+        table-layout="fixed"
+        style="width: 100%"
+        v-loading="historyLoading"
+      >
+        <el-table-column prop="taskName" label="任务名" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            <el-link class="task-name-link" type="primary" :underline="false" @click.stop="handleViewTaskDetail(row)">
+              {{ row.taskName }}
+            </el-link>
+          </template>
+        </el-table-column>
+        <el-table-column prop="modelType" label="模型" min-width="150">
           <template #default="{ row }">
             {{ getModelTypeText(row.modelType) }}
           </template>
         </el-table-column>
-        <el-table-column prop="timestamp" label="提交时间" width="180">
+        <el-table-column prop="timestamp" label="提交时间" min-width="170">
           <template #default="{ row }">
             {{ formatDate(row.timestamp) }}
           </template>
         </el-table-column>
-        <el-table-column prop="matrixSize" label="规模" width="80" />
-        <el-table-column prop="status" label="状态" width="120">
+        <el-table-column prop="matrixSize" label="规模" min-width="90" />
+        <el-table-column prop="status" label="状态" min-width="110">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="taskId" label="操作" width="200">
+        <el-table-column prop="taskId" label="操作" width="190" align="center">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleViewTaskDetail(row)">查看详情</el-button>
             <el-button type="danger" size="small" @click="handleDeleteTask(row)">删除</el-button>
           </template>
         </el-table-column>
-        <el-table-column prop="usedColors" label="使用颜色" width="100" />
-        <el-table-column prop="solveTime" label="求解时间" width="120" />
+        <el-table-column prop="usedColors" label="使用颜色" min-width="100" />
+        <el-table-column prop="solveTime" label="求解时间" min-width="110" />
       </el-table>
+      <div class="history-pagination">
+        <el-pagination
+          :current-page="historyCurrentPage"
+          :page-size="historyPageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="historyTotal"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleHistoryPageSizeChange"
+          @current-change="handleHistoryCurrentChange"
+        />
+      </div>
     </el-card>
 
     <!-- 任务详情弹窗 -->
@@ -383,6 +418,11 @@ const currentTaskId = ref(null)
 
 // 任务历史
 const taskHistory = ref([])
+const historyLoading = ref(false)
+const historyTaskName = ref('')
+const historyCurrentPage = ref(1)
+const historyPageSize = ref(10)
+const historyTotal = ref(0)
 
 // 任务详情对话框
 const detailDialogVisible = ref(false)
@@ -717,7 +757,13 @@ const handleDeleteTask = async (row) => {
     const response = await deleteTask(row.taskId)
     if (response.success) {
       addLog(`任务已删除: ${row.taskId}`)
-      loadTaskHistory()
+      const targetPage = taskHistory.value.length === 1 && historyCurrentPage.value > 1
+        ? historyCurrentPage.value - 1
+        : historyCurrentPage.value
+      historyCurrentPage.value = targetPage
+      loadTaskHistory({
+        page: targetPage
+      })
     } else {
       addLog(`删除任务失败: ${response.message}`)
     }
@@ -1086,13 +1132,17 @@ watch(nodeCount, () => {
 })
 
 // 任务历史相关方法
-const loadTaskHistory = async () => {
+const loadTaskHistory = async (params = {}) => {
+  const requestParams = {
+    problemType: 'coloring',
+    page: params.page ?? historyCurrentPage.value,
+    pageSize: params.pageSize ?? historyPageSize.value,
+    taskName: params.taskName ?? historyTaskName.value.trim()
+  }
+
   try {
-    const response = await getTaskHistory({
-      problemType: 'coloring',
-      page: 1,
-      pageSize: 50
-    })
+    historyLoading.value = true
+    const response = await getTaskHistory(requestParams)
     if (response.success && response.data) {
       // 转换后端数据格式为前端格式
       taskHistory.value = response.data.tasks.map(task => ({
@@ -1105,29 +1155,61 @@ const loadTaskHistory = async () => {
         usedColors: task.usedColors || '--',
         solveTime: task.solveTime || '--'
       }))
+      historyTotal.value = response.data.total || 0
     } else {
       taskHistory.value = []
+      historyTotal.value = 0
     }
   } catch (error) {
     console.error('加载任务历史失败:', error)
     addLog('加载任务历史失败: ' + error.message)
     taskHistory.value = []
+    historyTotal.value = 0
+  } finally {
+    historyLoading.value = false
   }
 }
 
-const clearHistory = async () => {
-  // 清空历史只是清空前端显示，实际数据仍在数据库中
-  // 如果需要真正删除，可以调用清理API（需要管理员权限）
-  taskHistory.value = []
-  addLog('已清空本地任务历史显示')
+const handleHistorySearch = () => {
+  historyCurrentPage.value = 1
+  loadTaskHistory({
+    page: 1,
+    taskName: historyTaskName.value.trim()
+  })
+}
+
+const handleHistoryReset = () => {
+  historyTaskName.value = ''
+  historyCurrentPage.value = 1
+  loadTaskHistory({
+    page: 1,
+    pageSize: historyPageSize.value,
+    taskName: ''
+  })
+}
+
+const handleHistoryPageSizeChange = (size) => {
+  historyPageSize.value = size
+  historyCurrentPage.value = 1
+  loadTaskHistory({
+    page: 1,
+    pageSize: size
+  })
+}
+
+const handleHistoryCurrentChange = (page) => {
+  historyCurrentPage.value = page
+  loadTaskHistory({
+    page
+  })
 }
 
 // 辅助函数
 const getModelTypeText = (type) => {
   const types = {
     classic: '经典计算',
-    sim: '量子芯片模拟',
-    cloud: '量子云服务'
+    sim: '量子芯片模拟计算',
+    cloud: '量子云服务计算'
   }
   return types[type] || type
 }
@@ -1252,10 +1334,36 @@ loadTaskHistory()
   justify-content: space-between; 
   align-items: center; 
 }
+.history-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 .history-header h3 { 
   margin: 0; 
   color: #292929; 
   font-weight: 600; 
+}
+.history-table {
+  width: 100%;
+}
+.task-name-link {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #409eff;
+}
+.task-name-link:hover,
+.task-name-link:focus {
+  color: #409eff;
+}
+.history-pagination {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 0;
 }
 
 /* 任务详情对话框样式 */
