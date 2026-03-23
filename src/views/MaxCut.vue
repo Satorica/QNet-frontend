@@ -789,7 +789,11 @@ const exportResults = () => {
 // 任务历史相关方法
 const loadTaskHistory = async () => {
   try {
-    const response = await getTaskHistory('maxcut', 1, 50)
+    const response = await getTaskHistory({
+      problemType: 'maxcut',
+      page: 1,
+      pageSize: 50
+    })
     if (response.success && response.data) {
       // 转换后端数据格式为前端格式
       taskHistory.value = response.data.tasks.map(task => ({

@@ -12,13 +12,19 @@
               clearable
               @keyup.enter="handleSearchConfirm"
             />
-            <el-input
+            <el-select
               v-model="modelType"
               :placeholder="$t('tasks.modelTypePlaceholder')"
               style="width: 200px"
               clearable
-              @keyup.enter="handleSearchConfirm"
-            />
+            >
+              <el-option
+                v-for="option in modelTypeOptions"
+                :key="option"
+                :label="getModelTypeText(option)"
+                :value="option"
+              />
+            </el-select>
             <el-button type="primary" @click="handleSearchConfirm">{{
               $t("common.confirm")
             }}</el-button>
@@ -31,27 +37,36 @@
 
       <!-- 任务表格 -->
       <el-table
+        class="tasks-table"
+        row-key="taskId"
         :data="tasks"
         style="width: 100%"
+        table-layout="fixed"
         stripe
         v-loading="loading"
-        @row-click="handleRowClick"
+        size="large"
       >
         <el-table-column
           prop="taskName"
           :label="$t('tasks.table.taskName')"
-          width="180"
+          min-width="210"
+          show-overflow-tooltip
         >
           <template #default="{ row }">
-            <el-link type="primary" @click="viewTask(row)">{{
-              row.taskName
-            }}</el-link>
+            <el-link
+              class="task-name-text"
+              type="primary"
+              :underline="false"
+              @click.stop="viewTask(row)"
+            >
+              {{ row.taskName }}
+            </el-link>
           </template>
         </el-table-column>
         <el-table-column
           prop="problemType"
           :label="$t('tasks.table.problemType')"
-          width="120"
+          min-width="120"
         >
           <template #default="{ row }">
             {{ getProblemTypeText(row.problemType) }}
@@ -60,7 +75,7 @@
         <el-table-column
           prop="modelType"
           :label="$t('tasks.table.model')"
-          width="150"
+          min-width="140"
         >
           <template #default="{ row }">
             {{ getModelTypeText(row.modelType) }}
@@ -69,7 +84,7 @@
         <el-table-column
           prop="timestamp"
           :label="$t('tasks.table.submitTime')"
-          width="180"
+          min-width="170"
         >
           <template #default="{ row }">
             {{ formatDate(row.timestamp) }}
@@ -78,12 +93,12 @@
         <el-table-column
           prop="matrixSize"
           :label="$t('tasks.table.scale')"
-          width="80"
+          min-width="90"
         />
         <el-table-column
           prop="status"
           :label="$t('tasks.table.status')"
-          width="100"
+          min-width="110"
         >
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
@@ -91,7 +106,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column :label="$t('tasks.table.actions')" width="200">
+        <el-table-column
+          :label="$t('tasks.table.actions')"
+          width="180"
+          align="center"
+        >
           <template #default="{ row }">
             <div class="action-buttons">
               <el-button
@@ -315,6 +334,7 @@ const taskDetailVisible = ref(false);
 const selectedTask = ref(null);
 const taskDetailResults = ref(null);
 const loading = ref(false);
+const modelTypeOptions = ["classic", "sim", "cloud"];
 
 // 方法
 const loadTasks = async (params = {}) => {
@@ -322,7 +342,7 @@ const loadTasks = async (params = {}) => {
     page: params.page ?? currentPage.value,
     pageSize: params.pageSize ?? pageSize.value,
     taskName: params.taskName ?? taskName.value.trim(),
-    modelType: params.modelType ?? modelType.value.trim(),
+    modelType: params.modelType ?? modelType.value,
   };
 
   try {
@@ -382,10 +402,6 @@ const handleResetSearch = () => {
     taskName: "",
     modelType: "",
   });
-};
-
-const handleRowClick = (row) => {
-  viewTask(row);
 };
 
 const viewTask = async (task) => {
@@ -560,6 +576,25 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.tasks-table {
+  width: 100%;
+}
+
+.task-name-text {
+  display: inline-block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #409eff;
+}
+
+.task-name-text:hover,
+.task-name-text:focus {
+  color: #409eff;
 }
 
 .pagination-container {

@@ -274,51 +274,25 @@ export const getServerStatus = () => {
 };
 
 // 获取任务历史
-export const getTaskHistory = async (
-  filtersOrProblemType = null,
-  page = 1,
-  pageSize = 50,
-) => {
+export const getTaskHistory = async (params = {}) => {
+  const {
+    page = 1,
+    pageSize = 10,
+    taskName = "",
+    modelType = null,
+    problemType = null,
+  } = params;
+
   try {
-    const params = {};
+    const payload = {
+      page,
+      pageSize,
+      ...(problemType ? { problemType } : {}),
+      ...(taskName ? { taskName } : {}),
+      ...(modelType ? { modelType } : {}),
+    };
 
-    if (
-      filtersOrProblemType &&
-      typeof filtersOrProblemType === "object" &&
-      !Array.isArray(filtersOrProblemType)
-    ) {
-      const {
-        problemType = null,
-        taskName = "",
-        modelType = "",
-        page: requestPage = 1,
-        pageSize: requestPageSize = 10,
-      } = filtersOrProblemType;
-
-      params.page = requestPage;
-      params.pageSize = requestPageSize;
-
-      if (problemType) {
-        params.problemType = problemType;
-      }
-
-      if (taskName) {
-        params.taskName = taskName;
-      }
-
-      if (modelType) {
-        params.modelType = modelType;
-      }
-    } else {
-      params.page = page;
-      params.pageSize = pageSize;
-
-      if (filtersOrProblemType) {
-        params.problemType = filtersOrProblemType;
-      }
-    }
-
-    const response = await cloudApi.get("/api/tasks/history", { params });
+    const response = await cloudApi.post("/api/tasks/history", payload);
     return response.data;
   } catch (error) {
     throw error;

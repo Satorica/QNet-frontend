@@ -122,7 +122,7 @@
         "pageSize": "Per page",
         "search": "Search by model/task",
         "taskNamePlaceholder": "Please enter task name",
-        "modelTypePlaceholder": "Please enter model type",
+        "modelTypePlaceholder": "Please select model type",
         "reset": "Reset",
         "refresh": "Refresh Tasks",
         "table": {
