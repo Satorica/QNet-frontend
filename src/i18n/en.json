@@ -121,6 +121,9 @@
         "title": "Task List",
         "pageSize": "Per page",
         "search": "Search by model/task",
+        "taskNamePlaceholder": "Please enter task name",
+        "modelTypePlaceholder": "Please enter model type",
+        "reset": "Reset",
         "refresh": "Refresh Tasks",
         "table": {
             "taskName": "Task Name",
