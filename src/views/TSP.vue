@@ -216,8 +216,16 @@
             <el-button type="danger" size="small" @click="handleDeleteTask(row)">删除</el-button>
           </template>
         </el-table-column>
-        <el-table-column prop="bestValue" label="最优值" min-width="100" />
-        <el-table-column prop="solveTime" label="求解时间" min-width="110" />
+        <el-table-column prop="bestValue" label="最优值" min-width="100">
+          <template #default="{ row }">
+            {{ row.bestValue ?? '--' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="solveTime" label="求解时间" min-width="110">
+          <template #default="{ row }">
+            {{ row.solveTime ?? '--' }}
+          </template>
+        </el-table-column>
       </el-table>
       <div class="history-pagination">
         <el-pagination
@@ -1136,17 +1144,7 @@ const loadTaskHistory = async (params = {}) => {
     historyLoading.value = true
     const response = await getTaskHistory(requestParams)
     if (response.success && response.data) {
-      // 转换后端数据格式为前端格式
-      taskHistory.value = response.data.tasks.map(task => ({
-        taskId: task.taskId,
-        taskName: task.taskName,
-        modelType: task.modelType,
-        timestamp: task.timestamp,
-        matrixSize: task.matrixSize,
-        status: task.status,
-        bestValue: task.bestValue || '--',
-        solveTime: task.solveTime || '--'
-      }))
+      taskHistory.value = response.data.tasks || []
       historyTotal.value = response.data.total || 0
     } else {
       taskHistory.value = []

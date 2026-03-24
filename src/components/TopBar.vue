@@ -260,6 +260,8 @@ onUnmounted(() => {
 }
 
 .username {
+  display: inline-block;
+  height: 16px;
   font-size: 14px;
   font-weight: 500;
   color: #292929;
