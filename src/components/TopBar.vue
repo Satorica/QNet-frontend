@@ -14,7 +14,10 @@
     <div class="top-right">
       <div class="time-wrap">
         <div class="time">{{ currentTime }}</div>
-        <div class="date">{{ currentDate }}</div>
+        <div class="date-col">
+          <div class="weekday">{{ currentWeekday }}</div>
+          <div class="date-line">{{ currentDateOnly }}</div>
+        </div>
       </div>
 
       <!-- 用户信息和菜单 -->
@@ -75,10 +78,11 @@ import { useCustomTaskName } from "../composables/customTaskName.js";
 
 const router = useRouter();
 const route = useRoute();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const taskName = ref("");
 const currentTime = ref("");
-const currentDate = ref("");
+const currentWeekday = ref("");
+const currentDateOnly = ref("");
 let timer = null;
 
 const { setCustomTaskName, customTaskName, clearCustomTaskName } =
@@ -96,8 +100,10 @@ const updateClock = () => {
     now.getSeconds()
   )}`;
 
-  const days = t("topbar.weekdays", { returnObjects: true });
-  currentDate.value = `${days[now.getDay()]} ${now.getFullYear()}-${pad(
+  currentWeekday.value = new Intl.DateTimeFormat(locale.value, {
+    weekday: "long",
+  }).format(now);
+  currentDateOnly.value = `${now.getFullYear()}-${pad(
     now.getMonth() + 1
   )}-${pad(now.getDate())}`;
 };
@@ -216,19 +222,39 @@ onUnmounted(() => {
 }
 
 .time-wrap {
-  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .time {
-  font-size: 18px;
+  font-size: 28px;
   font-weight: 600;
-  color: #292929;
+  color: #6366f1;
+  letter-spacing: 1px;
 }
 
-.date {
-  font-size: 12px;
-  color: #8c8fa3;
-  margin-top: 2px;
+.date-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+}
+
+.weekday {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #6366f1;
+}
+
+.date-line {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #6366f1;
+  opacity: 0.88;
 }
 
 .user-info {

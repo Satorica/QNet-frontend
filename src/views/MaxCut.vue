@@ -880,7 +880,6 @@ const pollTaskStatus = async (taskId, startTime) => {
         // 任务处理中
         stateText.value = "计算中...";
         addLog("任务正在计算中");
-        updateTaskInHistory(taskId, { status: "processing" });
         setTimeout(poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         // 任务排队中
@@ -889,7 +888,6 @@ const pollTaskStatus = async (taskId, startTime) => {
             ? `(第${statusResponse.queuePosition}位)`
             : ""
         }`;
-        updateTaskInHistory(taskId, { status: "queued" });
         setTimeout(poll, pollInterval);
       }
     } catch (error) {
@@ -919,21 +917,6 @@ const cancelSolve = async () => {
   stateClass.value = "state-idle";
   stateText.value = "已取消";
   currentTaskId.value = null;
-};
-
-// 生成模拟结果
-const generateMockResults = () => {
-  const size = matrixSize.value;
-  return Array(3)
-    .fill()
-    .map(() => ({
-      value: Math.floor(Math.random() * 1000),
-      solution: JSON.stringify(
-        Array(size)
-          .fill()
-          .map(() => (Math.random() > 0.5 ? 1 : 0))
-      ),
-    }));
 };
 
 // 添加日志
@@ -989,19 +972,6 @@ const loadTaskHistory = async (params = {}) => {
     historyTotal.value = 0;
   } finally {
     historyLoading.value = false;
-  }
-};
-
-// 更新任务历史中的任务状态
-const updateTaskInHistory = (taskId, updates) => {
-  const taskIndex = taskHistory.value.findIndex(
-    (task) => task.taskId === taskId
-  );
-  if (taskIndex !== -1) {
-    taskHistory.value[taskIndex] = {
-      ...taskHistory.value[taskIndex],
-      ...updates,
-    };
   }
 };
 
