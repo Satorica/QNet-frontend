@@ -341,8 +341,8 @@ const loadTasks = async (params = {}) => {
   const requestParams = {
     page: params.page ?? currentPage.value,
     pageSize: params.pageSize ?? pageSize.value,
-    taskName: params.taskName ?? taskName.value.trim(),
-    modelType: params.modelType ?? modelType.value,
+    taskName: params.taskName ?? (taskName.value ?? "").trim(),
+    modelType: params.modelType ?? (modelType.value ?? "").trim(),
   };
 
   try {
@@ -388,8 +388,8 @@ const handleSearchConfirm = () => {
   currentPage.value = 1;
   loadTasks({
     page: 1,
-    taskName: taskName.value.trim(),
-    modelType: modelType.value.trim(),
+    taskName: (taskName.value ?? "").trim(),
+    modelType: (modelType.value ?? "").trim(),
   });
 };
 
