@@ -1128,9 +1128,6 @@ const pollTaskStatus = async (taskId, startTime) => {
           if (conflictCount > 0) {
             addLog(`警告：存在${conflictCount}个颜色冲突`);
           }
-
-          // 任务状态已更新到数据库，刷新任务历史
-          loadTaskHistory();
         }
       } else if (
         statusResponse.state === "failed" ||
@@ -1142,9 +1139,6 @@ const pollTaskStatus = async (taskId, startTime) => {
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
         addLog(statusResponse.message || "任务失败");
-
-        // 任务状态已更新到数据库，刷新任务历史
-        loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         statusText.value = "计算中...";
@@ -1163,6 +1157,8 @@ const pollTaskStatus = async (taskId, startTime) => {
       statusText.value = "连接失败";
       solving.value = false;
       addLog("无法获取任务状态: " + error.message);
+    } finally {
+      loadTaskHistory();
     }
   };
 

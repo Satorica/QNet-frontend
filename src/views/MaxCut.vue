@@ -857,9 +857,6 @@ const pollTaskStatus = async (taskId, startTime) => {
               } 个节点在分区B（蓝绿色）`
             );
           }
-
-          // 任务状态已更新到数据库，刷新任务历史
-          loadTaskHistory();
         }
 
         addLog("求解完成");
@@ -873,9 +870,6 @@ const pollTaskStatus = async (taskId, startTime) => {
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
         addLog(statusResponse.message || "任务失败");
-
-        // 任务状态已更新到数据库，刷新任务历史
-        loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         stateText.value = "计算中...";
@@ -895,6 +889,9 @@ const pollTaskStatus = async (taskId, startTime) => {
       stateText.value = "连接失败";
       solving.value = false;
       addLog("无法获取任务状态: " + error.message);
+    } finally {
+      // 每次轮询结束（成功拿到状态或请求失败）刷新任务历史
+      loadTaskHistory();
     }
   };
 

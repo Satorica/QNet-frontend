@@ -628,7 +628,6 @@ const pollTaskStatus = async (taskId, startTime) => {
           // 取第一个候选结果
           const bestResult = resultCandidates[0];
           const solutionVector = bestResult.solution; // 向量：1或-1
-          const resultValue = bestResult.value; // 差值
 
           // 将解向量转换为两个子集
           // 1表示子集A，-1表示子集B
@@ -666,9 +665,6 @@ const pollTaskStatus = async (taskId, startTime) => {
 
           console.log("解析的结果:", result.value);
 
-          // 任务状态已更新到数据库，刷新任务历史
-          loadTaskHistory();
-
           addLog(`求解完成，找到最优解，差值：${difference}`);
         }
       } else if (
@@ -681,9 +677,6 @@ const pollTaskStatus = async (taskId, startTime) => {
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
         addLog(statusResponse.message || "任务失败");
-
-        // 任务状态已更新到数据库，刷新任务历史
-        loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         statusText.value = "计算中...";
@@ -702,6 +695,8 @@ const pollTaskStatus = async (taskId, startTime) => {
       statusText.value = "连接失败";
       solving.value = false;
       addLog("无法获取任务状态: " + error.message);
+    } finally {
+      loadTaskHistory();
     }
   };
 

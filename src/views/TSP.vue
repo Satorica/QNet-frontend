@@ -1185,9 +1185,6 @@ const pollTaskStatus = async (taskId, startTime) => {
           bestRoute.value = route;
           currentRoute.value = route;
 
-          // 任务状态已更新到数据库，刷新任务历史
-          loadTaskHistory();
-
           addLog(`求解完成，最短距离：${routeValue.toFixed(2)}`);
         }
       } else if (
@@ -1200,9 +1197,6 @@ const pollTaskStatus = async (taskId, startTime) => {
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
         addLog(statusResponse.message || "任务失败");
-
-        // 任务状态已更新到数据库，刷新任务历史
-        loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         statusText.value = "计算中...";
@@ -1221,6 +1215,8 @@ const pollTaskStatus = async (taskId, startTime) => {
       statusText.value = "连接失败";
       solving.value = false;
       addLog("无法获取任务状态: " + error.message);
+    } finally {
+      loadTaskHistory();
     }
   };
 
