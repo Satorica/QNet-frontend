@@ -74,7 +74,7 @@ import { SwitchButton } from "@element-plus/icons-vue";
 import { useI18n } from "vue-i18n";
 import { userManager } from "../utils/auth.js";
 import { checkTaskName } from "../api/index.js";
-import { useCustomTaskName } from "../composables/customTaskName.js";
+import { useCustomTaskName } from "../stores/customTaskName.js";
 
 const router = useRouter();
 const route = useRoute();

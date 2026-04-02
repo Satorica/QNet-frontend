@@ -119,7 +119,11 @@
 
               <div class="control-item">
                 <label>图类型：</label>
-                <el-select v-model="graphType" @change="generateGraph">
+                <el-select
+                  v-model="graphType"
+                  @change="generateGraph"
+                  class="graph-select"
+                >
                   <el-option label="随机图" value="random" />
                   <el-option label="完全图" value="complete" />
                   <el-option label="环图" value="cycle" />
@@ -471,7 +475,7 @@ import {
 } from "../api/index.js";
 import { ElMessageBox } from "element-plus";
 import ColoringGraph from "../components/ColoringGraph.vue";
-import { useCustomTaskName } from "../composables/customTaskName.js";
+import { useCustomTaskName } from "../stores/customTaskName.js";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -1808,5 +1812,13 @@ loadTaskHistory();
   color: #292929;
   font-family: "Courier New", monospace;
   word-break: break-all;
+}
+
+.graph-select {
+  margin: 10px 0;
+}
+
+.control-buttons {
+  margin-top: 20px;
 }
 </style> 

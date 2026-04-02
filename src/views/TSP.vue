@@ -444,7 +444,7 @@ import {
   deleteTask,
 } from "../api/index.js";
 import { ElMessageBox } from "element-plus";
-import { useCustomTaskName } from "../composables/customTaskName.js";
+import { useCustomTaskName } from "../stores/customTaskName.js";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
