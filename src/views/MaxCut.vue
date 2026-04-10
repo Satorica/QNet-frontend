@@ -1135,10 +1135,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.maxcut-page {
-  padding: 20px;
-}
-
 .main-card {
   background: #ffffff;
   border-radius: 20px;

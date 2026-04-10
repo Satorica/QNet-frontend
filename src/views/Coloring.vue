@@ -1402,9 +1402,7 @@ loadTaskHistory();
 
 <style scoped>
 /* MaxCut风格布局 */
-.coloring-page {
-  padding: 20px;
-}
+
 .main-card {
   background: #ffffff;
   border-radius: 20px;

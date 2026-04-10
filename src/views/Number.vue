@@ -940,10 +940,6 @@ loadTaskHistory();
 </script>
 
 <style scoped>
-.number-page {
-  padding: 20px;
-}
-
 .main-card {
   background: #ffffff;
   border-radius: 20px;

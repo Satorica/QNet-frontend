@@ -549,10 +549,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.tasks-page {
-  padding: 20px;
-}
-
 .task-card {
   background: #ffffff;
   border-radius: 20px;

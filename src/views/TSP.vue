@@ -1465,10 +1465,6 @@ loadTaskHistory();
 </script>
 
 <style scoped>
-.tsp-page {
-  padding: 20px;
-}
-
 .main-card {
   background: #ffffff;
   border-radius: 20px;
