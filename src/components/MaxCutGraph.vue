@@ -14,7 +14,7 @@
         :opacity="getEdgeOpacity(edge)"
         class="graph-edge"
       />
-      
+
       <!-- 节点 -->
       <circle
         v-for="node in nodes"
@@ -28,7 +28,7 @@
         :class="{ clickable: editable, 'has-partition': hasPartition(node.id) }"
         @click="handleNodeClick(node.id)"
       />
-      
+
       <!-- 节点标签 -->
       <text
         v-for="node in nodes"
@@ -40,7 +40,7 @@
         fill="white"
         font-size="14"
         font-weight="600"
-        style="pointer-events: none;"
+        style="pointer-events: none"
       >
         {{ node.id }}
       </text>
@@ -49,109 +49,119 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref } from "vue";
 
 const props = defineProps({
   nodes: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   edges: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   partition: {
     type: Object,
-    default: () => ({})
+    default: () => ({}),
   },
   editable: {
     type: Boolean,
-    default: false
+    default: false,
   },
   selectedNodes: {
     type: Array,
-    default: () => []
-  }
-})
+    default: () => [],
+  },
+});
 
-const emit = defineEmits(['node-click'])
+const emit = defineEmits(["node-click"]);
 
-const graphContainer = ref(null)
-const width = 400
-const height = 360
-const nodeRadius = 18
+const graphContainer = ref(null);
+const width = 400;
+const height = 360;
+const nodeRadius = 18;
 
 // 根据分区着色 - 使用更鲜明的颜色
 const getNodeColor = (nodeId) => {
-  const partition = props.partition[nodeId]
-  if (partition === 0) return '#FF6B6B'  // 分区A - 鲜艳红色
-  if (partition === 1) return '#4ECDC4'  // 分区B - 青绿色
-  return '#B0B0B0'  // 默认灰色（未分区）
-}
+  const partition = props.partition[nodeId];
+  if (partition === 0) return "#FF6B6B"; // 分区A - 鲜艳红色
+  if (partition === 1) return "#4ECDC4"; // 分区B - 青绿色
+  return "#B0B0B0"; // 默认灰色（未分区）
+};
 
 // 节点边框颜色
 const getNodeStrokeColor = (nodeId) => {
-  const partition = props.partition[nodeId]
-  if (partition === 0) return '#E85454'  // 深红色边框
-  if (partition === 1) return '#3DBDB4'  // 深青色边框
-  return '#909090'  // 灰色边框
-}
+  const partition = props.partition[nodeId];
+  if (partition === 0) return "#E85454"; // 深红色边框
+  if (partition === 1) return "#3DBDB4"; // 深青色边框
+  return "#909090"; // 灰色边框
+};
 
 // 检查节点是否已分区
 const hasPartition = (nodeId) => {
-  return props.partition[nodeId] !== undefined
-}
+  return props.partition[nodeId] !== undefined;
+};
 
 // 边的颜色 - 被切割的边显示为高亮
 const getEdgeColor = (edge) => {
-  const sourcePartition = props.partition[edge.source]
-  const targetPartition = props.partition[edge.target]
-  
+  const sourcePartition = props.partition[edge.source];
+  const targetPartition = props.partition[edge.target];
+
   // 如果两个节点都已分区且在不同分区，这条边被切割了
   if (sourcePartition !== undefined && targetPartition !== undefined) {
     if (sourcePartition !== targetPartition) {
-      return '#FFA726'  // 橙色 - 被切割的边
+      return "#FFA726"; // 橙色 - 被切割的边
     } else {
-      return '#8C8FA3'  // 灰色 - 未被切割的边
+      return "#8C8FA3"; // 灰色 - 未被切割的边
     }
   }
-  
-  return '#C0C4CC'  // 浅灰色 - 默认边
-}
+
+  return "#C0C4CC"; // 浅灰色 - 默认边
+};
 
 // 边的宽度
 const getEdgeWidth = (edge) => {
-  const sourcePartition = props.partition[edge.source]
-  const targetPartition = props.partition[edge.target]
-  
+  const sourcePartition = props.partition[edge.source];
+  const targetPartition = props.partition[edge.target];
+
   // 被切割的边更粗
-  if (sourcePartition !== undefined && targetPartition !== undefined && sourcePartition !== targetPartition) {
-    return 3
+  if (
+    sourcePartition !== undefined &&
+    targetPartition !== undefined &&
+    sourcePartition !== targetPartition
+  ) {
+    return 3;
   }
-  return 2
-}
+  return 2;
+};
 
 // 边的透明度
 const getEdgeOpacity = (edge) => {
-  const sourcePartition = props.partition[edge.source]
-  const targetPartition = props.partition[edge.target]
-  
+  const sourcePartition = props.partition[edge.source];
+  const targetPartition = props.partition[edge.target];
+
   // 被切割的边更明显
-  if (sourcePartition !== undefined && targetPartition !== undefined && sourcePartition !== targetPartition) {
-    return 0.9
+  if (
+    sourcePartition !== undefined &&
+    targetPartition !== undefined &&
+    sourcePartition !== targetPartition
+  ) {
+    return 0.9;
   }
-  return 0.4
-}
+  return 0.4;
+};
 
 const isSelected = (nodeId) => {
-  return Array.isArray(props.selectedNodes) && props.selectedNodes.includes(nodeId)
-}
+  return (
+    Array.isArray(props.selectedNodes) && props.selectedNodes.includes(nodeId)
+  );
+};
 
 const handleNodeClick = (nodeId) => {
   if (props.editable) {
-    emit('node-click', nodeId)
+    emit("node-click", nodeId);
   }
-}
+};
 </script>
 
 <style scoped>
@@ -174,6 +184,8 @@ const handleNodeClick = (nodeId) => {
 .clickable {
   cursor: pointer;
   transition: all 0.3s ease;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .clickable:hover {
