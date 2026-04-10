@@ -13,13 +13,19 @@
       <div class="register-header">
         <div class="logo-section">
           <div class="logo-icon">Q</div>
-          <h1 class="system-title">{{ $t('register.title') }}</h1>
+          <h1 class="system-title">{{ $t("register.title") }}</h1>
         </div>
-        <p class="subtitle">{{ $t('register.subtitle') }}</p>
+        <p class="subtitle">{{ $t("register.subtitle") }}</p>
       </div>
 
       <!-- 注册方式切换 -->
-      <el-segmented v-model="registerType" :options="translatedRegisterOptions" block size="large" class="register-type-switch" />
+      <el-segmented
+        v-model="registerType"
+        :options="translatedRegisterOptions"
+        block
+        size="large"
+        class="register-type-switch"
+      />
 
       <!-- 注册表单 -->
       <el-form
@@ -158,10 +164,14 @@
         <!-- 用户协议 -->
         <el-form-item prop="agree">
           <el-checkbox v-model="registerForm.agree">
-            {{ $t('register.agree') }}
-            <el-link type="primary" :underline="false">{{ $t('register.userAgreement') }}</el-link>
-            {{ $t('register.and') }}
-            <el-link type="primary" :underline="false">{{ $t('register.privacyPolicy') }}</el-link>
+            {{ $t("register.agree") }}
+            <el-link type="primary" :underline="false">{{
+              $t("register.userAgreement")
+            }}</el-link>
+            {{ $t("register.and") }}
+            <el-link type="primary" :underline="false">{{
+              $t("register.privacyPolicy")
+            }}</el-link>
           </el-checkbox>
         </el-form-item>
 
@@ -174,15 +184,15 @@
             :loading="loading"
             @click="handleRegister"
           >
-            {{ $t('register.registerButton') }}
+            {{ $t("register.registerButton") }}
           </el-button>
         </el-form-item>
 
         <!-- 登录链接 -->
         <div class="login-link">
-          {{ $t('register.hasAccount') }}
+          {{ $t("register.hasAccount") }}
           <el-link type="primary" :underline="false" @click="goToLogin">
-            {{ $t('register.login') }}
+            {{ $t("register.login") }}
           </el-link>
         </div>
       </el-form>
@@ -190,279 +200,286 @@
 
     <!-- 版权信息 -->
     <div class="footer-info">
-      <p>{{ $t('register.footer') }}</p>
+      <p>{{ $t("register.footer") }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { User, Message, Phone, Lock, Key } from '@element-plus/icons-vue'
-import { useI18n } from 'vue-i18n'
-import { authApi } from '../api/auth.js'
-import { tokenManager, userManager, notificationManager } from '../utils/auth.js'
+import { ref, reactive, computed } from "vue";
+import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
+import { useI18n } from "vue-i18n";
+import { authApi } from "../api/auth.js";
+import { notificationManager } from "../utils/auth.js";
 
-const router = useRouter()
-const { t } = useI18n()
-const registerFormRef = ref(null)
-const loading = ref(false)
+const router = useRouter();
+const { t } = useI18n();
+const registerFormRef = ref(null);
+const loading = ref(false);
 
 // 注册方式
-const registerType = ref('email')
+const registerType = ref("email");
 const translatedRegisterOptions = computed(() => [
-  { label: t('register.type.email'), value: 'email' },
-  { label: t('register.type.phone'), value: 'phone' }
-])
+  { label: t("register.type.email"), value: "email" },
+  { label: t("register.type.phone"), value: "phone" },
+]);
 
 // 注册表单数据
 const registerForm = reactive({
-  username: '',
-  email: '',
-  emailCode: '',
-  phone: '',
-  phoneCode: '',
-  password: '',
-  confirmPassword: '',
-  agree: false
-})
+  username: "",
+  email: "",
+  emailCode: "",
+  phone: "",
+  phoneCode: "",
+  password: "",
+  confirmPassword: "",
+  agree: false,
+});
 
 // 邮箱验证码相关
-const emailCodeDisabled = ref(false)
-const emailCodeCountdown = ref(0)
+const emailCodeDisabled = ref(false);
+const emailCodeCountdown = ref(0);
 const emailCodeText = computed(() => {
-  return emailCodeCountdown.value > 0 
-    ? `${emailCodeCountdown.value}${t('register.resendCode')}` 
-    : t('register.sendCode')
-})
+  return emailCodeCountdown.value > 0
+    ? `${emailCodeCountdown.value}${t("register.resendCode")}`
+    : t("register.sendCode");
+});
 
 // 手机验证码相关
-const phoneCodeDisabled = ref(false)
-const phoneCodeCountdown = ref(0)
+const phoneCodeDisabled = ref(false);
+const phoneCodeCountdown = ref(0);
 const phoneCodeText = computed(() => {
-  return phoneCodeCountdown.value > 0 
-    ? `${phoneCodeCountdown.value}${t('register.resendCode')}` 
-    : t('register.sendCode')
-})
+  return phoneCodeCountdown.value > 0
+    ? `${phoneCodeCountdown.value}${t("register.resendCode")}`
+    : t("register.sendCode");
+});
 
 // 表单验证规则
 const validateUsername = (rule, value, callback) => {
   if (!value) {
-    callback(new Error(t('register.validation.usernameRequired')))
+    callback(new Error(t("register.validation.usernameRequired")));
   } else if (!/^[a-zA-Z0-9_]{3,20}$/.test(value)) {
-    callback(new Error(t('register.validation.usernameFormat')))
+    callback(new Error(t("register.validation.usernameFormat")));
   } else {
-    callback()
+    callback();
   }
-}
+};
 
 const validateEmail = (rule, value, callback) => {
-  if (registerType.value === 'email') {
+  if (registerType.value === "email") {
     if (!value) {
-      callback(new Error(t('register.validation.emailRequired')))
+      callback(new Error(t("register.validation.emailRequired")));
     } else if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(value)) {
-      callback(new Error(t('register.validation.emailFormat')))
+      callback(new Error(t("register.validation.emailFormat")));
     } else {
-      callback()
+      callback();
     }
   } else {
-    callback()
+    callback();
   }
-}
+};
 
 const validatePhone = (rule, value, callback) => {
-  if (registerType.value === 'phone') {
+  if (registerType.value === "phone") {
     if (!value) {
-      callback(new Error(t('register.validation.phoneRequired')))
+      callback(new Error(t("register.validation.phoneRequired")));
     } else if (!/^1[3-9]\d{9}$/.test(value)) {
-      callback(new Error(t('register.validation.phoneFormat')))
+      callback(new Error(t("register.validation.phoneFormat")));
     } else {
-      callback()
+      callback();
     }
   } else {
-    callback()
+    callback();
   }
-}
+};
 
 const validateCode = (rule, value, callback) => {
-  const isEmail = registerType.value === 'email'
-  if ((isEmail && !registerForm.emailCode) || (!isEmail && !registerForm.phoneCode)) {
-    callback(new Error(t('register.validation.codeRequired')))
+  const isEmail = registerType.value === "email";
+  if (
+    (isEmail && !registerForm.emailCode) ||
+    (!isEmail && !registerForm.phoneCode)
+  ) {
+    callback(new Error(t("register.validation.codeRequired")));
   } else {
-    callback()
+    callback();
   }
-}
+};
 
 const validateConfirmPassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error(t('register.validation.confirmRequired')))
+    callback(new Error(t("register.validation.confirmRequired")));
   } else if (value !== registerForm.password) {
-    callback(new Error(t('register.validation.passwordMismatch')))
+    callback(new Error(t("register.validation.passwordMismatch")));
   } else {
-    callback()
+    callback();
   }
-}
+};
 
 const validateAgree = (rule, value, callback) => {
   if (!value) {
-    callback(new Error(t('register.validation.agreeRequired')))
+    callback(new Error(t("register.validation.agreeRequired")));
   } else {
-    callback()
+    callback();
   }
-}
+};
 
 const registerRules = computed(() => ({
-  username: [{ validator: validateUsername, trigger: 'blur' }],
-  email: [{ validator: validateEmail, trigger: 'blur' }],
-  emailCode: [{ validator: validateCode, trigger: 'blur' }],
-  phone: [{ validator: validatePhone, trigger: 'blur' }],
-  phoneCode: [{ validator: validateCode, trigger: 'blur' }],
+  username: [{ validator: validateUsername, trigger: "blur" }],
+  email: [{ validator: validateEmail, trigger: "blur" }],
+  emailCode: [{ validator: validateCode, trigger: "blur" }],
+  phone: [{ validator: validatePhone, trigger: "blur" }],
+  phoneCode: [{ validator: validateCode, trigger: "blur" }],
   password: [
-    { required: true, message: t('register.validation.passwordRequired'), trigger: 'blur' },
-    { min: 6, message: t('register.validation.passwordLength'), trigger: 'blur' }
+    {
+      required: true,
+      message: t("register.validation.passwordRequired"),
+      trigger: "blur",
+    },
+    {
+      min: 6,
+      message: t("register.validation.passwordLength"),
+      trigger: "blur",
+    },
   ],
-  confirmPassword: [{ validator: validateConfirmPassword, trigger: 'blur' }],
-  agree: [{ validator: validateAgree, trigger: 'change' }]
-}))
+  confirmPassword: [{ validator: validateConfirmPassword, trigger: "blur" }],
+  agree: [{ validator: validateAgree, trigger: "change" }],
+}));
 
 // 发送邮箱验证码
 const sendEmailCode = async () => {
   if (!registerForm.email) {
-    ElMessage.warning(t('register.messages.enterEmail'))
-    return
+    ElMessage.warning(t("register.messages.enterEmail"));
+    return;
   }
-  if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(registerForm.email)) {
-    ElMessage.warning(t('register.messages.invalidEmail'))
-    return
+  if (
+    !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(registerForm.email)
+  ) {
+    ElMessage.warning(t("register.messages.invalidEmail"));
+    return;
   }
 
   try {
-    const response = await authApi.sendEmailCode(registerForm.email)
-    console.log('=========sendEmailCode response=========')
-    console.log(response)
-    console.log('=========sendEmailCode response end=========')
+    const response = await authApi.sendEmailCode(registerForm.email);
     if (response.success) {
       // 目前后端传回来验证码
-      notificationManager.showCodeNotification('email', response.code)
-      ElMessage.success(t('register.messages.codeSent'))
-      
+      ElMessage.success(t("register.messages.codeSent"));
+
       // 开始倒计时
-      emailCodeDisabled.value = true
-      emailCodeCountdown.value = 60
+      emailCodeDisabled.value = true;
+      emailCodeCountdown.value = 60;
       const timer = setInterval(() => {
-        emailCodeCountdown.value--
+        emailCodeCountdown.value--;
         if (emailCodeCountdown.value <= 0) {
-          clearInterval(timer)
-          emailCodeDisabled.value = false
+          clearInterval(timer);
+          emailCodeDisabled.value = false;
         }
-      }, 1000)
+      }, 1000);
     } else {
-      ElMessage.error(response.message || t('register.messages.codeFailed'))
+      ElMessage.error(response.message || t("register.messages.codeFailed"));
     }
   } catch (error) {
-    console.error('Send email code error:', error)
-    ElMessage.error(t('register.messages.codeFailed'))
+    console.error("Send email code error:", error);
+    ElMessage.error(t("register.messages.codeFailed"));
   }
-}
+};
 
 // 发送手机验证码
 const sendPhoneCode = async () => {
   if (!registerForm.phone) {
-    ElMessage.warning(t('register.messages.enterPhone'))
-    return
+    ElMessage.warning(t("register.messages.enterPhone"));
+    return;
   }
   if (!/^1[3-9]\d{9}$/.test(registerForm.phone)) {
-    ElMessage.warning(t('register.messages.invalidPhone'))
-    return
+    ElMessage.warning(t("register.messages.invalidPhone"));
+    return;
   }
 
   try {
-    const response = await authApi.sendPhoneCode(registerForm.phone)
-    console.log('=========sendPhoneCode response=========')
-    console.log(response)
-    console.log('=========sendPhoneCode response end=========')
+    const response = await authApi.sendPhoneCode(registerForm.phone);
+
     if (response.success) {
       // 目前后端传回来验证码
-      // const mockCode = Math.floor(100000 + Math.random() * 900000).toString()
-      notificationManager.showCodeNotification('phone', response.code)
-      
-      ElMessage.success(t('register.messages.codeSent'))
-      
+      notificationManager.showCodeNotification("phone", response.code);
+
+      ElMessage.success(t("register.messages.codeSent"));
+
       // 开始倒计时
-      phoneCodeDisabled.value = true
-      phoneCodeCountdown.value = 60
+      phoneCodeDisabled.value = true;
+      phoneCodeCountdown.value = 60;
       const timer = setInterval(() => {
-        phoneCodeCountdown.value--
+        phoneCodeCountdown.value--;
         if (phoneCodeCountdown.value <= 0) {
-          clearInterval(timer)
-          phoneCodeDisabled.value = false
+          clearInterval(timer);
+          phoneCodeDisabled.value = false;
         }
-      }, 1000)
+      }, 1000);
     } else {
-      ElMessage.error(response.message || t('register.messages.codeFailed'))
+      ElMessage.error(response.message || t("register.messages.codeFailed"));
     }
   } catch (error) {
-    console.error('Send phone code error:', error)
-    ElMessage.error(t('register.messages.codeFailed'))
+    console.error("Send phone code error:", error);
+    ElMessage.error(t("register.messages.codeFailed"));
   }
-}
+};
 
 // 处理注册
 const handleRegister = async () => {
-  if (!registerFormRef.value) return
+  if (!registerFormRef.value) return;
 
   await registerFormRef.value.validate(async (valid) => {
     if (valid) {
-      loading.value = true
-      
+      loading.value = true;
+
       try {
         // 准备注册数据
         const registerData = {
           username: registerForm.username,
           password: registerForm.password,
-          register_type: registerType.value  // 后端期望 register_type
-        }
+          register_type: registerType.value, // 后端期望 register_type
+        };
 
         // 根据注册方式添加相应字段
-        if (registerType.value === 'email') {
-          registerData.email = registerForm.email
-          registerData.code = registerForm.emailCode  // 后端期望 code 字段
+        if (registerType.value === "email") {
+          registerData.email = registerForm.email;
+          registerData.code = registerForm.emailCode; // 后端期望 code 字段
         } else {
-          registerData.phone = registerForm.phone
-          registerData.code = registerForm.phoneCode  // 后端期望 code 字段
+          registerData.phone = registerForm.phone;
+          registerData.code = registerForm.phoneCode; // 后端期望 code 字段
         }
 
         // 调用后端注册接口
-        const response = await authApi.register(registerData)
-        
+        const response = await authApi.register(registerData);
+
         if (response.success) {
-          ElMessage.success(t('register.messages.success'))
-          
+          ElMessage.success(t("register.messages.success"));
+
           // 跳转到登录页
           setTimeout(() => {
-            router.push('/login')
-          }, 1500)
+            router.push("/login");
+          }, 1500);
         } else {
-          ElMessage.error(response.message || t('register.messages.failed'))
+          ElMessage.error(response.message || t("register.messages.failed"));
         }
       } catch (error) {
-        console.error('Register error:', error)
-        ElMessage.error(error.response?.data?.message || t('register.messages.networkError'))
+        console.error("Register error:", error);
+        ElMessage.error(
+          error.response?.data?.message || t("register.messages.networkError")
+        );
       } finally {
-        loading.value = false
+        loading.value = false;
       }
     } else {
-      ElMessage.error(t('register.messages.formError'))
-      return false
+      ElMessage.error(t("register.messages.formError"));
+      return false;
     }
-  })
-}
+  });
+};
 
 // 跳转到登录页面
 const goToLogin = () => {
-  router.push('/login')
-}
+  router.push("/login");
+};
 </script>
 
 <style scoped>
@@ -631,6 +648,7 @@ const goToLogin = () => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
   white-space: nowrap;
+  align-self: center;
 }
 
 .send-code-btn:disabled {
@@ -666,7 +684,10 @@ const goToLogin = () => {
 
 /* 登录链接 */
 .login-link {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 14px;
   color: #606266;
   margin-top: 20px;

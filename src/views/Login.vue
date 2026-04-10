@@ -13,9 +13,9 @@
       <div class="login-header">
         <div class="logo-section">
           <div class="logo-icon">Q</div>
-          <h1 class="system-title">{{ $t('login.title') }}</h1>
+          <h1 class="system-title">{{ $t("login.title") }}</h1>
         </div>
-        <p class="subtitle">{{ $t('login.subtitle') }}</p>
+        <p class="subtitle">{{ $t("login.subtitle") }}</p>
       </div>
 
       <!-- 登录表单 -->
@@ -56,8 +56,12 @@
 
         <el-form-item>
           <div class="form-options">
-            <el-checkbox v-model="loginForm.remember">{{ $t('login.remember') }}</el-checkbox>
-            <el-link type="primary" :underline="false">{{ $t('login.forgotPassword') }}</el-link>
+            <el-checkbox v-model="loginForm.remember">{{
+              $t("login.remember")
+            }}</el-checkbox>
+            <el-link type="primary" :underline="false">{{
+              $t("login.forgotPassword")
+            }}</el-link>
           </div>
         </el-form-item>
 
@@ -69,14 +73,14 @@
             :loading="loading"
             @click="handleLogin"
           >
-            {{ $t('login.loginButton') }}
+            {{ $t("login.loginButton") }}
           </el-button>
         </el-form-item>
 
         <div class="register-link">
-          {{ $t('login.noAccount') }}
+          {{ $t("login.noAccount") }}
           <el-link type="primary" :underline="false" @click="goToRegister">
-            {{ $t('login.register') }}
+            {{ $t("login.register") }}
           </el-link>
         </div>
       </el-form>
@@ -84,86 +88,104 @@
 
     <!-- 版权信息 -->
     <div class="footer-info">
-      <p>{{ $t('login.footer') }}</p>
+      <p>{{ $t("login.footer") }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { User, Lock } from '@element-plus/icons-vue'
-import { useI18n } from 'vue-i18n'
-import { authApi } from '../api/auth.js'
-import { tokenManager, userManager } from '../utils/auth.js'
+import { ref, reactive, computed } from "vue";
+import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
+import { User, Lock } from "@element-plus/icons-vue";
+import { useI18n } from "vue-i18n";
+import { authApi } from "../api/auth.js";
+import { tokenManager, userManager } from "../utils/auth.js";
 
-const router = useRouter()
-const { t } = useI18n()
-const loginFormRef = ref(null)
-const loading = ref(false)
+const router = useRouter();
+const { t } = useI18n();
+const loginFormRef = ref(null);
+const loading = ref(false);
 
 // 登录表单数据
 const loginForm = reactive({
-  account: '',
-  password: '',
-  remember: false
-})
+  account: "",
+  password: "",
+  remember: false,
+});
 
 // 表单验证规则
 const loginRules = computed(() => ({
   account: [
-    { required: true, message: t('login.validation.accountRequired'), trigger: 'blur' }
+    {
+      required: true,
+      message: t("login.validation.accountRequired"),
+      trigger: "blur",
+    },
   ],
   password: [
-    { required: true, message: t('login.validation.passwordRequired'), trigger: 'blur' },
-    { min: 6, message: t('login.validation.passwordLength'), trigger: 'blur' }
-  ]
-}))
+    {
+      required: true,
+      message: t("login.validation.passwordRequired"),
+      trigger: "blur",
+    },
+    { min: 6, message: t("login.validation.passwordLength"), trigger: "blur" },
+  ],
+}));
 
 // 处理登录
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
+  if (!loginFormRef.value) return;
 
   await loginFormRef.value.validate(async (valid) => {
     if (valid) {
-      loading.value = true
-      
+      loading.value = true;
+
       try {
         // 调用后端登录接口
-        const response = await authApi.login(loginForm.account, loginForm.password)
-        
+        const response = await authApi.login(
+          loginForm.account,
+          loginForm.password
+        );
+
         if (response.success) {
           // 保存token和用户信息（根据"记住我"选择存储方式）
-          const remember = loginForm.remember
-          tokenManager.setToken(response.data.accessToken, response.data.refreshToken, remember)
-          userManager.setUserInfo(response.data.user, remember)
-          
-          ElMessage.success(t('login.messages.success'))
-          
+          const remember = loginForm.remember;
+          tokenManager.setToken(
+            response.data.accessToken,
+            response.data.refreshToken,
+            remember
+          );
+          userManager.setUserInfo(response.data.user, remember);
+
+          ElMessage.success(t("login.messages.success"));
+
           // 跳转到主页或重定向页面
-          const redirect = router.currentRoute.value.query.redirect || '/maxcut'
-          router.push(redirect)
+          const redirect =
+            router.currentRoute.value.query.redirect || "/maxcut";
+          router.push(redirect);
         } else {
-          ElMessage.error(response.message || t('login.messages.failed'))
+          ElMessage.error(response.message || t("login.messages.failed"));
         }
       } catch (error) {
-        console.error('Login error:', error)
-        ElMessage.error(error.response?.data?.message || t('login.messages.networkError'))
+        console.error("Login error:", error);
+        ElMessage.error(
+          error.response?.data?.message || t("login.messages.networkError")
+        );
       } finally {
-        loading.value = false
+        loading.value = false;
       }
     } else {
-      ElMessage.error(t('login.messages.formError'))
-      return false
+      ElMessage.error(t("login.messages.formError"));
+      return false;
     }
-  })
-}
+  });
+};
 
 // 跳转到注册页面
 const goToRegister = () => {
-  router.push('/register')
-}
+  router.push("/register");
+};
 </script>
 
 <style scoped>
@@ -329,7 +351,10 @@ const goToRegister = () => {
 
 /* 注册链接 */
 .register-link {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font-size: 14px;
   color: #606266;
   margin-top: 20px;

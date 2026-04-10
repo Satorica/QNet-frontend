@@ -82,7 +82,10 @@ const shouldShowMainLayout = computed(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-image: url('/cover.jpg');
+  /* 渐变背景：紫蓝 → 靛蓝 → 青绿，带柔和光斑 */
+  background: radial-gradient(circle at 8% 18%, rgba(124,58,237,0.08), transparent 16%),
+              radial-gradient(circle at 92% 82%, rgba(34,197,94,0.06), transparent 16%),
+              linear-gradient(135deg, #071028 0%, #172554 45%, #5b6ef6 100%);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -132,7 +135,10 @@ const shouldShowMainLayout = computed(() => {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-image: url('/cover.jpg');
+  /* 认证页背景：与全局保持一致的渐变色与光斑 */
+  background: radial-gradient(circle at 15% 25%, rgba(124,58,237,0.06), transparent 16%),
+              radial-gradient(circle at 85% 75%, rgba(34,197,94,0.05), transparent 16%),
+              linear-gradient(135deg, #071028 0%, #0c1a3a 45%, #4f6bf5 100%);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
