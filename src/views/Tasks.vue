@@ -31,6 +31,11 @@
             <el-button @click="handleResetSearch">{{
               $t("tasks.reset")
             }}</el-button>
+            <el-button
+              type="danger"
+              :disabled="total === 0"
+              @click="handleDeleteAllTasks"
+            >全部删除</el-button>
           </div>
         </div>
       </template>
@@ -318,6 +323,7 @@ import { useI18n } from "vue-i18n";
 import {
   getTaskHistory,
   deleteTask as deleteTaskAPI,
+  deleteAllTasks as deleteAllTasksAPI,
   getTaskStatus,
 } from "../api/index.js";
 
@@ -457,6 +463,33 @@ const deleteTask = async (task) => {
     .catch(() => {
       // 用户取消
     });
+};
+
+const handleDeleteAllTasks = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除全部 ${total.value} 个任务吗？此操作不可恢复。`,
+      '删除全部任务',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+      }
+    );
+
+    const response = await deleteAllTasksAPI();
+    if (response.success) {
+      ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
+      currentPage.value = 1;
+      await loadTasks({ page: 1 });
+    } else {
+      ElMessage.error(response.message || '删除全部任务失败');
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除全部任务失败');
+    }
+  }
 };
 
 // 辅助函数

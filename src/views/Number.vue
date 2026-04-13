@@ -204,6 +204,11 @@
               >确定</el-button
             >
             <el-button @click="handleHistoryReset">重置</el-button>
+            <el-button
+              type="danger"
+              :disabled="historyTotal === 0"
+              @click="handleDeleteAllTasks"
+            >全部删除</el-button>
           </div>
         </div>
       </template>
@@ -449,6 +454,7 @@ import {
   cancelTask,
   getTaskHistory,
   deleteTask,
+  deleteAllTasks,
 } from "../api/index.js";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName.js";
@@ -864,6 +870,7 @@ const handleDeleteTask = async (row) => {
 
     const response = await deleteTask(row.taskId);
     if (response.success) {
+      ElMessage.success("任务删除成功");
       addLog(`任务已删除: ${row.taskId}`);
       const targetPage =
         taskHistory.value.length === 1 && historyCurrentPage.value > 1
@@ -874,13 +881,36 @@ const handleDeleteTask = async (row) => {
         page: targetPage,
       });
     } else {
+      ElMessage.error(response.message || "删除任务失败");
       addLog(`删除任务失败: ${response.message}`);
     }
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
-      console.error("删除任务失败:", error);
+      ElMessage.error(error.message || "删除任务失败");
       addLog(`删除任务失败: ${error.message || "未知错误"}`);
+    }
+  }
+};
+
+const handleDeleteAllTasks = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除全部 ${historyTotal.value} 条数字分割任务历史吗？此操作不可恢复。`,
+      '删除全部任务',
+      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+    );
+    const response = await deleteAllTasks('number_partition');
+    if (response.success) {
+      ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
+      historyCurrentPage.value = 1;
+      loadTaskHistory({ page: 1 });
+    } else {
+      ElMessage.error(response.message || '删除全部任务失败');
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除全部任务失败');
     }
   }
 };

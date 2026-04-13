@@ -313,9 +313,19 @@ export const cleanupTasks = async (retentionDays = 30) => {
 
 export const deleteTask = async (taskId) => {
   try {
-    const response = await cloudApi.post(`/api/tasks/delete/${taskId}`, {
+    const response = await cloudApi.post("/api/tasks/delete", {
       taskId,
     });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const deleteAllTasks = async (problemType = null) => {
+  try {
+    const payload = problemType ? { problemType } : {};
+    const response = await cloudApi.post("/api/tasks/delete-all", payload);
     return response.data;
   } catch (error) {
     throw error;
