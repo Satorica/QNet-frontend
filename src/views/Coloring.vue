@@ -13,6 +13,46 @@
               <el-radio-button label="cloud">量子云服务计算</el-radio-button>
             </el-radio-group>
           </div>
+          <!-- 图结构设置 -->
+          <div class="controls-row">
+            <div class="control-item">
+              <span class="ctrl-label">节点数量：</span>
+              <el-input-number
+                v-model="nodeCount"
+                :min="3"
+                :max="24"
+                style="width: 130px"
+                @change="generateGraph"
+              />
+            </div>
+            <div class="control-item">
+              <span class="ctrl-label">图类型：</span>
+              <el-select
+                v-model="graphType"
+                @change="generateGraph"
+                style="width: 120px"
+              >
+                <el-option label="随机图" value="random" />
+                <el-option label="完全图" value="complete" />
+                <el-option label="环图" value="cycle" />
+                <el-option label="星图" value="star" />
+                <el-option label="网格图" value="grid" />
+              </el-select>
+            </div>
+            <div class="control-item" v-if="graphType === 'random'">
+              <span class="ctrl-label">边密度：</span>
+              <el-slider
+                v-model="edgeDensity"
+                :min="0.1"
+                :max="0.8"
+                :step="0.1"
+                @change="generateGraph"
+                style="width: 120px"
+              />
+              <span class="ctrl-label">{{ edgeDensity }}</span>
+            </div>
+          </div>
+
           <!-- 邻接矩阵 -->
           <el-card class="matrix-card">
             <template #header>
@@ -24,7 +64,14 @@
                     @click="setMatrixMode('custom')"
                     >自定义</el-button
                   >
-                  <el-button @click="generateRandomMatrix">随机生成</el-button>
+                  <el-button
+                    :type="matrixMode === 'random' ? 'primary' : ''"
+                    @click="
+                      setMatrixMode('random');
+                      generateRandomMatrix();
+                    "
+                    >随机生成</el-button
+                  >
                   <el-button @click="triggerFileInput"
                     >数据导入(txt/csv)</el-button
                   >
@@ -49,7 +96,11 @@
                   v-for="(cell, j) in row"
                   :key="j"
                   class="matrix-cell"
-                  :class="{ editable: matrixMode === 'custom' && i !== j }"
+                  :class="{
+                    editable:
+                      (matrixMode === 'custom' || matrixMode === 'random') &&
+                      i !== j,
+                  }"
                   @click="toggleMatrixCell(i, j)"
                 >
                   {{ cell }}
@@ -100,57 +151,6 @@
 
           <div class="solve-time">求解时间：{{ solveTime }}</div>
 
-          <!-- 图结构设置 -->
-          <el-card class="graph-card">
-            <template #header>
-              <span>图结构设置</span>
-            </template>
-
-            <div class="graph-controls">
-              <div class="control-item">
-                <label>节点数量：</label>
-                <el-input-number
-                  v-model="nodeCount"
-                  :min="3"
-                  :max="24"
-                  @change="generateGraph"
-                />
-              </div>
-
-              <div class="control-item">
-                <label>图类型：</label>
-                <el-select
-                  v-model="graphType"
-                  @change="generateGraph"
-                  class="graph-select"
-                >
-                  <el-option label="随机图" value="random" />
-                  <el-option label="完全图" value="complete" />
-                  <el-option label="环图" value="cycle" />
-                  <el-option label="星图" value="star" />
-                  <el-option label="网格图" value="grid" />
-                </el-select>
-              </div>
-
-              <div class="control-item" v-if="graphType === 'random'">
-                <label>边密度：</label>
-                <el-slider
-                  v-model="edgeDensity"
-                  :min="0.1"
-                  :max="0.8"
-                  :step="0.1"
-                  @change="generateGraph"
-                  show-input
-                />
-              </div>
-
-              <div class="control-buttons">
-                <el-button @click="generateGraph">重新生成</el-button>
-                <el-button @click="clearColoring">清空结果/颜色</el-button>
-              </div>
-            </div>
-          </el-card>
-
           <!-- 统计信息 -->
           <el-card class="stats-card">
             <template #header>
@@ -188,7 +188,7 @@
           <!-- 操作日志 -->
           <el-card class="log-card">
             <template #header>
-              <span>操作日志</span>
+              <span>求解日志</span>
             </template>
             <div class="log-entries">
               <div v-for="(log, index) in logs" :key="index" class="log-entry">
@@ -229,7 +229,8 @@
               type="danger"
               :disabled="historyTotal === 0"
               @click="handleDeleteAllTasks"
-            >全部删除</el-button>
+              >全部删除</el-button
+            >
           </div>
         </div>
       </template>
@@ -491,7 +492,7 @@ const graphType = ref("random");
 const edgeDensity = ref(0.3);
 const selectedColor = ref(0);
 const statusClass = ref("status-idle");
-const statusText = ref("等待操作");
+const statusText = ref("等待求解");
 const conflicts = ref(0);
 const logs = ref(["图着色系统已就绪"]);
 
@@ -530,7 +531,7 @@ const selectedNodes = ref([]);
 // 求解相关
 const solveType = ref("classic");
 const solving = ref(false);
-const solveTime = ref("0s");
+const solveTime = ref("--");
 const currentTaskId = ref(null);
 
 // 任务历史
@@ -577,7 +578,7 @@ const generateGraph = () => {
   nodes.value = Array.from({ length: nodeCount.value }, (_, i) => ({
     id: i,
     x: 200 + 150 * Math.cos((2 * Math.PI * i) / nodeCount.value),
-    y: 200 + 150 * Math.sin((2 * Math.PI * i) / nodeCount.value),
+    y: 180 + 150 * Math.sin((2 * Math.PI * i) / nodeCount.value),
   }));
 
   // 按图类型生成边
@@ -881,7 +882,11 @@ const handleFileImport = (event) => {
 };
 
 const toggleMatrixCell = (i, j) => {
-  if (matrixMode.value !== "custom" || i === j) return;
+  if (
+    (matrixMode.value !== "custom" && matrixMode.value !== "random") ||
+    i === j
+  )
+    return;
   const newValue = adjacencyMatrix.value[i][j] === 1 ? 0 : 1;
   adjacencyMatrix.value[i][j] = newValue;
   adjacencyMatrix.value[j][i] = newValue;
@@ -894,7 +899,7 @@ const rebuildNodesLayout = () => {
   nodes.value = Array.from({ length: nodeCount.value }, (_, i) => ({
     id: i,
     x: 200 + 150 * Math.cos((2 * Math.PI * i) / nodeCount.value),
-    y: 200 + 150 * Math.sin((2 * Math.PI * i) / nodeCount.value),
+    y: 180 + 150 * Math.sin((2 * Math.PI * i) / nodeCount.value),
   }));
 };
 
@@ -935,20 +940,24 @@ const handleDeleteAllTasks = async () => {
   try {
     await ElMessageBox.confirm(
       `确定要删除全部 ${historyTotal.value} 条图着色任务历史吗？此操作不可恢复。`,
-      '删除全部任务',
-      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+      "删除全部任务",
+      {
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
     );
-    const response = await deleteAllTasks('coloring');
+    const response = await deleteAllTasks("coloring");
     if (response.success) {
       ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
       historyCurrentPage.value = 1;
       loadTaskHistory({ page: 1 });
     } else {
-      ElMessage.error(response.message || '删除全部任务失败');
+      ElMessage.error(response.message || "删除全部任务失败");
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除全部任务失败');
+    if (error !== "cancel") {
+      ElMessage.error(error.message || "删除全部任务失败");
     }
   }
 };
@@ -1442,13 +1451,12 @@ loadTaskHistory();
 .card-content {
   display: grid;
   grid-template-columns: 1fr 400px;
-  gap: 20px;
-  padding: 20px;
+  gap: 32px;
 }
 
 /***** 矩阵样式 *****/
 .matrix-card {
-  margin-top: 16px;
+  margin: 16px 0px;
 }
 .matrix-header {
   display: flex;
@@ -1501,22 +1509,11 @@ loadTaskHistory();
 
 /***** 右侧图与操作 *****/
 .graph-visualization {
-  height: 400px;
   border: 1px solid #e6eaf5;
   border-radius: 12px;
   background: #fafbfc;
   margin-bottom: 20px;
-}
-.solve-section {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-.solve-btn {
-  width: 160px;
-  height: 48px;
-  font-size: 16px;
-  font-weight: 600;
+  overflow: hidden;
 }
 .solve-status {
   margin-bottom: 20px;
@@ -1842,11 +1839,25 @@ loadTaskHistory();
   word-break: break-all;
 }
 
-.graph-select {
-  margin: 10px 0;
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
-.control-buttons {
-  margin-top: 20px;
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ctrl-label {
+  white-space: nowrap;
+  color: #8c8fa3;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 </style> 

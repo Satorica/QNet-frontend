@@ -15,23 +15,25 @@
             </el-radio-group>
           </div>
 
-          <!-- 矩阵标题和规模控制 -->
-          <div class="matrix-header">
-            <div class="title-section">
-              <div class="title-bar"></div>
-              <span class="title-text">请输入图的邻接矩阵：</span>
-            </div>
-            <div class="size-controls">
-              <span class="label">求解问题规模：</span>
+          <!-- 规模控制 -->
+          <div class="controls-row">
+            <div class="control-item">
+              <span class="ctrl-label">求解问题规模：</span>
               <el-input-number
                 v-model="matrixSize"
                 :min="2"
                 :max="24"
-                size="small"
-                style="width: 120px"
+                style="width: 130px"
                 @change="generateMatrix"
               />
-              <el-button @click="generateMatrix">生成矩阵</el-button>
+            </div>
+          </div>
+
+          <!-- 矩阵标题 -->
+          <div class="matrix-header">
+            <div class="title-section">
+              <div class="title-bar"></div>
+              <span class="title-text">请输入图的邻接矩阵：</span>
             </div>
           </div>
 
@@ -42,7 +44,11 @@
               @click="setEditMode('custom')"
               >自定义</el-button
             >
-            <el-button @click="generateRandomMatrix">随机生成</el-button>
+            <el-button
+              :type="editMode === 'random' ? 'primary' : ''"
+              @click="setEditMode('random'); generateRandomMatrix()"
+              >随机生成</el-button
+            >
             <el-button @click="triggerFileInput">数据导入(txt/csv)</el-button>
             <input
               ref="fileInput"
@@ -51,9 +57,6 @@
               style="display: none"
               @change="handleFileImport"
             />
-            <span class="mode-indicator"
-              >模式：{{ editMode === "custom" ? "编辑" : "查看" }}</span
-            >
           </div>
 
           <!-- 邻接矩阵网格 -->
@@ -63,7 +66,7 @@
                 v-for="(cell, j) in row"
                 :key="j"
                 class="matrix-cell"
-                :class="{ editable: editMode === 'custom' && i !== j }"
+                :class="{ editable: i !== j }"
                 @click="toggleCell(i, j)"
               >
                 {{ cell }}
@@ -72,8 +75,7 @@
           </div>
 
           <div class="tip">
-            互相转化（邻接矩阵 ↔
-            图）。点击矩阵单元格可编辑连接关系（仅自定义模式）。
+            互相转化（邻接矩阵 ↔ 图）。点击矩阵单元格可随时编辑连接关系。
           </div>
 
           <!-- 图形可视化 -->
@@ -86,22 +88,6 @@
               :selected-nodes="selectedNodes"
               @node-click="onGraphNodeClick"
             />
-
-            <!-- 图例说明 -->
-            <div v-if="Object.keys(partition).length > 0" class="graph-legend">
-              <div class="legend-item">
-                <div class="legend-color" style="background: #ff6b6b"></div>
-                <span>分区 A</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-color" style="background: #4ecdc4"></div>
-                <span>分区 B</span>
-              </div>
-              <div class="legend-item">
-                <div class="legend-edge" style="background: #ffa726"></div>
-                <span>被切割的边</span>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -132,7 +118,7 @@
           <!-- 日志 -->
           <el-card class="log-card">
             <template #header>
-              <span>求解状态</span>
+              <span>求解日志</span>
             </template>
             <div class="log-entries">
               <div v-for="(log, index) in logs" :key="index" class="log-entry">
@@ -155,15 +141,15 @@
               <div
                 v-for="(candidate, index) in candidates"
                 :key="index"
-                class="candidate"
+                class="candidate-item"
               >
-                <div class="cand-title">
-                  目标值 {{ index + 1 }}：<span class="cand-value">{{
-                    candidate.value || "--"
-                  }}</span>
+                <div class="candidate-header">
+                  <span class="candidate-rank">候选解 {{ index + 1 }}</span>
+                  <span class="candidate-value">目标值：{{ candidate.value ?? "--" }}</span>
                 </div>
-                <div class="cand-solution">
-                  {{ candidate.solution || "--" }}
+                <div class="candidate-solution">
+                  <span class="solution-label">解向量：</span>
+                  <span class="solution-value">{{ candidate.solution || "--" }}</span>
                 </div>
               </div>
             </div>
@@ -452,7 +438,7 @@ const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 // 响应式数据
 const solveType = ref("classic");
 const matrixSize = ref(6);
-const editMode = ref("view");
+const editMode = ref("custom");
 const matrix = ref([]);
 const solving = ref(false);
 const stateClass = ref("state-idle");
@@ -566,7 +552,7 @@ const setEditMode = (mode) => {
 
 // 切换单元格状态
 const toggleCell = (i, j) => {
-  if (editMode.value === "custom" && i !== j) {
+  if (i !== j) {
     const newValue = matrix.value[i][j] === 1 ? 0 : 1;
     matrix.value[i][j] = newValue;
     matrix.value[j][i] = newValue;
@@ -1175,8 +1161,7 @@ onMounted(() => {
 .card-content {
   display: grid;
   grid-template-columns: 1fr 400px;
-  gap: 20px;
-  padding: 20px;
+  gap: 32px;
 }
 
 .controls-top {
@@ -1184,6 +1169,28 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ctrl-label {
+  white-space: nowrap;
+  color: #8c8fa3;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .solve-type-group {
@@ -1203,7 +1210,6 @@ onMounted(() => {
 
 .matrix-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
@@ -1226,11 +1232,6 @@ onMounted(() => {
   color: #292929;
 }
 
-.size-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
 .matrix-options {
   display: flex;
@@ -1238,12 +1239,6 @@ onMounted(() => {
   gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
-}
-
-.mode-indicator {
-  color: #8c8fa3;
-  font-size: 14px;
-  margin-left: auto;
 }
 
 .matrix-grid {
@@ -1294,47 +1289,9 @@ onMounted(() => {
 }
 
 .graph-container {
-  height: 360px;
   border: 1px solid #e6eaf5;
   border-radius: 8px;
   background: #fafbfc;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.graph-legend {
-  display: flex;
-  gap: 20px;
-  margin-top: 12px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #666;
-}
-
-.legend-color {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid white;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.legend-edge {
-  width: 30px;
-  height: 3px;
-  border-radius: 2px;
 }
 
 .graph-placeholder {
@@ -1441,28 +1398,6 @@ onMounted(() => {
   gap: 12px;
 }
 
-.candidate {
-  padding: 12px;
-  background: #f6f7fa;
-  border-radius: 8px;
-  margin-bottom: 8px;
-}
-
-.cand-title {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.cand-value {
-  color: #4050f8;
-  font-weight: 600;
-}
-
-.cand-solution {
-  font-size: 12px;
-  color: #666;
-  word-break: break-all;
-}
 
 .label {
   color: #8c8fa3;

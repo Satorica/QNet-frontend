@@ -13,6 +13,33 @@
               <el-radio-button label="cloud">量子云服务计算</el-radio-button>
             </el-radio-group>
           </div>
+          <!-- 城市设置 -->
+          <div class="controls-row">
+            <div class="control-item">
+              <span class="ctrl-label">城市数量：</span>
+              <el-input-number
+                v-model="cityCount"
+                :min="3"
+                :max="24"
+                style="width: 130px"
+                @change="generateCitiesAndMatrix"
+              />
+            </div>
+            <div class="control-item">
+              <span class="ctrl-label">生成模式：</span>
+              <el-select
+                v-model="generationMode"
+                style="width: 120px"
+                @change="generateCitiesAndMatrix"
+              >
+                <el-option label="随机分布" value="random" />
+                <el-option label="网格分布" value="grid" />
+                <el-option label="环形分布" value="circle" />
+                <el-option label="聚类分布" value="cluster" />
+              </el-select>
+            </div>
+          </div>
+
           <!-- 距离矩阵（可非负权重） -->
           <el-card class="matrix-card">
             <template #header>
@@ -24,7 +51,14 @@
                     @click="setMatrixMode('custom')"
                     >自定义</el-button
                   >
-                  <el-button @click="generateRandomMatrix">随机生成</el-button>
+                  <el-button
+                    :type="matrixMode === 'random' ? 'primary' : ''"
+                    @click="
+                      setMatrixMode('random');
+                      generateRandomMatrix();
+                    "
+                    >随机生成</el-button
+                  >
                   <el-button @click="triggerFileInput"
                     >数据导入(txt/csv)</el-button
                   >
@@ -49,7 +83,11 @@
                   v-for="(cell, j) in row"
                   :key="j"
                   class="matrix-cell"
-                  :class="{ editable: matrixMode === 'custom' && i !== j }"
+                  :class="{
+                    editable:
+                      (matrixMode === 'custom' || matrixMode === 'random') &&
+                      i !== j,
+                  }"
                   @click="toggleMatrixCell(i, j)"
                 >
                   {{ cell }}
@@ -101,43 +139,6 @@
 
           <div class="solve-time">求解时间：{{ solveTime }}</div>
 
-          <!-- 城市设置 -->
-          <el-card class="cities-card">
-            <template #header>
-              <span>城市设置</span>
-            </template>
-
-            <div class="cities-controls">
-              <div class="control-item">
-                <label>城市数量：</label>
-                <el-input-number
-                  v-model="cityCount"
-                  :min="3"
-                  :max="24"
-                  @change="generateCitiesAndMatrix"
-                />
-              </div>
-
-              <div class="control-item">
-                <label>生成模式：</label>
-                <el-select
-                  v-model="generationMode"
-                  @change="generateCitiesAndMatrix"
-                >
-                  <el-option label="随机分布" value="random" />
-                  <el-option label="网格分布" value="grid" />
-                  <el-option label="环形分布" value="circle" />
-                  <el-option label="聚类分布" value="cluster" />
-                </el-select>
-              </div>
-
-              <div class="control-buttons">
-                <el-button @click="generateCitiesAndMatrix">重新生成</el-button>
-                <el-button @click="clearRoute">清除路径</el-button>
-              </div>
-            </div>
-          </el-card>
-
           <!-- 统计信息 -->
           <el-card class="stats-card">
             <template #header>
@@ -167,7 +168,7 @@
           <!-- 算法日志 -->
           <el-card class="log-card">
             <template #header>
-              <span>算法日志</span>
+              <span>求解日志</span>
             </template>
             <div class="log-entries">
               <div v-for="(log, index) in logs" :key="index" class="log-entry">
@@ -198,7 +199,8 @@
               type="danger"
               :disabled="historyTotal === 0"
               @click="handleDeleteAllTasks"
-            >全部删除</el-button>
+              >全部删除</el-button
+            >
           </div>
         </div>
       </template>
@@ -561,7 +563,7 @@ const generateRandomCities = () => {
   for (let i = 0; i < cityCount.value; i++) {
     cities.value.push({
       id: i,
-      x: Math.random() * 360 + 40,
+      x: Math.random() * 320 + 40,
       y: Math.random() * 280 + 40,
       name: `城市${i}`,
     });
@@ -570,15 +572,18 @@ const generateRandomCities = () => {
 
 const generateGridCities = () => {
   const side = Math.ceil(Math.sqrt(cityCount.value));
-  const spacing = 300 / side;
+  const rows = Math.ceil(cityCount.value / side);
+  const spacing = Math.min(300 / side, 260 / rows);
+  const startX = (400 - (side - 1) * spacing) / 2;
+  const startY = (360 - (rows - 1) * spacing) / 2;
 
   for (let i = 0; i < cityCount.value; i++) {
     const row = Math.floor(i / side);
     const col = i % side;
     cities.value.push({
       id: i,
-      x: 60 + col * spacing,
-      y: 60 + row * spacing,
+      x: startX + col * spacing,
+      y: startY + row * spacing,
       name: `城市${i}`,
     });
   }
@@ -1078,7 +1083,11 @@ const handleFileImport = (event) => {
 };
 
 const toggleMatrixCell = async (i, j) => {
-  if (matrixMode.value !== "custom" || i === j) return;
+  if (
+    (matrixMode.value !== "custom" && matrixMode.value !== "random") ||
+    i === j
+  )
+    return;
   const { value } = await ElMessageBox.prompt(
     "请输入边长度（非负数，0 表示删除边）",
     "编辑矩阵单元",
@@ -1394,7 +1403,7 @@ const handleDeleteTask = async (row) => {
 
     const response = await deleteTask(row.taskId);
     if (response.success) {
-      ElMessage.success('任务删除成功');
+      ElMessage.success("任务删除成功");
       addLog(`任务已删除: ${row.taskId}`);
       const targetPage =
         taskHistory.value.length === 1 && historyCurrentPage.value > 1
@@ -1405,13 +1414,13 @@ const handleDeleteTask = async (row) => {
         page: targetPage,
       });
     } else {
-      ElMessage.error(response.message || '删除任务失败');
+      ElMessage.error(response.message || "删除任务失败");
       addLog(`删除任务失败: ${response.message}`);
     }
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
-      ElMessage.error(error.message || '删除任务失败');
+      ElMessage.error(error.message || "删除任务失败");
       console.error("删除任务失败:", error);
       addLog(`删除任务失败: ${error.message || "未知错误"}`);
     }
@@ -1422,20 +1431,24 @@ const handleDeleteAllTasks = async () => {
   try {
     await ElMessageBox.confirm(
       `确定要删除全部 ${historyTotal.value} 条旅行商任务历史吗？此操作不可恢复。`,
-      '删除全部任务',
-      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+      "删除全部任务",
+      {
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
     );
-    const response = await deleteAllTasks('tsp');
+    const response = await deleteAllTasks("tsp");
     if (response.success) {
       ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
       historyCurrentPage.value = 1;
       loadTaskHistory({ page: 1 });
     } else {
-      ElMessage.error(response.message || '删除全部任务失败');
+      ElMessage.error(response.message || "删除全部任务失败");
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除全部任务失败');
+    if (error !== "cancel") {
+      ElMessage.error(error.message || "删除全部任务失败");
     }
   }
 };
@@ -1534,8 +1547,7 @@ loadTaskHistory();
 .card-content {
   display: grid;
   grid-template-columns: 1fr 400px;
-  gap: 20px;
-  padding: 20px;
+  gap: 32px;
 }
 
 .left-panel {
@@ -1551,7 +1563,7 @@ loadTaskHistory();
 }
 
 .matrix-card {
-  margin-top: 16px;
+  margin: 16px 0px;
 }
 
 .matrix-header {
@@ -1613,11 +1625,11 @@ loadTaskHistory();
 }
 
 .tsp-visualization {
-  height: 400px;
   border: 1px solid #e6eaf5;
   border-radius: 12px;
   background: #fafbfc;
   margin-bottom: 20px;
+  overflow: hidden;
 }
 
 .route-comparison {
@@ -1645,26 +1657,26 @@ loadTaskHistory();
   font-weight: 500;
 }
 
-.cities-card {
-  margin-top: 16px;
-}
-
-.cities-controls {
+.controls-row {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .control-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.control-item label {
-  min-width: 80px;
-  color: #666;
+.ctrl-label {
+  white-space: nowrap;
+  color: #8c8fa3;
   font-size: 14px;
+  flex-shrink: 0;
 }
 
 .stats-card {
@@ -1698,19 +1710,14 @@ loadTaskHistory();
 }
 
 .log-entries {
-  max-height: 300px;
+  max-height: 200px;
   overflow-y: auto;
-  border: 1px solid #e6eaf5;
-  border-radius: 8px;
-  padding: 12px;
-  background: #fafbfc;
 }
 
 .log-entry {
-  font-size: 13px;
-  color: #333;
+  font-size: 12px;
+  color: #666;
   margin-bottom: 4px;
-  line-height: 1.4;
 }
 
 .status-indicator {
@@ -1848,11 +1855,6 @@ loadTaskHistory();
 .label {
   color: #8c8fa3;
   font-size: 14px;
-}
-
-.control-buttons {
-  display: flex;
-  gap: 12px;
 }
 
 /* 任务历史列表 */

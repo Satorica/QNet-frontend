@@ -1,21 +1,24 @@
 <template>
   <div class="number-page">
     <el-card class="main-card">
-      <div class="page-content">
-        <div class="page-header">
-          <div class="title-section">
-            <div class="title-bar"></div>
-            <h2>数字分割问题</h2>
+      <div class="card-content">
+        <div class="left-column">
+          <!-- 求解模型选择 -->
+          <div class="controls-top">
+            <span class="label">求解模型选择：</span>
+            <el-radio-group v-model="solveType" class="solve-type-group">
+              <el-radio-button label="classic">经典计算</el-radio-button>
+              <el-radio-button label="sim"
+                >量子芯片模拟计算</el-radio-button
+              >
+              <el-radio-button label="cloud"
+                >量子云服务计算</el-radio-button
+              >
+            </el-radio-group>
           </div>
-          <p class="description">
-            将一组数字分成两个子集，使得两个子集的和尽可能接近。
-          </p>
-        </div>
 
-        <div class="content-grid">
-          <div class="left-panel">
-            <!-- 数字输入区域 -->
-            <el-card class="input-card">
+          <!-- 数字输入区域 -->
+          <el-card class="input-card">
               <template #header>
                 <span>数字输入</span>
               </template>
@@ -55,32 +58,37 @@
               </div>
             </el-card>
 
-            <!-- 求解配置 -->
-            <el-card class="config-card">
-              <template #header>
-                <span>求解配置</span>
-              </template>
-
-              <div class="solve-config">
-                <div class="config-item">
-                  <label>求解模型：</label>
-                  <el-radio-group v-model="solveType">
-                    <el-radio-button label="classic">经典计算</el-radio-button>
-                    <el-radio-button label="sim"
-                      >量子芯片模拟计算</el-radio-button
-                    >
-                    <el-radio-button label="cloud"
-                      >量子云服务计算</el-radio-button
-                    >
-                  </el-radio-group>
+          <!-- 候选结果 -->
+          <el-card class="candidates-result-card">
+            <template #header>
+              <div class="result-header">
+                <span>候选结果（{{ candidates.length }}）</span>
+                <el-button size="small" @click="exportResults">结果导出</el-button>
+              </div>
+            </template>
+            <div class="candidates-list-main">
+              <div
+                v-for="(candidate, index) in candidates"
+                :key="index"
+                class="candidate-item-main"
+              >
+                <div class="candidate-header-main">
+                  <span class="candidate-rank-main">候选解 {{ index + 1 }}</span>
+                  <span class="candidate-value-main">差值：{{ candidate.value ?? "--" }}</span>
+                </div>
+                <div class="candidate-solution-main">
+                  <span class="solution-label-main">解向量：</span>
+                  <span class="solution-value-main">{{ candidate.solution || "--" }}</span>
                 </div>
               </div>
-            </el-card>
-          </div>
+            </div>
+          </el-card>
 
-          <div class="right-panel">
+        </div>
+
+        <div class="right-column">
             <!-- 求解控制 -->
-            <div class="solve-section">
+            <div class="solve-area">
               <el-button
                 type="primary"
                 size="large"
@@ -89,7 +97,7 @@
                 @click="startSolve"
                 class="solve-btn"
               >
-                {{ solving ? "求解中..." : "开始求解" }}
+                {{ solving ? "求解中..." : "求解" }}
               </el-button>
               <el-button @click="cancelSolve" :disabled="!solving"
                 >取消任务</el-button
@@ -184,9 +192,9 @@
                 </div>
               </div>
             </el-card>
+
           </div>
         </div>
-      </div>
     </el-card>
     <el-card class="history-card">
       <template #header>
@@ -472,6 +480,11 @@ const solveTime = ref("--");
 const result = ref(null);
 const logs = ref(["系统已就绪"]);
 const currentTaskId = ref(null);
+const candidates = ref([
+  { value: null, solution: null },
+  { value: null, solution: null },
+  { value: null, solution: null },
+]);
 
 // 任务历史
 const taskHistory = ref([]);
@@ -566,6 +579,11 @@ const startSolve = async () => {
   statusClass.value = "status-running";
   statusText.value = "求解中";
   result.value = null;
+  candidates.value = [
+    { value: null, solution: null },
+    { value: null, solution: null },
+    { value: null, solution: null },
+  ];
 
   const startTime = Date.now();
   addLog(`开始求解数字分割问题（${solveType.value}模式）`);
@@ -671,6 +689,12 @@ const pollTaskStatus = async (taskId, startTime) => {
 
           console.log("解析的结果:", result.value);
 
+          // 填充候选结果列表
+          candidates.value = resultCandidates.map((c) => ({
+            value: c.value,
+            solution: JSON.stringify(c.solution),
+          }));
+
           addLog(`求解完成，找到最优解，差值：${difference}`);
         }
       } else if (
@@ -733,6 +757,22 @@ const addLog = (message) => {
   if (logs.value.length > 20) {
     logs.value = logs.value.slice(0, 20);
   }
+};
+
+const exportResults = () => {
+  const data = {
+    numbers: numbers.value,
+    solveType: solveType.value,
+    candidates: candidates.value,
+    timestamp: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `number-partition-candidates-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
 };
 
 const exportResult = () => {
@@ -977,40 +1017,37 @@ loadTaskHistory();
   box-shadow: 0 10px 20px rgba(9, 30, 66, 0.04);
 }
 
-.page-header {
-  margin-bottom: 24px;
+.card-content {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 32px;
 }
 
-.title-section {
+.controls-top {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px;
+  margin-bottom: 20px;
 }
 
-.title-bar {
-  width: 4px;
-  height: 28px;
-  background: linear-gradient(180deg, #4050f8, #7848e8);
-  border-radius: 2px;
+.solve-type-group {
+  display: flex;
+  gap: 12px;
 }
 
-.page-header h2 {
-  margin: 0;
-  color: #292929;
-  font-weight: 600;
+.solve-type-group :deep(.el-radio-button__inner) {
+  border: 1px solid #dcdfe6;
 }
 
-.description {
+.solve-type-group
+  :deep(.el-radio-button:not(.is-active) .el-radio-button__inner) {
+  background: #ffffff;
+  border-color: #dcdfe6;
+}
+
+.label {
   color: #8c8fa3;
-  margin: 0;
   font-size: 14px;
-}
-
-.content-grid {
-  display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 24px;
 }
 
 .number-input-area {
@@ -1042,52 +1079,21 @@ loadTaskHistory();
   color: #666;
 }
 
-.solve-config {
+
+.solve-area {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.config-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.config-item label {
-  min-width: 80px;
-  color: #666;
-  font-size: 14px;
-}
-
-.config-item :deep(.el-radio-group) {
-  display: flex;
-  gap: 12px;
-}
-
-.config-item :deep(.el-radio-button__inner) {
-  border: 1px solid #dcdfe6;
-}
-
-.config-item :deep(.el-radio-button:not(.is-active) .el-radio-button__inner) {
-  background: #ffffff;
-  border-color: #dcdfe6;
-}
-
-.solve-section {
-  display: flex;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 20px;
 }
 
-.solve-section .solve-btn {
-  width: 160px;
+.solve-area .solve-btn {
+  width: 120px;
   height: 48px;
   font-size: 16px;
   font-weight: 600;
 }
 
-.solve-section :deep(.el-button) {
+.solve-area :deep(.el-button) {
   height: 48px;
 }
 
@@ -1222,19 +1228,64 @@ loadTaskHistory();
   font-size: 12px;
   color: #666;
   margin-bottom: 4px;
-  padding: 4px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.log-entry:last-child {
-  border-bottom: none;
 }
 
 .input-card,
-.config-card,
 .result-card,
-.log-card {
+.log-card,
+.candidates-result-card {
   margin-bottom: 20px;
+}
+
+.candidates-list-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.candidate-item-main {
+  background: #f6f7fa;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.candidate-header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.candidate-rank-main {
+  font-weight: 500;
+  color: #4050f8;
+  font-size: 14px;
+}
+
+.candidate-value-main {
+  color: #4050f8;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.candidate-solution-main {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.solution-label-main {
+  color: #8c8fa3;
+  flex-shrink: 0;
+}
+
+.solution-value-main {
+  color: #666;
+  word-break: break-all;
+  font-family: "Courier New", monospace;
+  background: #ffffff;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 /* 任务历史列表 */

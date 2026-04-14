@@ -103,14 +103,17 @@ const handleNodeClick = (nodeId) => {
 <style scoped>
 .coloring-graph {
   width: 100%;
-  height: 100%;
+  min-height: 400px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 12px 0;
 }
 
 .graph-svg {
   border-radius: 8px;
+  overflow: visible;
 }
 
 .clickable {

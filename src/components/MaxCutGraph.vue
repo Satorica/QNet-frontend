@@ -1,7 +1,7 @@
 <template>
   <div ref="graphContainer" class="maxcut-graph">
     <svg :width="width" :height="height" class="graph-svg">
-      <!-- 边 - 根据是否被切割显示不同颜色 -->
+      <!-- 边 -->
       <line
         v-for="(edge, index) in edges"
         :key="`edge-${index}`"
@@ -9,9 +9,9 @@
         :y1="nodes[edge.source]?.y"
         :x2="nodes[edge.target]?.x"
         :y2="nodes[edge.target]?.y"
-        :stroke="getEdgeColor(edge)"
-        :stroke-width="getEdgeWidth(edge)"
-        :opacity="getEdgeOpacity(edge)"
+        stroke="#C0C4CC"
+        stroke-width="2"
+        opacity="0.6"
         class="graph-edge"
       />
 
@@ -45,6 +45,18 @@
         {{ node.id }}
       </text>
     </svg>
+
+    <!-- 图例说明 -->
+    <div v-if="Object.keys(partition).length > 0" class="graph-legend">
+      <div class="legend-item">
+        <div class="legend-color" style="background: #ff6b6b"></div>
+        <span>分区 A</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-color" style="background: #4ecdc4"></div>
+        <span>分区 B</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -102,54 +114,6 @@ const hasPartition = (nodeId) => {
   return props.partition[nodeId] !== undefined;
 };
 
-// 边的颜色 - 被切割的边显示为高亮
-const getEdgeColor = (edge) => {
-  const sourcePartition = props.partition[edge.source];
-  const targetPartition = props.partition[edge.target];
-
-  // 如果两个节点都已分区且在不同分区，这条边被切割了
-  if (sourcePartition !== undefined && targetPartition !== undefined) {
-    if (sourcePartition !== targetPartition) {
-      return "#FFA726"; // 橙色 - 被切割的边
-    } else {
-      return "#8C8FA3"; // 灰色 - 未被切割的边
-    }
-  }
-
-  return "#C0C4CC"; // 浅灰色 - 默认边
-};
-
-// 边的宽度
-const getEdgeWidth = (edge) => {
-  const sourcePartition = props.partition[edge.source];
-  const targetPartition = props.partition[edge.target];
-
-  // 被切割的边更粗
-  if (
-    sourcePartition !== undefined &&
-    targetPartition !== undefined &&
-    sourcePartition !== targetPartition
-  ) {
-    return 3;
-  }
-  return 2;
-};
-
-// 边的透明度
-const getEdgeOpacity = (edge) => {
-  const sourcePartition = props.partition[edge.source];
-  const targetPartition = props.partition[edge.target];
-
-  // 被切割的边更明显
-  if (
-    sourcePartition !== undefined &&
-    targetPartition !== undefined &&
-    sourcePartition !== targetPartition
-  ) {
-    return 0.9;
-  }
-  return 0.4;
-};
 
 const isSelected = (nodeId) => {
   return (
@@ -167,15 +131,44 @@ const handleNodeClick = (nodeId) => {
 <style scoped>
 .maxcut-graph {
   width: 100%;
-  height: 100%;
+  min-height: 400px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  padding: 12px 0;
+  gap: 12px;
 }
 
 .graph-svg {
   border-radius: 8px;
+  overflow: visible;
 }
+
+.graph-legend {
+  display: flex;
+  gap: 20px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
 
 .graph-edge {
   transition: stroke 0.3s ease, stroke-width 0.3s ease, opacity 0.3s ease;
