@@ -13,9 +13,22 @@
               @keyup.enter="handleSearchConfirm"
             />
             <el-select
+              v-model="problemType"
+              placeholder="问题类型"
+              style="width: 160px"
+              clearable
+            >
+              <el-option
+                v-for="option in problemTypeOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+            <el-select
               v-model="modelType"
               :placeholder="$t('tasks.modelTypePlaceholder')"
-              style="width: 200px"
+              style="width: 180px"
               clearable
             >
               <el-option
@@ -35,7 +48,8 @@
               type="danger"
               :disabled="total === 0"
               @click="handleDeleteAllTasks"
-            >全部删除</el-button>
+              >全部删除</el-button
+            >
           </div>
         </div>
       </template>
@@ -333,6 +347,7 @@ const { t } = useI18n();
 const tasks = ref([]);
 const taskName = ref("");
 const modelType = ref("");
+const problemType = ref("");
 const currentPage = ref(1);
 const pageSize = ref(10);
 const total = ref(0);
@@ -341,6 +356,12 @@ const selectedTask = ref(null);
 const taskDetailResults = ref(null);
 const historyLoading = ref(false);
 const modelTypeOptions = ["classic", "sim", "cloud"];
+const problemTypeOptions = [
+  { value: "maxcut", label: "图分割问题" },
+  { value: "number_partition", label: "数分问题" },
+  { value: "coloring", label: "图着色问题" },
+  { value: "tsp", label: "旅行商问题" },
+];
 
 // 方法
 const loadTasks = async (params = {}) => {
@@ -349,6 +370,7 @@ const loadTasks = async (params = {}) => {
     pageSize: params.pageSize ?? pageSize.value,
     taskName: params.taskName ?? (taskName.value ?? "").trim(),
     modelType: params.modelType ?? (modelType.value ?? "").trim(),
+    problemType: params.problemType ?? (problemType.value ?? "").trim(),
   };
 
   try {
@@ -396,17 +418,20 @@ const handleSearchConfirm = () => {
     page: 1,
     taskName: (taskName.value ?? "").trim(),
     modelType: (modelType.value ?? "").trim(),
+    problemType: (problemType.value ?? "").trim(),
   });
 };
 
 const handleResetSearch = () => {
   taskName.value = "";
   modelType.value = "";
+  problemType.value = "";
   loadTasks({
     page: currentPage.value,
     pageSize: pageSize.value,
     taskName: "",
     modelType: "",
+    problemType: "",
   });
 };
 
@@ -469,11 +494,11 @@ const handleDeleteAllTasks = async () => {
   try {
     await ElMessageBox.confirm(
       `确定要删除全部 ${total.value} 个任务吗？此操作不可恢复。`,
-      '删除全部任务',
+      "删除全部任务",
       {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning',
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
       }
     );
 
@@ -483,11 +508,11 @@ const handleDeleteAllTasks = async () => {
       currentPage.value = 1;
       await loadTasks({ page: 1 });
     } else {
-      ElMessage.error(response.message || '删除全部任务失败');
+      ElMessage.error(response.message || "删除全部任务失败");
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除全部任务失败');
+    if (error !== "cancel") {
+      ElMessage.error(error.message || "删除全部任务失败");
     }
   }
 };
