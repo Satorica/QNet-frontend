@@ -46,7 +46,10 @@
             >
             <el-button
               :type="editMode === 'random' ? 'primary' : ''"
-              @click="setEditMode('random'); generateRandomMatrix()"
+              @click="
+                setEditMode('random');
+                generateRandomMatrix();
+              "
               >随机生成</el-button
             >
             <el-button @click="triggerFileInput">数据导入(txt/csv)</el-button>
@@ -131,12 +134,15 @@
           <el-card class="result-card">
             <template #header>
               <div class="result-header">
-                <span>候选结果（3）</span>
+                <span>候选结果</span>
                 <el-button size="small" @click="exportResults"
                   >结果导出</el-button
                 >
               </div>
             </template>
+            <div v-if="candidates.length === 0" class="candidates-placeholder">
+              --
+            </div>
             <div class="candidates">
               <div
                 v-for="(candidate, index) in candidates"
@@ -145,11 +151,15 @@
               >
                 <div class="candidate-header">
                   <span class="candidate-rank">候选解 {{ index + 1 }}</span>
-                  <span class="candidate-value">目标值：{{ candidate.value ?? "--" }}</span>
+                  <span class="candidate-value"
+                    >目标值：{{ candidate.value ?? "--" }}</span
+                  >
                 </div>
                 <div class="candidate-solution">
                   <span class="solution-label">解向量：</span>
-                  <span class="solution-value">{{ candidate.solution || "--" }}</span>
+                  <span class="solution-value">{{
+                    candidate.solution || "--"
+                  }}</span>
                 </div>
               </div>
             </div>
@@ -179,7 +189,8 @@
               type="danger"
               :disabled="historyTotal === 0"
               @click="handleDeleteAllTasks"
-            >全部删除</el-button>
+              >全部删除</el-button
+            >
           </div>
         </div>
       </template>
@@ -445,11 +456,7 @@ const stateClass = ref("state-idle");
 const stateText = ref("等待求解");
 const solveTime = ref("--");
 const logs = ref(["参数校验通过"]);
-const candidates = ref([
-  { value: null, solution: null },
-  { value: null, solution: null },
-  { value: null, solution: null },
-]);
+const candidates = ref([]);
 const currentTaskId = ref(null);
 
 const fileInput = ref(null);
@@ -494,11 +501,7 @@ const generateMatrix = () => {
   syncEdgesFromMatrix();
   // 清除分区结果
   partition.value = {};
-  candidates.value = [
-    { value: null, solution: null },
-    { value: null, solution: null },
-    { value: null, solution: null },
-  ];
+  candidates.value = [];
 };
 
 // 生成节点布局
@@ -530,11 +533,7 @@ const generateRandomMatrix = () => {
   syncEdgesFromMatrix();
   // 清除分区结果
   partition.value = {};
-  candidates.value = [
-    { value: null, solution: null },
-    { value: null, solution: null },
-    { value: null, solution: null },
-  ];
+  candidates.value = [];
 };
 
 // 设置编辑模式
@@ -542,11 +541,7 @@ const setEditMode = (mode) => {
   editMode.value = mode;
   // 切换编辑模式时清除分区结果
   partition.value = {};
-  candidates.value = [
-    { value: null, solution: null },
-    { value: null, solution: null },
-    { value: null, solution: null },
-  ];
+  candidates.value = [];
   addLog("切换编辑模式，清除分区结果");
 };
 
@@ -559,11 +554,7 @@ const toggleCell = (i, j) => {
     syncEdgesFromMatrix();
     // 修改矩阵时清除分区结果
     partition.value = {};
-    candidates.value = [
-      { value: null, solution: null },
-      { value: null, solution: null },
-      { value: null, solution: null },
-    ];
+    candidates.value = [];
   }
 };
 
@@ -634,11 +625,7 @@ const toggleEdge = (a, b) => {
   syncMatrixFromEdges();
   // 修改边时清除分区结果
   partition.value = {};
-  candidates.value = [
-    { value: null, solution: null },
-    { value: null, solution: null },
-    { value: null, solution: null },
-  ];
+  candidates.value = [];
 };
 
 // 触发文件输入
@@ -1049,7 +1036,7 @@ const handleDeleteTask = async (row) => {
 
     const response = await deleteTask(row.taskId);
     if (response.success) {
-      ElMessage.success('任务删除成功');
+      ElMessage.success("任务删除成功");
       addLog(`任务已删除: ${row.taskId}`);
       const targetPage =
         taskHistory.value.length === 1 && historyCurrentPage.value > 1
@@ -1060,13 +1047,13 @@ const handleDeleteTask = async (row) => {
         page: targetPage,
       });
     } else {
-      ElMessage.error(response.message || '删除任务失败');
+      ElMessage.error(response.message || "删除任务失败");
       addLog(`删除任务失败: ${response.message}`);
     }
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
-      ElMessage.error(error.message || '删除任务失败');
+      ElMessage.error(error.message || "删除任务失败");
       addLog(`删除任务失败: ${error.message || "未知错误"}`);
     }
   }
@@ -1076,20 +1063,24 @@ const handleDeleteAllTasks = async () => {
   try {
     await ElMessageBox.confirm(
       `确定要删除全部 ${historyTotal.value} 条图分割任务历史吗？此操作不可恢复。`,
-      '删除全部任务',
-      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+      "删除全部任务",
+      {
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
     );
-    const response = await deleteAllTasks('maxcut');
+    const response = await deleteAllTasks("maxcut");
     if (response.success) {
       ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
       historyCurrentPage.value = 1;
       loadTaskHistory({ page: 1 });
     } else {
-      ElMessage.error(response.message || '删除全部任务失败');
+      ElMessage.error(response.message || "删除全部任务失败");
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除全部任务失败');
+    if (error !== "cancel") {
+      ElMessage.error(error.message || "删除全部任务失败");
     }
   }
 };
@@ -1231,7 +1222,6 @@ onMounted(() => {
   font-weight: 600;
   color: #292929;
 }
-
 
 .matrix-options {
   display: flex;
@@ -1392,12 +1382,16 @@ onMounted(() => {
   align-items: center;
 }
 
+.candidates-placeholder {
+  color: #8c8fa3;
+  font-size: 14px;
+}
+
 .candidates {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
-
 
 .label {
   color: #8c8fa3;
@@ -1571,7 +1565,6 @@ onMounted(() => {
   color: #666;
   word-break: break-all;
   font-family: "Courier New", monospace;
-  background: #ffffff;
   padding: 4px 8px;
   border-radius: 4px;
 }

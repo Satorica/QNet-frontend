@@ -22,7 +22,6 @@
                 :min="3"
                 :max="24"
                 style="width: 130px"
-                @change="generateGraph"
               />
             </div>
             <div class="control-item">
@@ -200,9 +199,36 @@
           <!-- 保留候选结果位 -->
           <el-card class="candidates-card">
             <template #header>
-              <span>候选结果（预留）</span>
+              <span>候选结果</span>
             </template>
-            <div class="candidates-placeholder">未来用于显示候选着色方案</div>
+            <div
+              v-if="solveCandidates.length === 0"
+              class="candidates-placeholder"
+            >
+              --
+            </div>
+            <div v-else class="candidates-list">
+              <div
+                v-for="(candidate, index) in solveCandidates"
+                :key="index"
+                class="candidate-item"
+              >
+                <div class="candidate-header">
+                  <span class="candidate-rank"
+                    >候选解 {{ candidate.rank ?? index + 1 }}</span
+                  >
+                  <span class="candidate-value"
+                    >目标值：{{ candidate.value }}</span
+                  >
+                </div>
+                <div class="candidate-solution">
+                  <span class="solution-label">解向量：</span>
+                  <span class="solution-value">{{
+                    JSON.stringify(candidate.solution)
+                  }}</span>
+                </div>
+              </div>
+            </div>
           </el-card>
         </div>
       </div>
@@ -533,6 +559,7 @@ const solveType = ref("classic");
 const solving = ref(false);
 const solveTime = ref("--");
 const currentTaskId = ref(null);
+const solveCandidates = ref([]);
 
 // 任务历史
 const taskHistory = ref([]);
@@ -1028,6 +1055,7 @@ const submitSolve = async () => {
   statusClass.value = "status-idle";
   statusText.value = "求解中...";
   conflicts.value = 0;
+  solveCandidates.value = [];
   logs.value = ["求解开始"];
 
   const startTime = Date.now();
@@ -1089,6 +1117,7 @@ const pollTaskStatus = async (taskId, startTime) => {
         console.log("着色问题返回结果:", statusResponse.results);
 
         const resultCandidates = statusResponse.results?.candidates || [];
+        solveCandidates.value = resultCandidates;
         if (resultCandidates.length > 0) {
           // 取第一个候选结果
           const bestResult = resultCandidates[0];
@@ -1171,6 +1200,10 @@ const pollTaskStatus = async (taskId, startTime) => {
           if (conflictCount > 0) {
             addLog(`警告：存在${conflictCount}个颜色冲突`);
           }
+        } else {
+          statusClass.value = "status-warning";
+          statusText.value = "无候选解";
+          addLog("求解完成，但未返回候选解（candidates 为空）");
         }
       } else if (
         statusResponse.state === "failed" ||

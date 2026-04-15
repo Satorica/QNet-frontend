@@ -8,64 +8,63 @@
             <span class="label">求解模型选择：</span>
             <el-radio-group v-model="solveType" class="solve-type-group">
               <el-radio-button label="classic">经典计算</el-radio-button>
-              <el-radio-button label="sim"
-                >量子芯片模拟计算</el-radio-button
-              >
-              <el-radio-button label="cloud"
-                >量子云服务计算</el-radio-button
-              >
+              <el-radio-button label="sim">量子芯片模拟计算</el-radio-button>
+              <el-radio-button label="cloud">量子云服务计算</el-radio-button>
             </el-radio-group>
           </div>
 
           <!-- 数字输入区域 -->
           <el-card class="input-card">
-              <template #header>
-                <span>数字输入</span>
-              </template>
+            <template #header>
+              <span>数字输入</span>
+            </template>
 
-              <div class="number-input-area">
-                <el-input
-                  v-model="numberInput"
-                  type="textarea"
-                  :rows="4"
-                  placeholder="请输入数字，用逗号或空格分隔，例如：1,2,3,4,5"
-                />
-                <div class="input-buttons">
-                  <el-button @click="parseNumbers">解析数字</el-button>
-                  <el-button @click="generateRandomNumbers">随机生成</el-button>
-                  <el-button @click="clearNumbers">清空</el-button>
-                </div>
+            <div class="number-input-area">
+              <el-input
+                v-model="numberInput"
+                type="textarea"
+                :rows="4"
+                placeholder="请输入数字，用逗号或空格分隔，例如：1,2,3,4,5"
+              />
+              <div class="input-buttons">
+                <el-button @click="parseNumbers">解析数字</el-button>
+                <el-button @click="generateRandomNumbers">随机生成</el-button>
+                <el-button @click="clearNumbers">清空</el-button>
               </div>
+            </div>
 
-              <div class="number-list" v-if="numbers.length > 0">
-                <h4>当前数字列表（{{ numbers.length }}个）：</h4>
-                <div class="number-tags">
-                  <el-tag
-                    v-for="(num, index) in numbers"
-                    :key="index"
-                    closable
-                    @close="removeNumber(index)"
-                    :type="getNumberTagType(num)"
-                  >
-                    {{ num }}
-                  </el-tag>
-                </div>
-                <div class="number-stats">
-                  <span>总和：{{ totalSum }}</span>
-                  <span>平均值：{{ average.toFixed(2) }}</span>
-                  <span>目标差值：≤{{ Math.abs(totalSum % 2) }}</span>
-                </div>
+            <div class="number-list" v-if="numbers.length > 0">
+              <h4>当前数字列表（{{ numbers.length }}个）：</h4>
+              <div class="number-tags">
+                <el-tag
+                  v-for="(num, index) in numbers"
+                  :key="index"
+                  closable
+                  @close="removeNumber(index)"
+                  :type="getNumberTagType(num)"
+                >
+                  {{ num }}
+                </el-tag>
               </div>
-            </el-card>
+              <div class="number-stats">
+                <span>总和：{{ totalSum }}</span>
+                <span>平均值：{{ average.toFixed(2) }}</span>
+                <span>目标差值：≤{{ Math.abs(totalSum % 2) }}</span>
+              </div>
+            </div>
+          </el-card>
 
           <!-- 候选结果 -->
           <el-card class="candidates-result-card">
             <template #header>
               <div class="result-header">
-                <span>候选结果（{{ candidates.length }}）</span>
-                <el-button size="small" @click="exportResults">结果导出</el-button>
+                <span>候选结果</span>
+                <el-button size="small" @click="exportResults"
+                  >结果导出</el-button
+                >
               </div>
             </template>
+            <div v-if="candidates.length === 0" class="candidates-placeholder">--</div>
             <div class="candidates-list-main">
               <div
                 v-for="(candidate, index) in candidates"
@@ -73,128 +72,128 @@
                 class="candidate-item-main"
               >
                 <div class="candidate-header-main">
-                  <span class="candidate-rank-main">候选解 {{ index + 1 }}</span>
-                  <span class="candidate-value-main">差值：{{ candidate.value ?? "--" }}</span>
+                  <span class="candidate-rank-main"
+                    >候选解 {{ index + 1 }}</span
+                  >
+                  <span class="candidate-value-main"
+                    >差值：{{ candidate.value ?? "--" }}</span
+                  >
                 </div>
                 <div class="candidate-solution-main">
                   <span class="solution-label-main">解向量：</span>
-                  <span class="solution-value-main">{{ candidate.solution || "--" }}</span>
+                  <span class="solution-value-main">{{
+                    candidate.solution || "--"
+                  }}</span>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </div>
+
+        <div class="right-column">
+          <!-- 求解控制 -->
+          <div class="solve-area">
+            <el-button
+              type="primary"
+              size="large"
+              :loading="solving"
+              :disabled="numbers.length === 0"
+              @click="startSolve"
+              class="solve-btn"
+            >
+              {{ solving ? "求解中..." : "求解" }}
+            </el-button>
+            <el-button @click="cancelSolve" :disabled="!solving"
+              >取消任务</el-button
+            >
+          </div>
+
+          <!-- 求解状态 -->
+          <div class="solve-status">
+            <div class="status-indicator" :class="statusClass">
+              <div class="status-icon"></div>
+              <span>{{ statusText }}</span>
+            </div>
+            <div class="solve-time">求解时间：{{ solveTime }}</div>
+          </div>
+
+          <!-- 结果展示 -->
+          <el-card class="result-card" v-if="result">
+            <template #header>
+              <div class="result-header">
+                <span>求解结果</span>
+                <el-button size="small" @click="exportResult">导出</el-button>
+              </div>
+            </template>
+
+            <div class="result-content">
+              <div class="partition-result">
+                <div class="subset">
+                  <h4>子集A（和：{{ result.sumA }}）</h4>
+                  <div class="subset-numbers">
+                    <el-tag
+                      v-for="num in result.subsetA"
+                      :key="num"
+                      type="success"
+                    >
+                      {{ num }}
+                    </el-tag>
+                  </div>
+                </div>
+
+                <div class="subset">
+                  <h4>子集B（和：{{ result.sumB }}）</h4>
+                  <div class="subset-numbers">
+                    <el-tag
+                      v-for="num in result.subsetB"
+                      :key="num"
+                      type="warning"
+                    >
+                      {{ num }}
+                    </el-tag>
+                  </div>
+                </div>
+              </div>
+
+              <div class="result-stats">
+                <div class="stat-item">
+                  <span class="label">差值：</span>
+                  <span
+                    class="value"
+                    :class="{
+                      optimal: result.difference === Math.abs(totalSum % 2),
+                    }"
+                  >
+                    {{ result.difference }}
+                    <el-tag
+                      v-if="result.difference === Math.abs(totalSum % 2)"
+                      type="success"
+                      size="small"
+                      >最优</el-tag
+                    >
+                  </span>
+                </div>
+                <div class="stat-item">
+                  <span class="label">平衡度：</span>
+                  <span class="value">{{ result.balance }}%</span>
                 </div>
               </div>
             </div>
           </el-card>
 
-        </div>
-
-        <div class="right-column">
-            <!-- 求解控制 -->
-            <div class="solve-area">
-              <el-button
-                type="primary"
-                size="large"
-                :loading="solving"
-                :disabled="numbers.length === 0"
-                @click="startSolve"
-                class="solve-btn"
-              >
-                {{ solving ? "求解中..." : "求解" }}
-              </el-button>
-              <el-button @click="cancelSolve" :disabled="!solving"
-                >取消任务</el-button
-              >
+          <!-- 算法日志 -->
+          <el-card class="log-card">
+            <template #header>
+              <span>求解日志</span>
+            </template>
+            <div class="log-entries">
+              <div v-for="(log, index) in logs" :key="index" class="log-entry">
+                {{ log }}
+              </div>
             </div>
-
-            <!-- 求解状态 -->
-            <div class="solve-status">
-              <div class="status-indicator" :class="statusClass">
-                <div class="status-icon"></div>
-                <span>{{ statusText }}</span>
-              </div>
-              <div class="solve-time">求解时间：{{ solveTime }}</div>
-            </div>
-
-            <!-- 结果展示 -->
-            <el-card class="result-card" v-if="result">
-              <template #header>
-                <div class="result-header">
-                  <span>求解结果</span>
-                  <el-button size="small" @click="exportResult">导出</el-button>
-                </div>
-              </template>
-
-              <div class="result-content">
-                <div class="partition-result">
-                  <div class="subset">
-                    <h4>子集A（和：{{ result.sumA }}）</h4>
-                    <div class="subset-numbers">
-                      <el-tag
-                        v-for="num in result.subsetA"
-                        :key="num"
-                        type="success"
-                      >
-                        {{ num }}
-                      </el-tag>
-                    </div>
-                  </div>
-
-                  <div class="subset">
-                    <h4>子集B（和：{{ result.sumB }}）</h4>
-                    <div class="subset-numbers">
-                      <el-tag
-                        v-for="num in result.subsetB"
-                        :key="num"
-                        type="warning"
-                      >
-                        {{ num }}
-                      </el-tag>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="result-stats">
-                  <div class="stat-item">
-                    <span class="label">差值：</span>
-                    <span
-                      class="value"
-                      :class="{
-                        optimal: result.difference === Math.abs(totalSum % 2),
-                      }"
-                    >
-                      {{ result.difference }}
-                      <el-tag
-                        v-if="result.difference === Math.abs(totalSum % 2)"
-                        type="success"
-                        size="small"
-                        >最优</el-tag
-                      >
-                    </span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="label">平衡度：</span>
-                    <span class="value">{{ result.balance }}%</span>
-                  </div>
-                </div>
-              </div>
-            </el-card>
-
-            <!-- 算法日志 -->
-            <el-card class="log-card">
-              <template #header>
-                <span>求解日志</span>
-              </template>
-              <div class="log-entries">
-                <div
-                  v-for="(log, index) in logs"
-                  :key="index"
-                  class="log-entry"
-                >
-                  {{ log }}
-                </div>
-              </div>
-            </el-card>
-
-          </div>
+          </el-card>
         </div>
+      </div>
     </el-card>
     <el-card class="history-card">
       <template #header>
@@ -216,7 +215,8 @@
               type="danger"
               :disabled="historyTotal === 0"
               @click="handleDeleteAllTasks"
-            >全部删除</el-button>
+              >全部删除</el-button
+            >
           </div>
         </div>
       </template>
@@ -480,11 +480,7 @@ const solveTime = ref("--");
 const result = ref(null);
 const logs = ref(["系统已就绪"]);
 const currentTaskId = ref(null);
-const candidates = ref([
-  { value: null, solution: null },
-  { value: null, solution: null },
-  { value: null, solution: null },
-]);
+const candidates = ref([]);
 
 // 任务历史
 const taskHistory = ref([]);
@@ -579,11 +575,7 @@ const startSolve = async () => {
   statusClass.value = "status-running";
   statusText.value = "求解中";
   result.value = null;
-  candidates.value = [
-    { value: null, solution: null },
-    { value: null, solution: null },
-    { value: null, solution: null },
-  ];
+  candidates.value = [];
 
   const startTime = Date.now();
   addLog(`开始求解数字分割问题（${solveType.value}模式）`);
@@ -766,7 +758,9 @@ const exportResults = () => {
     candidates: candidates.value,
     timestamp: new Date().toISOString(),
   };
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -937,20 +931,24 @@ const handleDeleteAllTasks = async () => {
   try {
     await ElMessageBox.confirm(
       `确定要删除全部 ${historyTotal.value} 条数字分割任务历史吗？此操作不可恢复。`,
-      '删除全部任务',
-      { confirmButtonText: '确定删除', cancelButtonText: '取消', type: 'warning' }
+      "删除全部任务",
+      {
+        confirmButtonText: "确定删除",
+        cancelButtonText: "取消",
+        type: "warning",
+      }
     );
-    const response = await deleteAllTasks('number_partition');
+    const response = await deleteAllTasks("number_partition");
     if (response.success) {
       ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
       historyCurrentPage.value = 1;
       loadTaskHistory({ page: 1 });
     } else {
-      ElMessage.error(response.message || '删除全部任务失败');
+      ElMessage.error(response.message || "删除全部任务失败");
     }
   } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除全部任务失败');
+    if (error !== "cancel") {
+      ElMessage.error(error.message || "删除全部任务失败");
     }
   }
 };
@@ -1078,7 +1076,6 @@ loadTaskHistory();
   font-size: 14px;
   color: #666;
 }
-
 
 .solve-area {
   display: flex;
@@ -1235,6 +1232,11 @@ loadTaskHistory();
 .log-card,
 .candidates-result-card {
   margin-bottom: 20px;
+}
+
+.candidates-placeholder {
+  color: #8c8fa3;
+  font-size: 14px;
 }
 
 .candidates-list-main {

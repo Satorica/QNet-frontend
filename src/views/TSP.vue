@@ -176,6 +176,32 @@
               </div>
             </div>
           </el-card>
+
+          <!-- 候选结果 -->
+          <el-card class="candidates-card">
+            <template #header>
+              <span>候选结果</span>
+            </template>
+            <div v-if="solveCandidates.length === 0" class="candidates-placeholder">
+              --
+            </div>
+            <div v-else class="candidates-list">
+              <div
+                v-for="(candidate, index) in solveCandidates"
+                :key="index"
+                class="candidate-item"
+              >
+                <div class="candidate-header">
+                  <span class="candidate-rank">候选解 {{ candidate.rank ?? index + 1 }}</span>
+                  <span class="candidate-value">路径长度：{{ candidate.value }}</span>
+                </div>
+                <div class="candidate-solution">
+                  <span class="solution-label">解向量：</span>
+                  <span class="solution-value">{{ JSON.stringify(candidate.solution) }}</span>
+                </div>
+              </div>
+            </div>
+          </el-card>
         </div>
       </div>
     </el-card>
@@ -470,6 +496,7 @@ const solveTime = ref("--");
 const iterations = ref(0);
 const logs = ref(["TSP求解系统已就绪"]);
 const currentTaskId = ref(null);
+const solveCandidates = ref([]);
 
 // 任务历史
 const taskHistory = ref([]);
@@ -1111,6 +1138,7 @@ const submitSolve = async () => {
     solving.value = true;
     statusClass.value = "status-running";
     statusText.value = "求解中";
+    solveCandidates.value = [];
     const start = Date.now();
 
     const payload = {
@@ -1170,6 +1198,7 @@ const pollTaskStatus = async (taskId, startTime) => {
 
         // 解析后端返回的结果
         const resultCandidates = statusResponse.results?.candidates || [];
+        solveCandidates.value = resultCandidates;
         if (resultCandidates.length > 0) {
           // 取第一个候选结果
           const bestResult = resultCandidates[0];
@@ -1962,8 +1991,17 @@ loadTaskHistory();
   font-size: 16px;
 }
 
-.candidates-list {
+.candidates-card {
   margin-top: 16px;
+}
+
+.candidates-placeholder {
+  color: #8c8fa3;
+  font-size: 14px;
+}
+
+.candidates-list {
+  margin-top: 0;
 }
 
 .candidates-header {
