@@ -1548,46 +1548,6 @@ loadTaskHistory();
   margin-bottom: 20px;
   overflow: hidden;
 }
-.solve-status {
-  margin-bottom: 20px;
-}
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 12px;
-  margin-bottom: 8px;
-}
-.status-idle {
-  background: #f6f7fa;
-}
-.status-success {
-  background: #f0f9f4;
-}
-.status-warning {
-  background: #fff8e1;
-}
-.status-fail {
-  background: #fef2f2;
-}
-.status-icon {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-.status-idle .status-icon {
-  background: #8c8fa3;
-}
-.status-success .status-icon {
-  background: #40c878;
-}
-.status-warning .status-icon {
-  background: #ffa726;
-}
-.status-fail .status-icon {
-  background: #e57550;
-}
 .solve-info {
   display: flex;
   gap: 20px;

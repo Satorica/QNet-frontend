@@ -109,13 +109,11 @@
           </div>
 
           <!-- 求解状态 -->
-          <div class="solve-status">
-            <div class="status-indicator" :class="statusClass">
-              <div class="status-icon"></div>
-              <span>{{ statusText }}</span>
-            </div>
-            <div class="solve-time">求解时间：{{ solveTime }}</div>
+          <div class="solve-state">
+            <div class="state-icon" :class="statusClass"></div>
+            <div class="state-text">{{ statusText }}</div>
           </div>
+          <div class="solve-time">求解时间：{{ solveTime }}</div>
 
           <!-- 结果展示 -->
           <el-card class="result-card" v-if="result">
@@ -1094,55 +1092,36 @@ loadTaskHistory();
   height: 48px;
 }
 
-.solve-status {
-  margin-bottom: 20px;
-}
-
-.status-indicator {
+.solve-state {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 16px;
-  border-radius: 12px;
-  margin-bottom: 8px;
-}
-
-.status-idle {
   background: #f6f7fa;
+  border-radius: 12px;
+  margin-bottom: 12px;
 }
 
-.status-running {
-  background: #fff7e6;
-}
-
-.status-success {
-  background: #f0f9f4;
-}
-
-.status-fail {
-  background: #fef2f2;
-}
-
-.status-icon {
-  width: 12px;
-  height: 12px;
+.state-icon {
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
 }
 
-.status-idle .status-icon {
+.status-idle {
   background: #8c8fa3;
 }
 
-.status-running .status-icon {
+.status-running {
   background: #f88818;
   animation: pulse 1.5s infinite;
 }
 
-.status-success .status-icon {
+.status-success {
   background: #40c878;
 }
 
-.status-fail .status-icon {
+.status-fail {
   background: #e57550;
 }
 
@@ -1156,9 +1135,15 @@ loadTaskHistory();
   }
 }
 
+.state-text {
+  font-weight: 500;
+  color: #292929;
+}
+
 .solve-time {
   color: #8c8fa3;
   font-size: 14px;
+  margin-bottom: 20px;
 }
 
 .result-header {

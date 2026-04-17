@@ -1749,58 +1749,6 @@ loadTaskHistory();
   margin-bottom: 4px;
 }
 
-.status-indicator {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 12px;
-  margin-bottom: 8px;
-}
-
-.status-idle {
-  background: #f6f7fa;
-}
-.status-running {
-  background: #fff7e6;
-}
-.status-success {
-  background: #f0f9f4;
-}
-.status-fail {
-  background: #fef2f2;
-}
-
-.status-icon {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.status-idle .status-icon {
-  background: #8c8fa3;
-}
-.status-running .status-icon {
-  background: #f88818;
-  animation: pulse 1.5s infinite;
-}
-.status-success .status-icon {
-  background: #40c878;
-}
-.status-fail .status-icon {
-  background: #e57550;
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
 /* MaxCut风格样式 */
 .controls-top {
   display: flex;
@@ -1854,6 +1802,10 @@ loadTaskHistory();
 .state-icon.status-idle {
   background: #8c8fa3;
 }
+.state-icon.status-running {
+  background: #f88818;
+  animation: pulse 1.5s infinite;
+}
 .state-icon.status-success {
   background: #40c878;
 }
@@ -1862,6 +1814,16 @@ loadTaskHistory();
 }
 .state-icon.status-fail {
   background: #e57550;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .solve-area {
