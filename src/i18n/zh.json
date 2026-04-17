@@ -46,7 +46,7 @@
     "login": {
         "title": "量子Ising求解系统",
         "subtitle": "现代化量子优化问题求解平台",
-        "account": "用户名 / 邮箱 / 手机号",
+        "account": "用户名 / 邮箱",
         "password": "密码",
         "remember": "记住我",
         "forgotPassword": "忘记密码?",
@@ -80,7 +80,7 @@
         "phoneCode": "短信验证码",
         "sendCode": "发送验证码",
         "resendCode": "秒后重试",
-        "password": "密码 (至少6位)",
+        "password": "密码 (8-16位，含字母和数字)",
         "confirmPassword": "确认密码",
         "agree": "我已阅读并同意",
         "userAgreement": "《用户协议》",
@@ -100,6 +100,7 @@
             "codeRequired": "请输入验证码",
             "passwordRequired": "请输入密码",
             "passwordLength": "密码长度不能少于6位",
+            "passwordFormat": "密码需为8-16位，且必须包含字母和数字",
             "confirmRequired": "请再次输入密码",
             "passwordMismatch": "两次输入的密码不一致",
             "agreeRequired": "请阅读并同意用户协议和隐私政策"
@@ -115,6 +116,64 @@
             "failed": "注册失败",
             "networkError": "注册失败，请检查网络连接",
             "formError": "请正确填写表单"
+        }
+    },
+    "forgotPassword": {
+        "title": "找回密码",
+        "subtitle": "安全验证后重置您的登录密码",
+        "steps": {
+            "verify": "身份核验",
+            "reset": "设置新密码",
+            "success": "完成"
+        },
+        "email": "请输入注册邮箱",
+        "code": "请输入6位验证码",
+        "sendCode": "获取验证码",
+        "resendCode": "秒后重试",
+        "verifyButton": "下一步",
+        "newPassword": "请输入新密码",
+        "confirmPassword": "请再次输入新密码",
+        "passwordHint": "密码需为8-16位，且必须包含字母和数字。",
+        "resetButton": "确认重置",
+        "backToVerify": "返回上一步",
+        "backToLogin": "返回登录",
+        "successTitle": "密码重置成功",
+        "successSubtitle": "请妥善保管新密码，并使用新密码重新登录。",
+        "goLoginNow": "立即登录",
+        "footer": "© 2025 量子Ising求解系统 | 现代化量子优化平台",
+        "strength": {
+            "label": "密码强度",
+            "empty": "待输入",
+            "weak": "弱",
+            "medium": "中",
+            "strong": "强"
+        },
+        "tips": {
+            "genericVerification": "请输入邮箱和验证码完成身份核验；",
+            "verifiedAccount": "已验证账号：{email}"
+        },
+        "validation": {
+            "emailRequired": "请输入邮箱地址",
+            "emailFormat": "请输入有效的邮箱地址",
+            "codeRequired": "请输入验证码",
+            "codeFormat": "验证码需为6位数字",
+            "passwordRequired": "请输入新密码",
+            "passwordFormat": "新密码需为8-16位，且必须包含字母和数字",
+            "confirmRequired": "请再次输入新密码",
+            "passwordMismatch": "两次输入的密码不一致"
+        },
+        "messages": {
+            "enterEmail": "请先输入邮箱地址",
+            "invalidEmail": "请输入有效的邮箱地址",
+            "codeSent": "若账号存在，验证码已发送到您的邮箱",
+            "codeFailed": "验证码发送失败",
+            "verifySuccess": "身份核验成功",
+            "verifyFailed": "身份核验失败",
+            "resetSuccess": "密码重置成功",
+            "resetFailed": "密码重置失败",
+            "networkError": "网络连接异常，请检查网络后重试",
+            "formError": "请正确填写表单",
+            "invalidStep": "当前重置状态已失效，请重新验证"
         }
     },
     "tasks": {

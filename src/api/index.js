@@ -161,7 +161,8 @@ const handleTokenExpired = () => {
   // 跳转到登录页面
   if (
     window.location.pathname !== "/login" &&
-    window.location.pathname !== "/register"
+    window.location.pathname !== "/register" &&
+    window.location.pathname !== "/forgot-password"
   ) {
     window.location.href = "/login";
   }

@@ -80,6 +80,7 @@
                 type="primary"
                 size="large"
                 class="send-code-btn"
+                :loading="emailCodeLoading"
                 :disabled="emailCodeDisabled"
                 @click="sendEmailCode"
               >
@@ -120,6 +121,7 @@
                 type="primary"
                 size="large"
                 class="send-code-btn"
+                :loading="phoneCodeLoading"
                 :disabled="phoneCodeDisabled"
                 @click="sendPhoneCode"
               >
@@ -206,12 +208,14 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from "vue";
+import { ref, reactive, computed, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useI18n } from "vue-i18n";
 import { authApi } from "../api/auth.js";
 import { notificationManager } from "../utils/auth.js";
+
+const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,16}$/;
 
 const router = useRouter();
 const { t } = useI18n();
@@ -238,6 +242,7 @@ const registerForm = reactive({
 });
 
 // 邮箱验证码相关
+const emailCodeLoading = ref(false);
 const emailCodeDisabled = ref(false);
 const emailCodeCountdown = ref(0);
 const emailCodeText = computed(() => {
@@ -247,6 +252,7 @@ const emailCodeText = computed(() => {
 });
 
 // 手机验证码相关
+const phoneCodeLoading = ref(false);
 const phoneCodeDisabled = ref(false);
 const phoneCodeCountdown = ref(0);
 const phoneCodeText = computed(() => {
@@ -306,6 +312,16 @@ const validateCode = (rule, value, callback) => {
   }
 };
 
+const validatePassword = (rule, value, callback) => {
+  if (!value) {
+    callback(new Error(t("register.validation.passwordRequired")));
+  } else if (!PASSWORD_REGEX.test(value)) {
+    callback(new Error(t("register.validation.passwordFormat")));
+  } else {
+    callback();
+  }
+};
+
 const validateConfirmPassword = (rule, value, callback) => {
   if (!value) {
     callback(new Error(t("register.validation.confirmRequired")));
@@ -330,24 +346,50 @@ const registerRules = computed(() => ({
   emailCode: [{ validator: validateCode, trigger: "blur" }],
   phone: [{ validator: validatePhone, trigger: "blur" }],
   phoneCode: [{ validator: validateCode, trigger: "blur" }],
-  password: [
-    {
-      required: true,
-      message: t("register.validation.passwordRequired"),
-      trigger: "blur",
-    },
-    {
-      min: 6,
-      message: t("register.validation.passwordLength"),
-      trigger: "blur",
-    },
-  ],
+  password: [{ validator: validatePassword, trigger: "blur" }],
   confirmPassword: [{ validator: validateConfirmPassword, trigger: "blur" }],
   agree: [{ validator: validateAgree, trigger: "change" }],
 }));
 
+let emailCodeTimer = null;
+let phoneCodeTimer = null;
+
+const startEmailCodeCountdown = () => {
+  clearInterval(emailCodeTimer);
+  emailCodeCountdown.value = 60;
+  emailCodeTimer = setInterval(() => {
+    emailCodeCountdown.value--;
+    if (emailCodeCountdown.value <= 0) {
+      clearInterval(emailCodeTimer);
+      emailCodeTimer = null;
+      emailCodeDisabled.value = false;
+    }
+  }, 1000);
+};
+
+const startPhoneCodeCountdown = () => {
+  clearInterval(phoneCodeTimer);
+  phoneCodeCountdown.value = 60;
+  phoneCodeTimer = setInterval(() => {
+    phoneCodeCountdown.value--;
+    if (phoneCodeCountdown.value <= 0) {
+      clearInterval(phoneCodeTimer);
+      phoneCodeTimer = null;
+      phoneCodeDisabled.value = false;
+    }
+  }, 1000);
+};
+
+onBeforeUnmount(() => {
+  clearInterval(emailCodeTimer);
+  clearInterval(phoneCodeTimer);
+});
+
 // 发送邮箱验证码
 const sendEmailCode = async () => {
+  if (emailCodeDisabled.value) {
+    return;
+  }
   if (!registerForm.email) {
     ElMessage.warning(t("register.messages.enterEmail"));
     return;
@@ -359,33 +401,35 @@ const sendEmailCode = async () => {
     return;
   }
 
+  emailCodeDisabled.value = true;
+  emailCodeLoading.value = true;
   try {
-    const response = await authApi.sendEmailCode(registerForm.email);
+    const response = await authApi.sendEmailCode(
+      registerForm.email,
+      "register"
+    );
     if (response.success) {
-      // 目前后端传回来验证码
       ElMessage.success(t("register.messages.codeSent"));
-
-      // 开始倒计时
-      emailCodeDisabled.value = true;
-      emailCodeCountdown.value = 60;
-      const timer = setInterval(() => {
-        emailCodeCountdown.value--;
-        if (emailCodeCountdown.value <= 0) {
-          clearInterval(timer);
-          emailCodeDisabled.value = false;
-        }
-      }, 1000);
+      startEmailCodeCountdown();
     } else {
+      emailCodeDisabled.value = false;
       ElMessage.error(response.message || t("register.messages.codeFailed"));
     }
   } catch (error) {
-    console.error("Send email code error:", error);
-    ElMessage.error(t("register.messages.codeFailed"));
+    ElMessage.error(
+      error.response?.data?.message || t("register.messages.codeFailed")
+    );
+    emailCodeDisabled.value = false;
+  } finally {
+    emailCodeLoading.value = false;
   }
 };
 
 // 发送手机验证码
 const sendPhoneCode = async () => {
+  if (phoneCodeDisabled.value) {
+    return;
+  }
   if (!registerForm.phone) {
     ElMessage.warning(t("register.messages.enterPhone"));
     return;
@@ -395,31 +439,27 @@ const sendPhoneCode = async () => {
     return;
   }
 
+  phoneCodeDisabled.value = true;
+  phoneCodeLoading.value = true;
   try {
     const response = await authApi.sendPhoneCode(registerForm.phone);
 
     if (response.success) {
-      // 目前后端传回来验证码
       notificationManager.showCodeNotification("phone", response.code);
-
       ElMessage.success(t("register.messages.codeSent"));
-
-      // 开始倒计时
-      phoneCodeDisabled.value = true;
-      phoneCodeCountdown.value = 60;
-      const timer = setInterval(() => {
-        phoneCodeCountdown.value--;
-        if (phoneCodeCountdown.value <= 0) {
-          clearInterval(timer);
-          phoneCodeDisabled.value = false;
-        }
-      }, 1000);
+      startPhoneCodeCountdown();
     } else {
+      phoneCodeDisabled.value = false;
       ElMessage.error(response.message || t("register.messages.codeFailed"));
     }
   } catch (error) {
     console.error("Send phone code error:", error);
-    ElMessage.error(t("register.messages.codeFailed"));
+    ElMessage.error(
+      error.response?.data?.message || t("register.messages.codeFailed")
+    );
+    phoneCodeDisabled.value = false;
+  } finally {
+    phoneCodeLoading.value = false;
   }
 };
 
@@ -649,10 +689,17 @@ const goToLogin = () => {
   border: none;
   white-space: nowrap;
   align-self: center;
+  overflow: hidden;
 }
 
-.send-code-btn:disabled {
-  background: #c0c4cc;
+.send-code-btn:disabled,
+.send-code-btn.is-disabled,
+.send-code-btn.is-disabled:hover {
+  background: #c0c4cc !important;
+  border-color: #c0c4cc !important;
+  color: #ffffff !important;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* 用户协议 */
@@ -670,16 +717,7 @@ const goToLogin = () => {
   border-radius: 10px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
-  transition: all 0.3s ease;
-}
-
-.register-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-}
-
-.register-button:active {
-  transform: translateY(0);
+  overflow: hidden;
 }
 
 /* 登录链接 */

@@ -52,9 +52,9 @@ onMounted(async () => {
   initialized.value = true;
 });
 
-// 判断是否为认证页面（登录/注册）
+// 判断是否为认证页面（登录/注册/找回密码）
 const isAuthPage = computed(() => {
-  return route.path === "/login" || route.path === "/register";
+  return ["/login", "/register", "/forgot-password"].includes(route.path);
 });
 
 // 判断是否应该显示主布局（不在认证页面即可，访问控制由路由守卫保证）

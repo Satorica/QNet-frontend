@@ -59,9 +59,12 @@
             <el-checkbox v-model="loginForm.remember">{{
               $t("login.remember")
             }}</el-checkbox>
-            <el-link type="primary" :underline="false">{{
-              $t("login.forgotPassword")
-            }}</el-link>
+            <el-link
+              type="primary"
+              :underline="false"
+              @click="goToForgotPassword"
+              >{{ $t("login.forgotPassword") }}</el-link
+            >
           </div>
         </el-form-item>
 
@@ -185,6 +188,10 @@ const handleLogin = async () => {
 // 跳转到注册页面
 const goToRegister = () => {
   router.push("/register");
+};
+
+const goToForgotPassword = () => {
+  router.push("/forgot-password");
 };
 </script>
 
@@ -337,16 +344,7 @@ const goToRegister = () => {
   border-radius: 10px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
-  transition: all 0.3s ease;
-}
-
-.login-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
-}
-
-.login-button:active {
-  transform: translateY(0);
+  overflow: hidden;
 }
 
 /* 注册链接 */

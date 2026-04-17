@@ -17,6 +17,12 @@ const routes = [
     component: () => import('../views/Register.vue'),
     meta: { requiresAuth: false }
   },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('../views/ForgotPassword.vue'),
+    meta: { requiresAuth: false }
+  },
   // 需要认证的业务路由
   {
     path: '/maxcut',

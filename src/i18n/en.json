@@ -46,7 +46,7 @@
     "login": {
         "title": "Quantum Ising Solver",
         "subtitle": "Modern Quantum Optimization Platform",
-        "account": "Username / Email / Phone",
+        "account": "Username / Email",
         "password": "Password",
         "remember": "Remember me",
         "forgotPassword": "Forgot password?",
@@ -80,7 +80,7 @@
         "phoneCode": "SMS Verification Code",
         "sendCode": "Send Code",
         "resendCode": "seconds to retry",
-        "password": "Password (at least 6 characters)",
+        "password": "Password (8-16 chars, letters & numbers)",
         "confirmPassword": "Confirm Password",
         "agree": "I have read and agree to",
         "userAgreement": "Terms of Service",
@@ -100,6 +100,7 @@
             "codeRequired": "Please enter verification code",
             "passwordRequired": "Please enter password",
             "passwordLength": "Password must be at least 6 characters",
+            "passwordFormat": "Password must be 8-16 characters and include both letters and numbers",
             "confirmRequired": "Please confirm password",
             "passwordMismatch": "Passwords do not match",
             "agreeRequired": "Please read and agree to the terms and privacy policy"
@@ -115,6 +116,64 @@
             "failed": "Registration failed",
             "networkError": "Registration failed, please check network connection",
             "formError": "Please fill in the form correctly"
+        }
+    },
+    "forgotPassword": {
+        "title": "Reset Password",
+        "subtitle": "Verify your identity and set a new password",
+        "steps": {
+            "verify": "Verify Identity",
+            "reset": "Set New Password",
+            "success": "Done"
+        },
+        "email": "Enter your registered email",
+        "code": "Enter the 6-digit code",
+        "sendCode": "Get Code",
+        "resendCode": "s to retry",
+        "verifyButton": "Next",
+        "newPassword": "Enter new password",
+        "confirmPassword": "Confirm new password",
+        "passwordHint": "Password must be 8-16 characters and include both letters and numbers.",
+        "resetButton": "Reset Password",
+        "backToVerify": "Back",
+        "backToLogin": "Back to Login",
+        "successTitle": "Password Reset Successful",
+        "successSubtitle": "Please keep your new password safe and use it to sign in again.",
+        "goLoginNow": "Login Now",
+        "footer": "© 2025 Quantum Ising Solver | Modern Quantum Optimization Platform",
+        "strength": {
+            "label": "Password Strength",
+            "empty": "Not entered",
+            "weak": "Weak",
+            "medium": "Medium",
+            "strong": "Strong"
+        },
+        "tips": {
+            "genericVerification": "Enter your email and verification code to continue. ",
+            "verifiedAccount": "Verified account: {email}"
+        },
+        "validation": {
+            "emailRequired": "Please enter email address",
+            "emailFormat": "Please enter a valid email address",
+            "codeRequired": "Please enter verification code",
+            "codeFormat": "Verification code must be 6 digits",
+            "passwordRequired": "Please enter a new password",
+            "passwordFormat": "Password must be 8-16 characters and include both letters and numbers",
+            "confirmRequired": "Please confirm the new password",
+            "passwordMismatch": "Passwords do not match"
+        },
+        "messages": {
+            "enterEmail": "Please enter email address first",
+            "invalidEmail": "Please enter a valid email address",
+            "codeSent": "If the account exists, a verification code has been sent to your email",
+            "codeFailed": "Failed to send verification code",
+            "verifySuccess": "Identity verification successful",
+            "verifyFailed": "Identity verification failed",
+            "resetSuccess": "Password reset successful",
+            "resetFailed": "Password reset failed",
+            "networkError": "Network error, please check your connection and try again",
+            "formError": "Please fill in the form correctly",
+            "invalidStep": "Reset session expired, please verify again"
         }
     },
     "tasks": {
