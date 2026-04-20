@@ -38,15 +38,15 @@ export const authApi = {
     }
   },
 
-  // 发送手机验证码
-  sendPhoneCode: async (phone) => {
-    try {
-      const response = await cloudApi.post("/auth/send-phone-code", { phone });
-      return response.data;
-    } catch (error) {
-      throw error;
-    }
-  },
+  // 发送手机验证码（手机号注册暂未启用）
+  // sendPhoneCode: async (phone) => {
+  //   try {
+  //     const response = await cloudApi.post("/auth/send-phone-code", { phone });
+  //     return response.data;
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // },
 
   verifyResetCode: async (email, code) => {
     try {

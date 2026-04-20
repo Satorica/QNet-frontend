@@ -18,14 +18,14 @@
         <p class="subtitle">{{ $t("register.subtitle") }}</p>
       </div>
 
-      <!-- 注册方式切换 -->
-      <el-segmented
+      <!-- 注册方式切换（手机号注册暂未启用） -->
+      <!-- <el-segmented
         v-model="registerType"
         :options="translatedRegisterOptions"
         block
         size="large"
         class="register-type-switch"
-      />
+      /> -->
 
       <!-- 注册表单 -->
       <el-form
@@ -90,8 +90,8 @@
           </el-form-item>
         </template>
 
-        <!-- 手机号注册 -->
-        <template v-if="registerType === 'phone'">
+        <!-- 手机号注册（暂未启用） -->
+        <!-- <template v-if="registerType === 'phone'">
           <el-form-item prop="phone">
             <el-input
               v-model="registerForm.phone"
@@ -129,7 +129,7 @@
               </el-button>
             </div>
           </el-form-item>
-        </template>
+        </template> -->
 
         <!-- 密码 -->
         <el-form-item prop="password">
@@ -213,7 +213,7 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useI18n } from "vue-i18n";
 import { authApi } from "../api/auth.js";
-import { notificationManager } from "../utils/auth.js";
+// import { notificationManager } from "../utils/auth.js"; // 手机号注册暂未启用
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,16}$/;
 
@@ -222,20 +222,20 @@ const { t } = useI18n();
 const registerFormRef = ref(null);
 const loading = ref(false);
 
-// 注册方式
+// 注册方式（手机号注册暂未启用，固定为邮箱）
 const registerType = ref("email");
-const translatedRegisterOptions = computed(() => [
-  { label: t("register.type.email"), value: "email" },
-  { label: t("register.type.phone"), value: "phone" },
-]);
+// const translatedRegisterOptions = computed(() => [
+//   { label: t("register.type.email"), value: "email" },
+//   { label: t("register.type.phone"), value: "phone" },
+// ]);
 
 // 注册表单数据
 const registerForm = reactive({
   username: "",
   email: "",
   emailCode: "",
-  phone: "",
-  phoneCode: "",
+  // phone: "",     // 手机号注册暂未启用
+  // phoneCode: "", // 手机号注册暂未启用
   password: "",
   confirmPassword: "",
   agree: false,
@@ -251,15 +251,15 @@ const emailCodeText = computed(() => {
     : t("register.sendCode");
 });
 
-// 手机验证码相关
-const phoneCodeLoading = ref(false);
-const phoneCodeDisabled = ref(false);
-const phoneCodeCountdown = ref(0);
-const phoneCodeText = computed(() => {
-  return phoneCodeCountdown.value > 0
-    ? `${phoneCodeCountdown.value}${t("register.resendCode")}`
-    : t("register.sendCode");
-});
+// 手机验证码相关（手机号注册暂未启用）
+// const phoneCodeLoading = ref(false);
+// const phoneCodeDisabled = ref(false);
+// const phoneCodeCountdown = ref(0);
+// const phoneCodeText = computed(() => {
+//   return phoneCodeCountdown.value > 0
+//     ? `${phoneCodeCountdown.value}${t("register.resendCode")}`
+//     : t("register.sendCode");
+// });
 
 // 表单验证规则
 const validateUsername = (rule, value, callback) => {
@@ -286,19 +286,20 @@ const validateEmail = (rule, value, callback) => {
   }
 };
 
-const validatePhone = (rule, value, callback) => {
-  if (registerType.value === "phone") {
-    if (!value) {
-      callback(new Error(t("register.validation.phoneRequired")));
-    } else if (!/^1[3-9]\d{9}$/.test(value)) {
-      callback(new Error(t("register.validation.phoneFormat")));
-    } else {
-      callback();
-    }
-  } else {
-    callback();
-  }
-};
+// 手机号注册暂未启用
+// const validatePhone = (rule, value, callback) => {
+//   if (registerType.value === "phone") {
+//     if (!value) {
+//       callback(new Error(t("register.validation.phoneRequired")));
+//     } else if (!/^1[3-9]\d{9}$/.test(value)) {
+//       callback(new Error(t("register.validation.phoneFormat")));
+//     } else {
+//       callback();
+//     }
+//   } else {
+//     callback();
+//   }
+// };
 
 const validateCode = (rule, value, callback) => {
   const isEmail = registerType.value === "email";
@@ -344,15 +345,15 @@ const registerRules = computed(() => ({
   username: [{ validator: validateUsername, trigger: "blur" }],
   email: [{ validator: validateEmail, trigger: "blur" }],
   emailCode: [{ validator: validateCode, trigger: "blur" }],
-  phone: [{ validator: validatePhone, trigger: "blur" }],
-  phoneCode: [{ validator: validateCode, trigger: "blur" }],
+  // phone: [{ validator: validatePhone, trigger: "blur" }],     // 手机号注册暂未启用
+  // phoneCode: [{ validator: validateCode, trigger: "blur" }],  // 手机号注册暂未启用
   password: [{ validator: validatePassword, trigger: "blur" }],
   confirmPassword: [{ validator: validateConfirmPassword, trigger: "blur" }],
   agree: [{ validator: validateAgree, trigger: "change" }],
 }));
 
 let emailCodeTimer = null;
-let phoneCodeTimer = null;
+// let phoneCodeTimer = null; // 手机号注册暂未启用
 
 const startEmailCodeCountdown = () => {
   clearInterval(emailCodeTimer);
@@ -367,22 +368,23 @@ const startEmailCodeCountdown = () => {
   }, 1000);
 };
 
-const startPhoneCodeCountdown = () => {
-  clearInterval(phoneCodeTimer);
-  phoneCodeCountdown.value = 60;
-  phoneCodeTimer = setInterval(() => {
-    phoneCodeCountdown.value--;
-    if (phoneCodeCountdown.value <= 0) {
-      clearInterval(phoneCodeTimer);
-      phoneCodeTimer = null;
-      phoneCodeDisabled.value = false;
-    }
-  }, 1000);
-};
+// 手机号注册暂未启用
+// const startPhoneCodeCountdown = () => {
+//   clearInterval(phoneCodeTimer);
+//   phoneCodeCountdown.value = 60;
+//   phoneCodeTimer = setInterval(() => {
+//     phoneCodeCountdown.value--;
+//     if (phoneCodeCountdown.value <= 0) {
+//       clearInterval(phoneCodeTimer);
+//       phoneCodeTimer = null;
+//       phoneCodeDisabled.value = false;
+//     }
+//   }, 1000);
+// };
 
 onBeforeUnmount(() => {
   clearInterval(emailCodeTimer);
-  clearInterval(phoneCodeTimer);
+  // clearInterval(phoneCodeTimer); // 手机号注册暂未启用
 });
 
 // 发送邮箱验证码
@@ -425,43 +427,43 @@ const sendEmailCode = async () => {
   }
 };
 
-// 发送手机验证码
-const sendPhoneCode = async () => {
-  if (phoneCodeDisabled.value) {
-    return;
-  }
-  if (!registerForm.phone) {
-    ElMessage.warning(t("register.messages.enterPhone"));
-    return;
-  }
-  if (!/^1[3-9]\d{9}$/.test(registerForm.phone)) {
-    ElMessage.warning(t("register.messages.invalidPhone"));
-    return;
-  }
-
-  phoneCodeDisabled.value = true;
-  phoneCodeLoading.value = true;
-  try {
-    const response = await authApi.sendPhoneCode(registerForm.phone);
-
-    if (response.success) {
-      notificationManager.showCodeNotification("phone", response.code);
-      ElMessage.success(t("register.messages.codeSent"));
-      startPhoneCodeCountdown();
-    } else {
-      phoneCodeDisabled.value = false;
-      ElMessage.error(response.message || t("register.messages.codeFailed"));
-    }
-  } catch (error) {
-    console.error("Send phone code error:", error);
-    ElMessage.error(
-      error.response?.data?.message || t("register.messages.codeFailed")
-    );
-    phoneCodeDisabled.value = false;
-  } finally {
-    phoneCodeLoading.value = false;
-  }
-};
+// 发送手机验证码（手机号注册暂未启用）
+// const sendPhoneCode = async () => {
+//   if (phoneCodeDisabled.value) {
+//     return;
+//   }
+//   if (!registerForm.phone) {
+//     ElMessage.warning(t("register.messages.enterPhone"));
+//     return;
+//   }
+//   if (!/^1[3-9]\d{9}$/.test(registerForm.phone)) {
+//     ElMessage.warning(t("register.messages.invalidPhone"));
+//     return;
+//   }
+//
+//   phoneCodeDisabled.value = true;
+//   phoneCodeLoading.value = true;
+//   try {
+//     const response = await authApi.sendPhoneCode(registerForm.phone);
+//
+//     if (response.success) {
+//       notificationManager.showCodeNotification("phone", response.code);
+//       ElMessage.success(t("register.messages.codeSent"));
+//       startPhoneCodeCountdown();
+//     } else {
+//       phoneCodeDisabled.value = false;
+//       ElMessage.error(response.message || t("register.messages.codeFailed"));
+//     }
+//   } catch (error) {
+//     console.error("Send phone code error:", error);
+//     ElMessage.error(
+//       error.response?.data?.message || t("register.messages.codeFailed")
+//     );
+//     phoneCodeDisabled.value = false;
+//   } finally {
+//     phoneCodeLoading.value = false;
+//   }
+// };
 
 // 处理注册
 const handleRegister = async () => {
@@ -479,14 +481,15 @@ const handleRegister = async () => {
           register_type: registerType.value, // 后端期望 register_type
         };
 
-        // 根据注册方式添加相应字段
+        // 根据注册方式添加相应字段（手机号注册暂未启用，固定为邮箱）
         if (registerType.value === "email") {
           registerData.email = registerForm.email;
           registerData.code = registerForm.emailCode; // 后端期望 code 字段
-        } else {
-          registerData.phone = registerForm.phone;
-          registerData.code = registerForm.phoneCode; // 后端期望 code 字段
         }
+        // else {                                      // 手机号注册暂未启用
+        //   registerData.phone = registerForm.phone;
+        //   registerData.code = registerForm.phoneCode;
+        // }
 
         // 调用后端注册接口
         const response = await authApi.register(registerData);
