@@ -64,7 +64,9 @@
                 >
               </div>
             </template>
-            <div v-if="candidates.length === 0" class="candidates-placeholder">--</div>
+            <div v-if="candidates.length === 0" class="candidates-placeholder">
+              --
+            </div>
             <div class="candidates-list-main">
               <div
                 v-for="(candidate, index) in candidates"
@@ -76,7 +78,7 @@
                     >候选解 {{ index + 1 }}</span
                   >
                   <span class="candidate-value-main"
-                    >差值：{{ candidate.value ?? "--" }}</span
+                    >目标值：{{ candidate.value ?? "--" }}</span
                   >
                 </div>
                 <div class="candidate-solution-main">
@@ -277,12 +279,12 @@
         </el-table-column>
         <el-table-column prop="bestValue" label="最优值" min-width="100">
           <template #default="{ row }">
-            {{ row.bestValue ?? "--" }}
+            {{ formatBestValue(row.bestValue) }}
           </template>
         </el-table-column>
         <el-table-column prop="solveTime" label="求解时间" min-width="110">
           <template #default="{ row }">
-            {{ row.solveTime ?? "--" }}
+            {{ formatSolveTime(row.solveTime) }}
           </template>
         </el-table-column>
       </el-table>
@@ -374,7 +376,7 @@
               }}</span>
             </div>
             <div class="detail-row">
-              <span class="detail-label">最优差值：</span>
+              <span class="detail-label">最优值：</span>
               <span class="detail-value highlight">{{
                 selectedTask.bestValue || "--"
               }}</span>
@@ -392,24 +394,34 @@
           <!-- 候选解列表 -->
           <div class="candidates-list">
             <div class="candidates-header">候选解详情</div>
-            <div
-              v-for="(candidate, index) in taskDetailResults.candidates"
-              :key="index"
-              class="candidate-item"
+            <template
+              v-if="
+                taskDetailResults.candidates &&
+                taskDetailResults.candidates.length > 0
+              "
             >
-              <div class="candidate-header">
-                <span class="candidate-rank"
-                  >候选解 {{ candidate.rank || index + 1 }}</span
-                >
-                <span class="candidate-value">差值：{{ candidate.value }}</span>
+              <div
+                v-for="(candidate, index) in taskDetailResults.candidates"
+                :key="index"
+                class="candidate-item"
+              >
+                <div class="candidate-header">
+                  <span class="candidate-rank"
+                    >候选解 {{ candidate.rank || index + 1 }}</span
+                  >
+                  <span class="candidate-value"
+                    >目标值：{{ candidate.value }}</span
+                  >
+                </div>
+                <div class="candidate-solution">
+                  <span class="solution-label">解向量：</span>
+                  <span class="solution-value">{{
+                    JSON.stringify(candidate.solution)
+                  }}</span>
+                </div>
               </div>
-              <div class="candidate-solution">
-                <span class="solution-label">解向量：</span>
-                <span class="solution-value">{{
-                  JSON.stringify(candidate.solution)
-                }}</span>
-              </div>
-            </div>
+            </template>
+            <div v-else class="detail-value">--</div>
           </div>
         </el-card>
 
@@ -464,6 +476,7 @@ import {
 } from "../api/index.js";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName.js";
+import { formatBestValue, formatSolveTime } from "../utils/format.js";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -1270,7 +1283,6 @@ loadTaskHistory();
   color: #666;
   word-break: break-all;
   font-family: "Courier New", monospace;
-  background: #ffffff;
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -1413,7 +1425,8 @@ loadTaskHistory();
 }
 
 .candidate-value {
-  color: #666;
+  color: #4050f8;
+  font-weight: 600;
   font-size: 14px;
 }
 

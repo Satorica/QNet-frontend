@@ -253,12 +253,12 @@
         </el-table-column>
         <el-table-column prop="bestValue" label="最优值" min-width="100">
           <template #default="{ row }">
-            {{ row.bestValue ?? "--" }}
+            {{ formatBestValue(row.bestValue) }}
           </template>
         </el-table-column>
         <el-table-column prop="solveTime" label="求解时间" min-width="110">
           <template #default="{ row }">
-            {{ row.solveTime ?? "--" }}
+            {{ formatSolveTime(row.solveTime) }}
           </template>
         </el-table-column>
       </el-table>
@@ -368,26 +368,34 @@
           <!-- 候选解列表 -->
           <div class="candidates-list">
             <div class="candidates-header">候选解详情</div>
-            <div
-              v-for="(candidate, index) in taskDetailResults.candidates"
-              :key="index"
-              class="candidate-item"
+            <template
+              v-if="
+                taskDetailResults.candidates &&
+                taskDetailResults.candidates.length > 0
+              "
             >
-              <div class="candidate-header">
-                <span class="candidate-rank"
-                  >候选解 {{ candidate.rank || index + 1 }}</span
-                >
-                <span class="candidate-value"
-                  >目标值：{{ candidate.value }}</span
-                >
+              <div
+                v-for="(candidate, index) in taskDetailResults.candidates"
+                :key="index"
+                class="candidate-item"
+              >
+                <div class="candidate-header">
+                  <span class="candidate-rank"
+                    >候选解 {{ candidate.rank || index + 1 }}</span
+                  >
+                  <span class="candidate-value"
+                    >目标值：{{ candidate.value }}</span
+                  >
+                </div>
+                <div class="candidate-solution">
+                  <span class="solution-label">解向量：</span>
+                  <span class="solution-value">{{
+                    JSON.stringify(candidate.solution)
+                  }}</span>
+                </div>
               </div>
-              <div class="candidate-solution">
-                <span class="solution-label">解向量：</span>
-                <span class="solution-value">{{
-                  JSON.stringify(candidate.solution)
-                }}</span>
-              </div>
-            </div>
+            </template>
+            <div v-else class="detail-value">--</div>
           </div>
         </el-card>
 
@@ -443,6 +451,7 @@ import {
 import { ElMessage, ElMessageBox } from "element-plus";
 import MaxCutGraph from "../components/MaxCutGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName.js";
+import { formatBestValue, formatSolveTime } from "../utils/format.js";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
