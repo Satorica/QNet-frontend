@@ -63,6 +63,10 @@ export const tokenManager = {
 
         try {
             const response = await authApi.verifyToken(token)
+            if (response.success && response.data?.user) {
+                const remember = localStorage.getItem('rememberMe') === 'true'
+                userManager.setUserInfo(response.data.user, remember)
+            }
             return response.success
         } catch (error) {
             console.error('Token验证失败:', error)

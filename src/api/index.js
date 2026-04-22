@@ -234,10 +234,12 @@ export const submitTask = async (taskData) => {
           usePolling: false,
         };
       } catch (localError) {
-        throw new Error("所有服务器都不可用");
+        throw new Error(
+          localError.response?.data?.message || "所有服务器都不可用",
+        );
       }
     }
-    throw error;
+    throw new Error(error.response?.data?.message || error.message || "任务提交失败");
   }
 };
 
@@ -294,6 +296,15 @@ export const getTaskHistory = async (params = {}) => {
     };
 
     const response = await cloudApi.post("/api/tasks/history", payload);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getTaskQuota = async () => {
+  try {
+    const response = await cloudApi.get("/api/tasks/quota");
     return response.data;
   } catch (error) {
     throw error;

@@ -163,6 +163,47 @@
       </div>
     </el-card>
 
+    <el-card class="quota-panel-card">
+      <div class="quota-panel">
+        <div class="quota-panel-header">
+          <div class="quota-panel-title">计算额度</div>
+          <el-button type="primary" @click="loadQuotaSummary(true)"
+            >刷新额度</el-button
+          >
+        </div>
+
+        <div class="quota-row">
+          <div
+            v-for="card in quotaCards"
+            :key="card.key"
+            class="quota-item quota-card"
+            :style="{ '--quota-accent': card.accentColor }"
+          >
+            <div class="quota-card-label">
+              <div class="quota-card-name">{{ card.label }}</div>
+              <div class="quota-card-type">额度</div>
+              <div v-if="card.pending > 0" class="quota-card-pending">
+                进行中 {{ card.pending }}
+              </div>
+            </div>
+
+            <el-progress
+              type="circle"
+              :width="96"
+              :stroke-width="7"
+              :percentage="card.percentage"
+              :color="card.colors"
+            >
+              <div class="quota-progress-text">
+                <strong>{{ card.available }}</strong>
+                <span>/{{ card.total }}</span>
+              </div>
+            </el-progress>
+          </div>
+        </div>
+      </div>
+    </el-card>
+
     <!-- 任务详情对话框 -->
     <el-dialog
       v-model="taskDetailVisible"
@@ -331,11 +372,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useI18n } from "vue-i18n";
 import {
   getTaskHistory,
+  getTaskQuota,
   deleteTask as deleteTaskAPI,
   deleteAllTasks as deleteAllTasksAPI,
   getTaskStatus,
@@ -356,12 +398,18 @@ const selectedTask = ref(null);
 const taskDetailResults = ref(null);
 const historyLoading = ref(false);
 const modelTypeOptions = ["classic", "sim", "cloud"];
+const quotaSummary = ref(null);
 const problemTypeOptions = [
   { value: "maxcut", label: "图分割问题" },
   { value: "number_partition", label: "数分问题" },
   { value: "coloring", label: "图着色问题" },
   { value: "tsp", label: "旅行商问题" },
 ];
+const quotaColorMap = {
+  classic: ["#ff9966", "#60dbe8"],
+  sim: ["#5b6ef6", "#60dbe8"],
+  cloud: ["#ffb85c", "#60dbe8"],
+};
 
 // 方法
 const loadTasks = async (params = {}) => {
@@ -393,6 +441,27 @@ const loadTasks = async (params = {}) => {
     ElMessage.error("加载任务失败");
   } finally {
     historyLoading.value = false;
+  }
+};
+
+const loadQuotaSummary = async (showError = false) => {
+  try {
+    const response = await getTaskQuota();
+    if (response.success && response.data) {
+      quotaSummary.value = response.data.quotaSummary || null;
+      return;
+    }
+
+    quotaSummary.value = null;
+    if (showError) {
+      ElMessage.error(response.message || "加载额度失败");
+    }
+  } catch (error) {
+    console.error("加载额度失败:", error);
+    quotaSummary.value = null;
+    if (showError) {
+      ElMessage.error(error.message || "加载额度失败");
+    }
   }
 };
 
@@ -473,9 +542,12 @@ const deleteTask = async (task) => {
               : currentPage.value;
 
           currentPage.value = targetPage;
-          await loadTasks({
-            page: targetPage,
-          });
+          await Promise.all([
+            loadTasks({
+              page: targetPage,
+            }),
+            loadQuotaSummary(),
+          ]);
           ElMessage.success(t("tasks.messages.deleted"));
         } else {
           ElMessage.error("删除任务失败: " + response.message);
@@ -506,7 +578,7 @@ const handleDeleteAllTasks = async () => {
     if (response.success) {
       ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
       currentPage.value = 1;
-      await loadTasks({ page: 1 });
+      await Promise.all([loadTasks({ page: 1 }), loadQuotaSummary()]);
     } else {
       ElMessage.error(response.message || "删除全部任务失败");
     }
@@ -529,6 +601,26 @@ const getProblemTypeText = (type) => {
 const getModelTypeText = (type) => {
   return t(`tasks.modelTypes.${type}`, type);
 };
+
+const quotaCards = computed(() =>
+  modelTypeOptions.map((type) => {
+    const quotaData = quotaSummary.value?.models?.[type] || {};
+    const total = quotaData.default || quotaSummary.value?.defaultQuota || 50;
+    const available = quotaData.available ?? 0;
+    const pending = quotaData.pending ?? 0;
+
+    return {
+      key: type,
+      label: quotaData.label || getModelTypeText(type),
+      total,
+      available,
+      pending,
+      percentage: total > 0 ? Math.round((available / total) * 100) : 0,
+      colors: quotaColorMap[type] || ["#5b6ef6", "#60dbe8"],
+      accentColor: (quotaColorMap[type] || ["#5b6ef6"])[0],
+    };
+  })
+);
 
 const getStatusText = (status) => {
   return t(`tasks.status.${status}`, t("tasks.status.unknown"));
@@ -603,11 +695,20 @@ const exportTaskDetail = () => {
 
 onMounted(() => {
   loadTasks();
+  loadQuotaSummary();
 });
 </script>
 
 <style scoped>
 .task-card {
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #e6eaf5;
+  box-shadow: 0 10px 20px rgba(9, 30, 66, 0.04);
+}
+
+.quota-panel-card {
+  margin-top: 20px;
   background: #ffffff;
   border-radius: 20px;
   border: 1px solid #e6eaf5;
@@ -635,6 +736,97 @@ onMounted(() => {
 
 .tasks-table {
   width: 100%;
+}
+
+.quota-panel {
+  padding: 0;
+}
+
+.quota-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.quota-panel-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.quota-row {
+  display: flex;
+  gap: 14px;
+}
+
+.quota-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.quota-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(232, 237, 248, 0.95);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.quota-card-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.quota-card-name {
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.quota-card-type {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.quota-card-pending {
+  margin-top: 6px;
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #f0f4ff;
+  color: var(--quota-accent);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.quota-progress-text {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 1px;
+}
+
+.quota-progress-text strong {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--quota-accent);
+}
+
+.quota-progress-text span {
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .task-name-text {
