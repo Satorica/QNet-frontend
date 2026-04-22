@@ -7,43 +7,14 @@ const prodApiBaseURL = (import.meta.env.VITE_API_BASE_URL || "").replace(
 );
 const runtimeBaseURL = isDev ? "" : prodApiBaseURL;
 
-// 服务器配置
-const SERVERS = {
-  cloud: {
-    baseURL: runtimeBaseURL,
-    name: "云服务器",
-    type: "cloud",
-  },
-  local: {
-    baseURL: runtimeBaseURL,
-    name: "本地服务器",
-    type: "local",
-  },
-};
-
 // 创建云服务器 axios 实例
 const cloudApi = axios.create({
-  baseURL: SERVERS.cloud.baseURL,
+  baseURL: runtimeBaseURL,
   timeout: 30000,
   headers: {
     "Content-Type": "application/json",
   },
 });
-
-// 创建本地服务器 axios 实例
-const localApi = axios.create({
-  baseURL: SERVERS.local.baseURL,
-  timeout: 10000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// 服务器状态
-let serverStatus = {
-  cloud: { online: true, lastCheck: 0 },
-  local: { online: true, lastCheck: 0 },
-};
 
 // 统一读取 token（支持 sessionStorage 与 localStorage）
 const getStoredToken = () => {
@@ -52,7 +23,7 @@ const getStoredToken = () => {
   );
 };
 
-// 请求拦截器 - 云服务器
+// 请求拦截器
 cloudApi.interceptors.request.use(
   (config) => {
     console.log(
@@ -61,7 +32,6 @@ cloudApi.interceptors.request.use(
       config.url,
     );
 
-    // 添加token到请求头
     const token = getStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -70,78 +40,24 @@ cloudApi.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error("云服务器请求错误:", error);
+    console.error("请求错误:", error);
     return Promise.reject(error);
   },
 );
 
-// 请求拦截器 - 本地服务器
-localApi.interceptors.request.use(
-  (config) => {
-    console.log(
-      "发送请求到本地服务器:",
-      config.method?.toUpperCase(),
-      config.url,
-    );
-
-    // 添加token到请求头
-    const token = getStoredToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
-  },
-  (error) => {
-    console.error("本地服务器请求错误:", error);
-    return Promise.reject(error);
-  },
-);
-
-// 响应拦截器 - 云服务器
+// 响应拦截器
 cloudApi.interceptors.response.use(
   (response) => {
     console.log("收到云服务器响应:", response.status, response.config.url);
-    serverStatus.cloud.online = true;
-    serverStatus.cloud.lastCheck = Date.now();
     return response;
   },
   (error) => {
-    console.error(
-      "云服务器响应错误:",
-      error.response?.status,
-      error.response?.data?.message || error.message,
-    );
-    serverStatus.cloud.online = false;
-    serverStatus.cloud.lastCheck = Date.now();
+    const message = error.response?.data?.message || error.message;
+    console.error("云服务器响应错误:", error.response?.status, message);
 
-    // 处理token过期
-    if (error.response?.status === 401) {
-      handleTokenExpired();
-    }
+    // 用后端返回的业务信息覆盖 axios 默认错误描述
+    error.message = message;
 
-    return Promise.reject(error);
-  },
-);
-
-// 响应拦截器 - 本地服务器
-localApi.interceptors.response.use(
-  (response) => {
-    console.log("收到本地服务器响应:", response.status, response.config.url);
-    serverStatus.local.online = true;
-    serverStatus.local.lastCheck = Date.now();
-    return response;
-  },
-  (error) => {
-    console.error(
-      "本地服务器响应错误:",
-      error.response?.status,
-      error.response?.data?.message || error.message,
-    );
-    serverStatus.local.online = false;
-    serverStatus.local.lastCheck = Date.now();
-
-    // 处理token过期
     if (error.response?.status === 401) {
       handleTokenExpired();
     }
@@ -152,13 +68,11 @@ localApi.interceptors.response.use(
 
 // 处理token过期
 const handleTokenExpired = () => {
-  // 清除本地存储的认证信息
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("userInfo");
   localStorage.removeItem("isLoggedIn");
 
-  // 跳转到登录页面
   if (
     window.location.pathname !== "/login" &&
     window.location.pathname !== "/register" &&
@@ -168,112 +82,39 @@ const handleTokenExpired = () => {
   }
 };
 
-// 检查服务器状态
+// 检查服务器状态，返回布尔值
 export const checkServerStatus = async () => {
-  const status = { cloud: false, local: false };
-
   try {
-    const cloudResponse = await cloudApi.get("/api/server-status");
-    status.cloud = cloudResponse.data.success;
+    const response = await cloudApi.get("/api/server-status");
+    return response.data.success === true;
   } catch (error) {
     console.warn("云服务器不可用:", error.message);
-    status.cloud = false;
+    return false;
   }
-
-  try {
-    const localResponse = await localApi.get("/api/server-status");
-    status.local = localResponse.data.success;
-  } catch (error) {
-    console.warn("本地服务器不可用:", error.message);
-    status.local = false;
-  }
-
-  serverStatus.cloud.online = status.cloud;
-  serverStatus.local.online = status.local;
-  serverStatus.cloud.lastCheck = Date.now();
-  serverStatus.local.lastCheck = Date.now();
-
-  return status;
 };
 
-// 智能提交任务 - 优先使用云服务器进行队列管理
+// 提交任务
 export const submitTask = async (taskData) => {
-  try {
-    // 首先尝试云服务器（推荐方式）
-    if (serverStatus.cloud.online) {
-      console.log("使用云服务器提交任务");
-      const response = await cloudApi.post("/api/submit-task", taskData);
-      return {
-        ...response.data,
-        serverType: "cloud",
-        usePolling: true, // 云服务器需要轮询状态
-      };
-    }
-
-    // 云服务器不可用时，直接使用本地服务器
-    if (serverStatus.local.online) {
-      console.log("云服务器不可用，直接使用本地服务器");
-      const response = await localApi.post("/api/submit-task", taskData);
-      return {
-        ...response.data,
-        serverType: "local",
-        usePolling: false, // 本地服务器直接返回结果
-      };
-    }
-
-    throw new Error("所有服务器都不可用");
-  } catch (error) {
-    // 如果云服务器失败，尝试本地服务器
-    if (error.message.includes("云服务器") || error.code === "ECONNREFUSED") {
-      try {
-        console.log("云服务器失败，尝试本地服务器");
-        const response = await localApi.post("/api/submit-task", taskData);
-        return {
-          ...response.data,
-          serverType: "local",
-          usePolling: false,
-        };
-      } catch (localError) {
-        throw new Error(
-          localError.response?.data?.message || "所有服务器都不可用",
-        );
-      }
-    }
-    throw new Error(error.response?.data?.message || error.message || "任务提交失败");
-  }
+  const response = await cloudApi.post("/api/submit-task", taskData);
+  return { ...response.data, serverType: "cloud", usePolling: true };
 };
 
-// 获取任务状态（仅用于云服务器）
+// 获取任务状态
 export const getTaskStatus = async (taskId) => {
-  try {
-    const response = await cloudApi.get(`/api/task-status/${taskId}`);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-// 取消任务（仅用于云服务器）
-export const cancelTask = async (taskId) => {
-  try {
-    const response = await cloudApi.post(`/api/cancel-task/${taskId}`);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-//  查询任务名称是否重复
-export const checkTaskName = async (taskName) => {
-  const response = await cloudApi.post("/api/tasks/check-name", {
-    taskName,
-  });
+  const response = await cloudApi.get(`/api/task-status/${taskId}`);
   return response.data;
 };
 
-// 获取服务器状态信息
-export const getServerStatus = () => {
-  return { ...serverStatus };
+// 取消任务
+export const cancelTask = async (taskId) => {
+  const response = await cloudApi.post(`/api/cancel-task/${taskId}`);
+  return response.data;
+};
+
+// 查询任务名称是否重复
+export const checkTaskName = async (taskName) => {
+  const response = await cloudApi.post("/api/tasks/check-name", { taskName });
+  return response.data;
 };
 
 // 获取任务历史
@@ -286,64 +127,39 @@ export const getTaskHistory = async (params = {}) => {
     problemType = null,
   } = params;
 
-  try {
-    const payload = {
-      page,
-      pageSize,
-      ...(problemType ? { problemType } : {}),
-      ...(taskName ? { taskName } : {}),
-      ...(modelType ? { modelType } : {}),
-    };
+  const payload = {
+    page,
+    pageSize,
+    ...(problemType ? { problemType } : {}),
+    ...(taskName ? { taskName } : {}),
+    ...(modelType ? { modelType } : {}),
+  };
 
-    const response = await cloudApi.post("/api/tasks/history", payload);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await cloudApi.post("/api/tasks/history", payload);
+  return response.data;
 };
 
 export const getTaskQuota = async () => {
-  try {
-    const response = await cloudApi.get("/api/tasks/quota");
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await cloudApi.get("/api/tasks/quota");
+  return response.data;
 };
 
-// 清理任务（可选，管理员功能）
+// 清理任务（管理员功能）
 export const cleanupTasks = async (retentionDays = 30) => {
-  try {
-    const response = await cloudApi.post("/api/tasks/cleanup", {
-      retentionDays,
-    });
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await cloudApi.post("/api/tasks/cleanup", { retentionDays });
+  return response.data;
 };
 
 export const deleteTask = async (taskId) => {
-  try {
-    const response = await cloudApi.post("/api/tasks/delete", {
-      taskId,
-    });
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const response = await cloudApi.post("/api/tasks/delete", { taskId });
+  return response.data;
 };
 
 export const deleteAllTasks = async (problemType = null) => {
-  try {
-    const payload = problemType ? { problemType } : {};
-    const response = await cloudApi.post("/api/tasks/delete-all", payload);
-    return response.data;
-  } catch (error) {
-    throw error;
-  }
+  const payload = problemType ? { problemType } : {};
+  const response = await cloudApi.post("/api/tasks/delete-all", payload);
+  return response.data;
 };
 
-// 导出API实例以备直接使用
-export { cloudApi, localApi };
+export { cloudApi };
 export default cloudApi;

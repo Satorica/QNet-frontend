@@ -181,7 +181,7 @@
           >
             <div class="quota-card-label">
               <div class="quota-card-name">{{ card.label }}</div>
-              <div class="quota-card-type">额度</div>
+              <div class="quota-card-type">剩余额度</div>
               <div v-if="card.pending > 0" class="quota-card-pending">
                 进行中 {{ card.pending }}
               </div>
@@ -438,7 +438,7 @@ const loadTasks = async (params = {}) => {
     console.error("加载任务失败:", error);
     tasks.value = [];
     total.value = 0;
-    ElMessage.error("加载任务失败");
+    ElMessage.error(error.message || "加载任务失败");
   } finally {
     historyLoading.value = false;
   }
@@ -518,7 +518,7 @@ const viewTask = async (task) => {
     }
   } catch (error) {
     console.error("获取任务详情失败:", error);
-    ElMessage.error("获取任务详情失败");
+    ElMessage.error(error.message || "获取任务详情失败");
   }
 };
 
@@ -554,7 +554,7 @@ const deleteTask = async (task) => {
         }
       } catch (error) {
         console.error("删除任务失败:", error);
-        ElMessage.error("删除任务失败");
+        ElMessage.error(error.message || "删除任务失败");
       }
     })
     .catch(() => {

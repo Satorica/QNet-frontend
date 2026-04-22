@@ -1187,6 +1187,7 @@ const submitSolve = async () => {
     statusClass.value = "status-fail";
     statusText.value = "提交失败";
     addLog("提交失败：" + e.message);
+    ElMessage.error(e.message || "提交失败");
     solving.value = false;
   }
 };
@@ -1293,6 +1294,7 @@ const cancelSolve = async () => {
       addLog("取消任务请求已发送");
     } catch (error) {
       addLog("取消任务失败: " + error.message);
+      ElMessage.error(error.message || "取消任务失败");
     }
   }
 
@@ -1518,6 +1520,7 @@ const handleViewTaskDetail = async (row) => {
   } catch (error) {
     console.error("获取任务详情失败:", error);
     addLog("获取任务详情失败: " + error.message);
+    ElMessage.error(error.message || "获取任务详情失败");
   }
 };
 
