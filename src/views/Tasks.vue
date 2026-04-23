@@ -600,12 +600,13 @@ const modelTypeMap = {
   cloud: "量子云服务计算",
 };
 
+// 与 backend.models.task Task.task_status 枚举一致
 const statusTextMap = {
+  queued: "排队中",
   processing: "运行中",
   completed: "已完成",
   failed: "失败",
-  timeout: "超时",
-  error: "错误",
+  cancelled: "已取消",
 };
 
 // 辅助函数
@@ -638,16 +639,17 @@ const quotaCards = computed(() =>
 );
 
 const getStatusText = (status) => {
-  return statusTextMap[status] ?? "未知";
+  if (status == null || status === "") return "未知";
+  return statusTextMap[status] ?? String(status);
 };
 
 const getStatusType = (status) => {
   const types = {
+    queued: "info",
     processing: "warning",
     completed: "success",
     failed: "danger",
-    timeout: "info",
-    error: "danger",
+    cancelled: "info",
   };
   return types[status] || "info";
 };

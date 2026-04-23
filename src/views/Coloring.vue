@@ -1256,7 +1256,8 @@ const pollTaskStatus = async (taskId, startTime) => {
 const cancelSolve = async () => {
   if (currentTaskId.value) {
     try {
-      await cancelTaskAPI(currentTaskId.value);
+      const res = await cancelTaskAPI(currentTaskId.value);
+      ElMessage.success(res?.message || "任务已取消");
       addLog("取消任务请求已发送");
     } catch (error) {
       addLog("取消任务失败: " + error.message);
