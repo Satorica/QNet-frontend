@@ -26,12 +26,6 @@ const getStoredToken = () => {
 // 请求拦截器
 cloudApi.interceptors.request.use(
   (config) => {
-    console.log(
-      "发送请求到云服务器:",
-      config.method?.toUpperCase(),
-      config.url,
-    );
-
     const token = getStoredToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -40,7 +34,6 @@ cloudApi.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error("请求错误:", error);
     return Promise.reject(error);
   },
 );
@@ -48,12 +41,10 @@ cloudApi.interceptors.request.use(
 // 响应拦截器
 cloudApi.interceptors.response.use(
   (response) => {
-    console.log("收到云服务器响应:", response.status, response.config.url);
     return response;
   },
   (error) => {
     const message = error.response?.data?.message || error.message;
-    console.error("云服务器响应错误:", error.response?.status, message);
 
     // 用后端返回的业务信息覆盖 axios 默认错误描述
     error.message = message;
@@ -66,12 +57,18 @@ cloudApi.interceptors.response.use(
   },
 );
 
-// 处理token过期
+// 401 时须同时清 session/localStorage（未勾选「记住我」时 token 在 sessionStorage）
 const handleTokenExpired = () => {
+  sessionStorage.removeItem("accessToken");
+  sessionStorage.removeItem("refreshToken");
+  sessionStorage.removeItem("userInfo");
+  sessionStorage.removeItem("isLoggedIn");
+
   localStorage.removeItem("accessToken");
   localStorage.removeItem("refreshToken");
   localStorage.removeItem("userInfo");
   localStorage.removeItem("isLoggedIn");
+  localStorage.removeItem("rememberMe");
 
   if (
     window.location.pathname !== "/login" &&
@@ -88,7 +85,6 @@ export const checkServerStatus = async () => {
     const response = await cloudApi.get("/api/server-status");
     return response.data.success === true;
   } catch (error) {
-    console.warn("云服务器不可用:", error.message);
     return false;
   }
 };

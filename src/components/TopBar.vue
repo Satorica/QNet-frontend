@@ -4,7 +4,7 @@
       <div class="task-input">
         <el-input
           v-model="taskName"
-          :placeholder="$t('topbar.taskInput')"
+          placeholder="请输入任务名："
           style="width: 300px"
         />
         <el-button type="primary" @click="handleOk">OK</el-button>
@@ -27,7 +27,7 @@
             {{ userInfo?.username?.charAt(0).toUpperCase() || "U" }}
           </div>
           <span class="username">{{
-            userInfo?.username || $t("topbar.userInfo.notLoggedIn")
+            userInfo?.username || '未登录'
           }}</span>
         </div>
         <template #dropdown>
@@ -35,22 +35,22 @@
             <el-dropdown-item disabled>
               <div class="user-details">
                 <div>
-                  <strong>{{ $t("topbar.userInfo.username") }}:</strong>
+                  <strong>用户名:</strong>
                   {{ userInfo?.username }}
                 </div>
                 <div v-if="userInfo?.email">
-                  <strong>{{ $t("topbar.userInfo.email") }}:</strong>
+                  <strong>邮箱:</strong>
                   {{ userInfo?.email }}
                 </div>
                 <div v-if="userInfo?.phone">
-                  <strong>{{ $t("topbar.userInfo.phone") }}:</strong>
+                  <strong>手机:</strong>
                   {{ userInfo?.phone }}
                 </div>
               </div>
             </el-dropdown-item>
             <el-dropdown-item divided command="logout">
               <el-icon><SwitchButton /></el-icon>
-              <span>{{ $t("topbar.logout") }}</span>
+              <span>退出登录</span>
             </el-dropdown-item>
           </el-dropdown-menu>
         </template>
@@ -58,9 +58,9 @@
 
       <!-- 未登录时显示 -->
       <div v-else class="login-prompt">
-        <el-button type="primary" size="small" @click="goToLogin">{{
-          $t("topbar.login")
-        }}</el-button>
+        <el-button type="primary" size="small" @click="goToLogin"
+          >登录</el-button
+        >
       </div>
     </div>
   </div>
@@ -71,14 +71,12 @@ import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { SwitchButton } from "@element-plus/icons-vue";
-import { useI18n } from "vue-i18n";
 import { userManager } from "../utils/auth.js";
 import { checkTaskName } from "../api/index.js";
 import { useCustomTaskName } from "../stores/customTaskName.js";
 
 const router = useRouter();
 const route = useRoute();
-const { t, locale } = useI18n();
 const taskName = ref("");
 const currentTime = ref("");
 const currentWeekday = ref("");
@@ -100,7 +98,7 @@ const updateClock = () => {
     now.getSeconds()
   )}`;
 
-  currentWeekday.value = new Intl.DateTimeFormat(locale.value, {
+  currentWeekday.value = new Intl.DateTimeFormat("zh-CN", {
     weekday: "long",
   }).format(now);
   currentDateOnly.value = `${now.getFullYear()}-${pad(
@@ -156,18 +154,18 @@ const handleCommand = async (command) => {
   if (command === "logout") {
     try {
       await ElMessageBox.confirm(
-        t("topbar.confirmLogout"),
-        t("topbar.logout"),
+        "确定要退出登录吗？",
+        "退出登录",
         {
-          confirmButtonText: t("common.confirm"),
-          cancelButtonText: t("common.cancel"),
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
           type: "warning",
         }
       );
 
       // 执行退出
       await userManager.logout();
-      ElMessage.success(t("topbar.messages.logoutSuccess"));
+      ElMessage.success("已退出登录");
 
       // 跳转到登录页
       router.push("/login");

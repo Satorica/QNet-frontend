@@ -3,11 +3,11 @@
     <el-card class="task-card">
       <template #header>
         <div class="task-header">
-          <h3>{{ $t("tasks.title") }}</h3>
+          <h3>任务列表</h3>
           <div class="task-controls">
             <el-input
               v-model="taskName"
-              :placeholder="$t('tasks.taskNamePlaceholder')"
+              placeholder="请输入任务名称"
               style="width: 200px"
               clearable
               @keyup.enter="handleSearchConfirm"
@@ -27,7 +27,7 @@
             </el-select>
             <el-select
               v-model="modelType"
-              :placeholder="$t('tasks.modelTypePlaceholder')"
+              placeholder="请选择模型类型"
               style="width: 180px"
               clearable
             >
@@ -38,12 +38,12 @@
                 :value="option"
               />
             </el-select>
-            <el-button type="primary" @click="handleSearchConfirm">{{
-              $t("common.confirm")
-            }}</el-button>
-            <el-button @click="handleResetSearch">{{
-              $t("tasks.reset")
-            }}</el-button>
+            <el-button type="primary" @click="handleSearchConfirm"
+              >确定</el-button
+            >
+            <el-button @click="handleResetSearch"
+              >重置</el-button
+            >
             <el-button
               type="danger"
               :disabled="total === 0"
@@ -67,7 +67,7 @@
       >
         <el-table-column
           prop="taskName"
-          :label="$t('tasks.table.taskName')"
+          label="任务名"
           min-width="210"
           show-overflow-tooltip
         >
@@ -84,7 +84,7 @@
         </el-table-column>
         <el-table-column
           prop="problemType"
-          :label="$t('tasks.table.problemType')"
+          label="问题类型"
           min-width="120"
         >
           <template #default="{ row }">
@@ -93,7 +93,7 @@
         </el-table-column>
         <el-table-column
           prop="modelType"
-          :label="$t('tasks.table.model')"
+          label="模型"
           min-width="140"
         >
           <template #default="{ row }">
@@ -102,7 +102,7 @@
         </el-table-column>
         <el-table-column
           prop="timestamp"
-          :label="$t('tasks.table.submitTime')"
+          label="提交时间"
           min-width="170"
         >
           <template #default="{ row }">
@@ -111,12 +111,12 @@
         </el-table-column>
         <el-table-column
           prop="matrixSize"
-          :label="$t('tasks.table.scale')"
+          label="规模"
           min-width="90"
         />
         <el-table-column
           prop="status"
-          :label="$t('tasks.table.status')"
+          label="状态"
           min-width="110"
         >
           <template #default="{ row }">
@@ -126,7 +126,7 @@
           </template>
         </el-table-column>
         <el-table-column
-          :label="$t('tasks.table.actions')"
+          label="操作"
           width="180"
           align="center"
         >
@@ -136,13 +136,13 @@
                 type="primary"
                 size="small"
                 @click.stop="viewTask(row)"
-                >{{ $t("tasks.table.view") }}</el-button
+                >查看</el-button
               >
               <el-button
                 size="small"
                 type="danger"
                 @click.stop="deleteTask(row)"
-                >{{ $t("tasks.table.delete") }}</el-button
+                >删除</el-button
               >
             </div>
           </template>
@@ -207,7 +207,7 @@
     <!-- 任务详情对话框 -->
     <el-dialog
       v-model="taskDetailVisible"
-      :title="$t('tasks.detail.title')"
+      title="任务详情"
       width="800px"
       :close-on-click-modal="false"
     >
@@ -374,7 +374,6 @@
 <script setup>
 import { computed, ref, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { useI18n } from "vue-i18n";
 import {
   getTaskHistory,
   getTaskQuota,
@@ -382,8 +381,6 @@ import {
   deleteAllTasks as deleteAllTasksAPI,
   getTaskStatus,
 } from "../api/index.js";
-
-const { t } = useI18n();
 
 // 响应式数据
 const tasks = ref([]);
@@ -524,11 +521,11 @@ const viewTask = async (task) => {
 
 const deleteTask = async (task) => {
   ElMessageBox.confirm(
-    t("tasks.messages.confirmDelete", { name: task.taskName }),
-    t("tasks.messages.confirmTitle"),
+    `确定要删除任务“${task.taskName}”吗？`,
+    "确认删除",
     {
-      confirmButtonText: t("common.confirm"),
-      cancelButtonText: t("common.cancel"),
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
       type: "warning",
     }
   )
@@ -548,7 +545,7 @@ const deleteTask = async (task) => {
             }),
             loadQuotaSummary(),
           ]);
-          ElMessage.success(t("tasks.messages.deleted"));
+          ElMessage.success("任务已删除");
         } else {
           ElMessage.error("删除任务失败: " + response.message);
         }
@@ -589,17 +586,35 @@ const handleDeleteAllTasks = async () => {
   }
 };
 
+const problemTypeMap = {
+  maxcut: "图分割",
+  number: "数字分割",
+  number_partition: "数字分割",
+  coloring: "图着色",
+  tsp: "旅行商",
+};
+
+const modelTypeMap = {
+  classic: "经典计算",
+  sim: "量子芯片模拟计算",
+  cloud: "量子云服务计算",
+};
+
+const statusTextMap = {
+  processing: "运行中",
+  completed: "已完成",
+  failed: "失败",
+  timeout: "超时",
+  error: "错误",
+};
+
 // 辅助函数
 const getProblemTypeText = (type) => {
-  // 处理 number_partition 的别名
-  if (type === "number_partition") {
-    return t("tasks.problemTypes.number", "数字分割");
-  }
-  return t(`tasks.problemTypes.${type}`, type);
+  return problemTypeMap[type] ?? type;
 };
 
 const getModelTypeText = (type) => {
-  return t(`tasks.modelTypes.${type}`, type);
+  return modelTypeMap[type] ?? type;
 };
 
 const quotaCards = computed(() =>
@@ -623,7 +638,7 @@ const quotaCards = computed(() =>
 );
 
 const getStatusText = (status) => {
-  return t(`tasks.status.${status}`, t("tasks.status.unknown"));
+  return statusTextMap[status] ?? "未知";
 };
 
 const getStatusType = (status) => {

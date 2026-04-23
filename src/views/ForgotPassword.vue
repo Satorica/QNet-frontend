@@ -10,9 +10,9 @@
       <div class="forgot-password-header">
         <div class="logo-section">
           <div class="logo-icon">Q</div>
-          <h1 class="system-title">{{ $t("forgotPassword.title") }}</h1>
+          <h1 class="system-title">找回密码</h1>
         </div>
-        <p class="subtitle">{{ $t("forgotPassword.subtitle") }}</p>
+        <p class="subtitle">安全验证后重置您的登录密码</p>
       </div>
 
       <el-steps
@@ -21,14 +21,14 @@
         align-center
         class="step-bar"
       >
-        <el-step :title="$t('forgotPassword.steps.verify')" />
-        <el-step :title="$t('forgotPassword.steps.reset')" />
-        <el-step :title="$t('forgotPassword.steps.success')" />
+        <el-step title="身份核验" />
+        <el-step title="设置新密码" />
+        <el-step title="完成" />
       </el-steps>
 
       <div v-if="step === 'verify'" class="step-content">
         <el-alert
-          :title="$t('forgotPassword.tips.genericVerification')"
+          title="请输入邮箱和验证码完成身份核验；"
           type="info"
           :closable="false"
           show-icon
@@ -45,7 +45,7 @@
           <el-form-item prop="email">
             <el-input
               v-model="verifyForm.email"
-              :placeholder="$t('forgotPassword.email')"
+              placeholder="请输入注册邮箱"
               size="large"
               clearable
             >
@@ -59,7 +59,7 @@
             <div class="code-input-wrapper">
               <el-input
                 v-model="verifyForm.code"
-                :placeholder="$t('forgotPassword.code')"
+                placeholder="请输入6位验证码"
                 size="large"
                 maxlength="6"
                 clearable
@@ -89,14 +89,14 @@
               :loading="verifyLoading"
               @click="handleVerify"
             >
-              {{ $t("forgotPassword.verifyButton") }}
+              下一步
             </el-button>
           </el-form-item>
 
           <div class="secondary-link-row">
             <el-link type="primary" :underline="false" @click="goToLogin">
               <el-icon class="link-icon"><ArrowLeft /></el-icon>
-              {{ $t("forgotPassword.backToLogin") }}
+              返回登录
             </el-link>
           </div>
         </el-form>
@@ -104,11 +104,7 @@
 
       <div v-else-if="step === 'reset'" class="step-content">
         <el-alert
-          :title="
-            $t('forgotPassword.tips.verifiedAccount', {
-              email: maskedEmail || verifyForm.email,
-            })
-          "
+          :title="'已验证账号：' + (maskedEmail || verifyForm.email)"
           type="success"
           :closable="false"
           show-icon
@@ -126,7 +122,7 @@
             <el-input
               v-model="resetForm.newPassword"
               type="password"
-              :placeholder="$t('forgotPassword.newPassword')"
+              placeholder="请输入新密码"
               size="large"
               show-password
               clearable
@@ -139,7 +135,7 @@
 
           <div class="password-strength-panel">
             <div class="strength-header">
-              <span>{{ $t("forgotPassword.strength.label") }}</span>
+              <span>密码强度</span>
               <span :style="{ color: passwordStrength.color }">
                 {{ passwordStrength.text }}
               </span>
@@ -150,14 +146,14 @@
               :stroke-width="8"
               :color="passwordStrength.color"
             />
-            <p class="strength-tip">{{ $t("forgotPassword.passwordHint") }}</p>
+            <p class="strength-tip">密码需为8-16位，且必须包含字母和数字。</p>
           </div>
 
           <el-form-item prop="confirmPassword">
             <el-input
               v-model="resetForm.confirmPassword"
               type="password"
-              :placeholder="$t('forgotPassword.confirmPassword')"
+              placeholder="请再次输入新密码"
               size="large"
               show-password
               clearable
@@ -177,17 +173,17 @@
               :disabled="!canSubmitReset"
               @click="handleResetPassword"
             >
-              {{ $t("forgotPassword.resetButton") }}
+              确认重置
             </el-button>
           </el-form-item>
 
           <div class="secondary-link-row between">
             <el-link type="primary" :underline="false" @click="backToVerify">
               <el-icon class="link-icon"><ArrowLeft /></el-icon>
-              {{ $t("forgotPassword.backToVerify") }}
+              返回上一步
             </el-link>
             <el-link type="primary" :underline="false" @click="goToLogin">
-              {{ $t("forgotPassword.backToLogin") }}
+              返回登录
             </el-link>
           </div>
         </el-form>
@@ -195,21 +191,21 @@
 
       <div v-else class="success-view">
         <el-icon class="success-icon"><CircleCheckFilled /></el-icon>
-        <p class="success-title">{{ $t("forgotPassword.successTitle") }}</p>
-        <p>{{ $t("forgotPassword.successSubtitle") }}</p>
+        <p class="success-title">密码重置成功</p>
+        <p>请妥善保管新密码，并使用新密码重新登录。</p>
         <el-button
           type="primary"
           size="large"
           class="primary-button"
           @click="goToLogin"
         >
-          {{ $t("forgotPassword.goLoginNow") }}
+          立即登录
         </el-button>
       </div>
     </el-card>
 
     <div class="footer-info">
-      <p>{{ $t("forgotPassword.footer") }}</p>
+      <p>© 2025 量子Ising求解系统 | 现代化量子优化平台</p>
     </div>
   </div>
 </template>
@@ -225,7 +221,6 @@ import {
   Lock,
   Message,
 } from "@element-plus/icons-vue";
-import { useI18n } from "vue-i18n";
 import { authApi } from "../api/auth.js";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
@@ -233,7 +228,6 @@ const CODE_REGEX = /^\d{6}$/;
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,16}$/;
 
 const router = useRouter();
-const { t } = useI18n();
 
 const verifyFormRef = ref(null);
 const resetFormRef = ref(null);
@@ -269,8 +263,8 @@ const sendCodeDisabled = computed(
 
 const sendCodeText = computed(() => {
   return sendCodeCountdown.value > 0
-    ? `${sendCodeCountdown.value}${t("forgotPassword.resendCode")}`
-    : t("forgotPassword.sendCode");
+    ? `${sendCodeCountdown.value}秒后重试`
+    : "获取验证码";
 });
 
 const passwordStrength = computed(() => {
@@ -279,7 +273,7 @@ const passwordStrength = computed(() => {
     return {
       percentage: 0,
       color: "#c0c4cc",
-      text: t("forgotPassword.strength.empty"),
+      text: "待输入",
     };
   }
 
@@ -293,7 +287,7 @@ const passwordStrength = computed(() => {
     return {
       percentage: 33,
       color: "#f56c6c",
-      text: t("forgotPassword.strength.weak"),
+      text: "弱",
     };
   }
 
@@ -301,7 +295,7 @@ const passwordStrength = computed(() => {
     return {
       percentage: 100,
       color: "#67c23a",
-      text: t("forgotPassword.strength.strong"),
+      text: "强",
     };
   }
 
@@ -309,14 +303,14 @@ const passwordStrength = computed(() => {
     return {
       percentage: 66,
       color: "#e6a23c",
-      text: t("forgotPassword.strength.medium"),
+      text: "中",
     };
   }
 
   return {
     percentage: 33,
     color: "#f56c6c",
-    text: t("forgotPassword.strength.weak"),
+    text: "弱",
   };
 });
 
@@ -331,9 +325,9 @@ const canSubmitReset = computed(() => {
 
 const validateEmail = (rule, value, callback) => {
   if (!value) {
-    callback(new Error(t("forgotPassword.validation.emailRequired")));
+    callback(new Error("请输入邮箱地址"));
   } else if (!EMAIL_REGEX.test(value)) {
-    callback(new Error(t("forgotPassword.validation.emailFormat")));
+    callback(new Error("请输入有效的邮箱地址"));
   } else {
     callback();
   }
@@ -341,9 +335,9 @@ const validateEmail = (rule, value, callback) => {
 
 const validateCode = (rule, value, callback) => {
   if (!value) {
-    callback(new Error(t("forgotPassword.validation.codeRequired")));
+    callback(new Error("请输入验证码"));
   } else if (!CODE_REGEX.test(value)) {
-    callback(new Error(t("forgotPassword.validation.codeFormat")));
+    callback(new Error("验证码需为6位数字"));
   } else {
     callback();
   }
@@ -351,9 +345,9 @@ const validateCode = (rule, value, callback) => {
 
 const validateNewPassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error(t("forgotPassword.validation.passwordRequired")));
+    callback(new Error("请输入新密码"));
   } else if (!PASSWORD_REGEX.test(value)) {
-    callback(new Error(t("forgotPassword.validation.passwordFormat")));
+    callback(new Error("新密码需为8-16位，且必须包含字母和数字"));
   } else {
     callback();
   }
@@ -361,9 +355,9 @@ const validateNewPassword = (rule, value, callback) => {
 
 const validateConfirmPassword = (rule, value, callback) => {
   if (!value) {
-    callback(new Error(t("forgotPassword.validation.confirmRequired")));
+    callback(new Error("请再次输入新密码"));
   } else if (value !== resetForm.newPassword) {
-    callback(new Error(t("forgotPassword.validation.passwordMismatch")));
+    callback(new Error("两次输入的密码不一致"));
   } else {
     callback();
   }
@@ -379,11 +373,11 @@ const resetRules = computed(() => ({
   confirmPassword: [{ validator: validateConfirmPassword, trigger: "blur" }],
 }));
 
-const getErrorMessage = (error, fallbackKey) => {
+const getErrorMessage = (error, fallbackMessage) => {
   if (!error.response) {
-    return t("forgotPassword.messages.networkError");
+    return "网络连接异常，请检查网络后重试";
   }
-  return error.response?.data?.message || t(fallbackKey);
+  return error.response?.data?.message || fallbackMessage;
 };
 
 const startSendCodeCountdown = () => {
@@ -400,12 +394,12 @@ const startSendCodeCountdown = () => {
 
 const sendResetCode = async () => {
   if (!verifyForm.email) {
-    ElMessage.warning(t("forgotPassword.messages.enterEmail"));
+    ElMessage.warning("请先输入邮箱地址");
     return;
   }
 
   if (!EMAIL_REGEX.test(verifyForm.email)) {
-    ElMessage.warning(t("forgotPassword.messages.invalidEmail"));
+    ElMessage.warning("请输入有效的邮箱地址");
     return;
   }
 
@@ -416,17 +410,17 @@ const sendResetCode = async () => {
       "reset_password"
     );
     if (response.success) {
-      ElMessage.success(t("forgotPassword.messages.codeSent"));
+      ElMessage.success("若账号存在，验证码已发送到您的邮箱");
       startSendCodeCountdown();
     } else {
       ElMessage.error(
-        response.message || t("forgotPassword.messages.codeFailed")
+        response.message || "验证码发送失败"
       );
     }
   } catch (error) {
     console.error("Send reset code error:", error);
     ElMessage.error(
-      getErrorMessage(error, "forgotPassword.messages.codeFailed")
+      getErrorMessage(error, "验证码发送失败")
     );
   } finally {
     sendCodeLoading.value = false;
@@ -438,7 +432,7 @@ const handleVerify = async () => {
 
   await verifyFormRef.value.validate(async (valid) => {
     if (!valid) {
-      ElMessage.error(t("forgotPassword.messages.formError"));
+      ElMessage.error("请正确填写表单");
       return false;
     }
 
@@ -453,16 +447,16 @@ const handleVerify = async () => {
         resetToken.value = response.data.resetToken;
         maskedEmail.value = response.data.maskedEmail || verifyForm.email;
         step.value = "reset";
-        ElMessage.success(t("forgotPassword.messages.verifySuccess"));
+        ElMessage.success("身份核验成功");
       } else {
         ElMessage.error(
-          response.message || t("forgotPassword.messages.verifyFailed")
+          response.message || "身份核验失败"
         );
       }
     } catch (error) {
       console.error("Verify reset code error:", error);
       ElMessage.error(
-        getErrorMessage(error, "forgotPassword.messages.verifyFailed")
+        getErrorMessage(error, "身份核验失败")
       );
     } finally {
       verifyLoading.value = false;
@@ -481,7 +475,7 @@ const backToVerify = () => {
 
 const handleResetPassword = async () => {
   if (!resetToken.value) {
-    ElMessage.warning(t("forgotPassword.messages.invalidStep"));
+    ElMessage.warning("当前重置状态已失效，请重新验证");
     backToVerify();
     return;
   }
@@ -490,7 +484,7 @@ const handleResetPassword = async () => {
 
   await resetFormRef.value.validate(async (valid) => {
     if (!valid) {
-      ElMessage.error(t("forgotPassword.messages.formError"));
+      ElMessage.error("请正确填写表单");
       return false;
     }
 
@@ -504,17 +498,17 @@ const handleResetPassword = async () => {
       if (response.success) {
         step.value = "success";
         resetToken.value = "";
-        ElMessage.success(t("forgotPassword.messages.resetSuccess"));
+        ElMessage.success("密码重置成功");
       } else {
         ElMessage.error(
-          response.message || t("forgotPassword.messages.resetFailed")
+          response.message || "密码重置失败"
         );
       }
     } catch (error) {
       console.error("Reset password error:", error);
       const message = getErrorMessage(
         error,
-        "forgotPassword.messages.resetFailed"
+        "密码重置失败"
       );
       ElMessage.error(message);
       if (error.response?.data?.code === 4001) {

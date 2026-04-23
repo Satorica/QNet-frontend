@@ -135,9 +135,7 @@
             <template #header>
               <div class="result-header">
                 <span>候选结果</span>
-                <el-button size="small" @click="exportResults"
-                  >结果导出</el-button
-                >
+                <el-button @click="exportResults">结果导出</el-button>
               </div>
             </template>
             <div v-if="candidates.length === 0" class="candidates-placeholder">
