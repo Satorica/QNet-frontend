@@ -270,7 +270,11 @@
               @click="handleViewTaskDetail(row)"
               >查看详情</el-button
             >
-            <el-button type="danger" size="small" @click="handleDeleteTask(row)"
+            <el-button
+              type="danger"
+              size="small"
+              :disabled="!isTaskDeletable(row.status)"
+              @click="handleDeleteTask(row)"
               >删除</el-button
             >
           </template>
@@ -475,6 +479,10 @@ import {
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName.js";
 import { formatBestValue, formatSolveTime } from "../utils/format.js";
+import {
+  getDeleteAllResultMessage,
+  isTaskDeletable,
+} from "../utils/task.js";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -906,6 +914,11 @@ const formatDate = (timestamp) => {
 
 // 删除任务
 const handleDeleteTask = async (row) => {
+  if (!isTaskDeletable(row.status)) {
+    ElMessage.warning("仅支持删除已完成、失败或已取消的任务");
+    return;
+  }
+
   try {
     await ElMessageBox.confirm("确定删除该任务吗？", "提示", {
       confirmButtonText: "确定",
@@ -951,7 +964,12 @@ const handleDeleteAllTasks = async () => {
     );
     const response = await deleteAllTasks("number_partition");
     if (response.success) {
-      ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
+      ElMessage.success(
+        getDeleteAllResultMessage(
+          response.deletedCount,
+          response.skippedNonTerminalCount
+        )
+      );
       historyCurrentPage.value = 1;
       loadTaskHistory({ page: 1 });
     } else {

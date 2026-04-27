@@ -141,6 +141,7 @@
               <el-button
                 size="small"
                 type="danger"
+                :disabled="!isTaskDeletable(row.status)"
                 @click.stop="deleteTask(row)"
                 >删除</el-button
               >
@@ -381,6 +382,10 @@ import {
   deleteAllTasks as deleteAllTasksAPI,
   getTaskStatus,
 } from "../api/index.js";
+import {
+  getDeleteAllResultMessage,
+  isTaskDeletable,
+} from "../utils/task.js";
 
 // 响应式数据
 const tasks = ref([]);
@@ -520,6 +525,11 @@ const viewTask = async (task) => {
 };
 
 const deleteTask = async (task) => {
+  if (!isTaskDeletable(task.status)) {
+    ElMessage.warning("仅支持删除已完成、失败或已取消的任务");
+    return;
+  }
+
   ElMessageBox.confirm(
     `确定要删除任务“${task.taskName}”吗？`,
     "确认删除",
@@ -573,7 +583,12 @@ const handleDeleteAllTasks = async () => {
 
     const response = await deleteAllTasksAPI();
     if (response.success) {
-      ElMessage.success(`已成功删除 ${response.deletedCount} 个任务`);
+      ElMessage.success(
+        getDeleteAllResultMessage(
+          response.deletedCount,
+          response.skippedNonTerminalCount
+        )
+      );
       currentPage.value = 1;
       await Promise.all([loadTasks({ page: 1 }), loadQuotaSummary()]);
     } else {
