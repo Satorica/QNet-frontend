@@ -747,19 +747,24 @@ const cancelSolve = async () => {
   if (currentTaskId.value) {
     try {
       const res = await cancelTask(currentTaskId.value);
+      if (res?.cancelled === false) {
+        ElMessage.info(res?.message || "任务已结束，无需取消");
+        addLog(res?.message || "任务已结束，无需取消");
+        return;
+      }
+
       ElMessage.success(res?.message || "任务已取消");
       addLog("取消任务请求已发送");
+      solving.value = false;
+      statusClass.value = "status-idle";
+      statusText.value = "已取消";
+      currentTaskId.value = null;
+      addLog("求解已取消");
     } catch (error) {
       addLog("取消任务失败: " + error.message);
       ElMessage.error(error.message || "取消任务失败");
     }
   }
-
-  solving.value = false;
-  statusClass.value = "status-idle";
-  statusText.value = "已取消";
-  currentTaskId.value = null;
-  addLog("求解已取消");
 };
 
 const addLog = (message) => {
