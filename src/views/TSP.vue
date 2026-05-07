@@ -1276,7 +1276,7 @@ const pollTaskStatus = async (taskId, startTime) => {
         loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
-        statusText.value = statusResponse.cancelRequested ? "取消中..." : "计算中...";
+        statusText.value = "计算中...";
         setTimeout(poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
@@ -1303,21 +1303,25 @@ const cancelSolve = async () => {
   if (currentTaskId.value) {
     try {
       const res = await cancelTask(currentTaskId.value);
-      if (res?.cancelled === false) {
-        if (res?.cancelRequested) {
-          statusText.value = "取消中...";
+      if (res?.success === false) {
+        ElMessage.warning(res?.message || "取消失败");
+        addLog(res?.message || "取消失败");
+        // 任务已是终态（如刚好完成），停止轮询并刷新历史
+        if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
+          solving.value = false;
+          currentTaskId.value = null;
+          loadTaskHistory();
         }
-        ElMessage.warning(res?.message || "任务已结束，无需取消");
-        addLog(res?.message || "任务已结束，无需取消");
         return;
       }
 
       ElMessage.success(res?.message || "任务已取消");
-      addLog("取消任务请求已发送");
+      addLog("任务已取消");
       solving.value = false;
-      statusClass.value = "status-idle";
+      statusClass.value = "status-fail";
       statusText.value = "已取消";
       currentTaskId.value = null;
+      loadTaskHistory();
     } catch (error) {
       addLog("取消任务失败: " + error.message);
       ElMessage.error(error.message || "取消任务失败");

@@ -152,9 +152,20 @@ export const getTaskStatus = async (taskId) => {
 };
 
 // 取消任务
+// 任务已是终态（completed/failed/cancelled）时后端返回 400，
+// 此处捕获 4xx 业务拒绝并返回响应体，由调用方根据 success/taskStatus 统一处理；
+// 5xx 服务器错误仍然 throw，让调用方以 error 级别提示。
 export const cancelTask = async (taskId) => {
-  const response = await cloudApi.post(`/api/cancel-task/${taskId}`);
-  return response.data;
+  try {
+    const response = await cloudApi.post(`/api/cancel-task/${taskId}`);
+    return response.data;
+  } catch (error) {
+    const status = error.response?.status;
+    if (status >= 400 && status < 500 && error.response?.data) {
+      return error.response.data;
+    }
+    throw error;
+  }
 };
 
 // 查询任务名称是否重复
