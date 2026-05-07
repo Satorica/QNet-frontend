@@ -799,17 +799,22 @@ const pollTaskStatus = async (taskId, startTime) => {
   const pollInterval = 2000; // 2秒轮询一次
 
   const poll = async () => {
+    if (!solving.value) return;
     try {
       const statusResponse = await getTaskStatus(taskId);
+      if (!solving.value) return;
 
       if (statusResponse.state === "completed") {
         // 任务完成
         const endTime = Date.now();
         const duration = ((endTime - startTime) / 1000).toFixed(2);
+        const runtime = statusResponse.results?.runtime;
+        const displaySolveTime =
+          typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : formatSolveTime(`${duration}s`);
 
         stateClass.value = "state-success";
         stateText.value = "求解成功";
-        solveTime.value = `${duration}s`;
+        solveTime.value = displaySolveTime;
         solving.value = false;
 
         // 更新结果
@@ -867,7 +872,7 @@ const pollTaskStatus = async (taskId, startTime) => {
         addLog(statusResponse.message || "任务失败");
       } else if (statusResponse.state === "processing") {
         // 任务处理中
-        stateText.value = "计算中...";
+        stateText.value = statusResponse.cancelRequested ? "取消中..." : "计算中...";
         addLog("任务正在计算中");
         setTimeout(poll, pollInterval);
       } else if (statusResponse.state === "queued") {
@@ -900,7 +905,10 @@ const cancelSolve = async () => {
     try {
       const res = await cancelTask(currentTaskId.value);
       if (res?.cancelled === false) {
-        ElMessage.info(res?.message || "任务已结束，无需取消");
+        if (res?.cancelRequested) {
+          stateText.value = "取消中...";
+        }
+        ElMessage.warning(res?.message || "任务已结束，无需取消");
         addLog(res?.message || "任务已结束，无需取消");
         return;
       }
