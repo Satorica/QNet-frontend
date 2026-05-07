@@ -1,68 +1,13 @@
+import { ElMessage, ElNotification } from 'element-plus'
 import { authApi } from '../api/auth.js'
 
-// 获取存储对象（根据是否记住登录状态）
-const getStorage = () => {
-    // 检查是否选择了"记住我"
-    const rememberMe = localStorage.getItem('rememberMe') === 'true'
-    return rememberMe ? localStorage : sessionStorage
-}
-
-// Token管理
+// Token 现在存储在 HttpOnly Cookie 中，由浏览器自动管理；
+// tokenManager 只保留用于 UI 状态同步的轻量接口。
 export const tokenManager = {
-    // 存储token
-    setToken: (accessToken, refreshToken, remember = false) => {
-        // 如果选择记住，使用localStorage，否则使用sessionStorage
-        const storage = remember ? localStorage : sessionStorage
-        storage.setItem('accessToken', accessToken)
-        if (refreshToken) {
-            storage.setItem('refreshToken', refreshToken)
-        }
-        // 记录是否选择了"记住我"
-        if (remember) {
-            localStorage.setItem('rememberMe', 'true')
-        } else {
-            localStorage.removeItem('rememberMe')
-        }
-    },
-
-    // 获取access token
-    getAccessToken: () => {
-        return sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken')
-    },
-
-    // 获取refresh token
-    getRefreshToken: () => {
-        return sessionStorage.getItem('refreshToken') || localStorage.getItem('refreshToken')
-    },
-
-    // 清除所有token
-    clearTokens: () => {
-        // 清除sessionStorage
-        sessionStorage.removeItem('accessToken')
-        sessionStorage.removeItem('refreshToken')
-        sessionStorage.removeItem('userInfo')
-        sessionStorage.removeItem('isLoggedIn')
-        
-        // 清除localStorage
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
-        localStorage.removeItem('userInfo')
-        localStorage.removeItem('isLoggedIn')
-        localStorage.removeItem('rememberMe')
-    },
-
-    // 检查token是否存在
-    hasToken: () => {
-        return !!(sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken'))
-    },
-
-    // 验证token有效性
+    // 验证 token 有效性（Cookie 由浏览器自动携带，无需手动传递）
     verifyToken: async () => {
-        const token = tokenManager.getAccessToken()
-        if (!token) return false
-
         try {
-            const response = await authApi.verifyToken(token)
+            const response = await authApi.verifyToken()
             if (response.success && response.data?.user) {
                 const remember = localStorage.getItem('rememberMe') === 'true'
                 userManager.setUserInfo(response.data.user, remember)
@@ -74,27 +19,18 @@ export const tokenManager = {
         }
     },
 
-    // 刷新token
-    refreshToken: async () => {
-        const refreshToken = tokenManager.getRefreshToken()
-        if (!refreshToken) return false
-
-        try {
-            const response = await authApi.refreshToken(refreshToken)
-            if (response.success) {
-                tokenManager.setToken(response.data.accessToken, response.data.refreshToken)
-                return true
-            }
-            return false
-        } catch (error) {
-            console.error('Token刷新失败:', error)
-            tokenManager.clearTokens()
-            return false
-        }
-    }
+    // 清理本地用户信息缓存（非敏感数据）
+    // 实际 Cookie 由后端通过 Set-Cookie: Max-Age=0 清除
+    clearTokens: () => {
+        sessionStorage.removeItem('userInfo')
+        sessionStorage.removeItem('isLoggedIn')
+        localStorage.removeItem('userInfo')
+        localStorage.removeItem('isLoggedIn')
+        localStorage.removeItem('rememberMe')
+    },
 }
 
-// 用户状态管理
+// 用户状态管理（仅缓存非敏感的用户展示信息）
 export const userManager = {
     // 设置用户信息
     setUserInfo: (userInfo, remember = false) => {
@@ -109,11 +45,12 @@ export const userManager = {
         return userInfo ? JSON.parse(userInfo) : null
     },
 
-    // 检查是否已登录
+    // 检查是否已登录（乐观判断：依据本地缓存标志，实际权鉴由 Cookie + 后端保证）
     isLoggedIn: () => {
-        const hasSession = sessionStorage.getItem('isLoggedIn') === 'true'
-        const hasLocal = localStorage.getItem('isLoggedIn') === 'true'
-        return (hasSession || hasLocal) && tokenManager.hasToken()
+        return (
+            sessionStorage.getItem('isLoggedIn') === 'true' ||
+            localStorage.getItem('isLoggedIn') === 'true'
+        )
     },
 
     // 清除用户信息
@@ -124,18 +61,14 @@ export const userManager = {
         localStorage.removeItem('isLoggedIn')
     },
 
-    // 登出
+    // 登出：通知后端清除 Cookie，再清本地缓存
     logout: async () => {
-        const token = tokenManager.getAccessToken()
-        if (token) {
-            try {
-                await authApi.logout(token)
-            } catch (error) {
-                console.error('登出请求失败:', error)
-            }
+        try {
+            await authApi.logout()
+        } catch (error) {
+            console.error('登出请求失败:', error)
         }
         tokenManager.clearTokens()
-        userManager.clearUserInfo()
     }
 }
 
@@ -147,37 +80,23 @@ export const notificationManager = {
             ? `邮箱验证码: ${code}`
             : `手机验证码: ${code}`
 
-        // 使用Element Plus的通知组件
-        if (window.ElNotification) {
-            window.ElNotification({
-                title: '验证码',
-                message: message,
-                type: 'info',
-                duration: 10000,
-                showClose: true,
-                position: 'top-right'
-            })
-        } else {
-            // 降级到alert
-            alert(message)
-        }
+        ElNotification({
+            title: '验证码',
+            message,
+            type: 'info',
+            duration: 10000,
+            showClose: true,
+            position: 'top-right'
+        })
     },
 
     // 显示成功通知
     showSuccessNotification: (message) => {
-        if (window.ElMessage) {
-            window.ElMessage.success(message)
-        } else {
-            alert(message)
-        }
+        ElMessage.success(message)
     },
 
     // 显示错误通知
     showErrorNotification: (message) => {
-        if (window.ElMessage) {
-            window.ElMessage.error(message)
-        } else {
-            alert(message)
-        }
+        ElMessage.error(message)
     }
 }

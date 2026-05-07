@@ -91,7 +91,7 @@
 
     <!-- 版权信息 -->
     <div class="footer-info">
-      <p>© 2025 量子Ising求解系统 | 现代化量子优化平台</p>
+      <p>© {{ new Date().getFullYear() }} 量子Ising求解系统 | 现代化量子优化平台</p>
     </div>
   </div>
 </template>
@@ -102,7 +102,7 @@ import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { User, Lock } from "@element-plus/icons-vue";
 import { authApi } from "../api/auth.js";
-import { tokenManager, userManager } from "../utils/auth.js";
+import { userManager } from "../utils/auth.js";
 
 const router = useRouter();
 const loginFormRef = ref(null);
@@ -143,27 +143,30 @@ const handleLogin = async () => {
       loading.value = true;
 
       try {
-        // 调用后端登录接口
+        // 调用后端登录接口（remember 传递给后端决定 Cookie 持久化策略）
         const response = await authApi.login(
           loginForm.account,
-          loginForm.password
+          loginForm.password,
+          loginForm.remember
         );
 
         if (response.success) {
-          // 保存token和用户信息（根据"记住我"选择存储方式）
+          // Token 已由后端通过 HttpOnly Cookie 写入，前端只缓存展示用的用户信息
           const remember = loginForm.remember;
-          tokenManager.setToken(
-            response.data.accessToken,
-            response.data.refreshToken,
-            remember
-          );
+          if (remember) localStorage.setItem("rememberMe", "true");
+          else localStorage.removeItem("rememberMe");
           userManager.setUserInfo(response.data.user, remember);
 
           ElMessage.success("登录成功！");
 
-          // 跳转到主页或重定向页面
+          // 跳转到主页或重定向页面（校验为站内相对路径，防止开放重定向）
+          const rawRedirect = router.currentRoute.value.query.redirect;
           const redirect =
-            router.currentRoute.value.query.redirect || "/maxcut";
+            typeof rawRedirect === "string" &&
+            rawRedirect.startsWith("/") &&
+            !rawRedirect.startsWith("//")
+              ? rawRedirect
+              : "/maxcut";
           router.push(redirect);
         } else {
           ElMessage.error(response.message || "登录失败");

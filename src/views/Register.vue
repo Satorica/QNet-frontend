@@ -202,7 +202,7 @@
 
     <!-- 版权信息 -->
     <div class="footer-info">
-      <p>© 2025 量子Ising求解系统 | 现代化量子优化平台</p>
+      <p>© {{ new Date().getFullYear() }} 量子Ising求解系统 | 现代化量子优化平台</p>
     </div>
   </div>
 </template>
@@ -300,11 +300,7 @@ const validateEmail = (rule, value, callback) => {
 // };
 
 const validateCode = (rule, value, callback) => {
-  const isEmail = registerType.value === "email";
-  if (
-    (isEmail && !registerForm.emailCode) ||
-    (!isEmail && !registerForm.phoneCode)
-  ) {
+  if (!registerForm.emailCode) {
     callback(new Error("请输入验证码"));
   } else {
     callback();

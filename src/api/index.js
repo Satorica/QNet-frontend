@@ -8,66 +8,25 @@ const prodApiBaseURL = (import.meta.env.VITE_API_BASE_URL || "").replace(
 const runtimeBaseURL = isDev ? "" : prodApiBaseURL;
 
 // 创建云服务器 axios 实例
+// withCredentials: true — 确保跨域请求时浏览器携带 HttpOnly Cookie
 const cloudApi = axios.create({
   baseURL: runtimeBaseURL,
   timeout: 30000,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-// 统一读取 token（支持 sessionStorage 与 localStorage）
-const getStoredToken = () => {
-  return (
-    sessionStorage.getItem("accessToken") || localStorage.getItem("accessToken")
-  );
-};
-
-// 请求拦截器
-cloudApi.interceptors.request.use(
-  (config) => {
-    const token = getStoredToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
-
-// 响应拦截器
-cloudApi.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    const message = error.response?.data?.message || error.message;
-
-    // 用后端返回的业务信息覆盖 axios 默认错误描述
-    error.message = message;
-
-    if (error.response?.status === 401) {
-      handleTokenExpired();
-    }
-
-    return Promise.reject(error);
-  },
-);
-
-// 401 时须同时清 session/localStorage（未勾选「记住我」时 token 在 sessionStorage）
+// 清理本地用户信息并跳转登录页
+// Token 存储在 HttpOnly Cookie 中，由后端通过 Set-Cookie 清除；
+// 前端只清理非敏感的用户信息缓存。
 const handleTokenExpired = () => {
-  sessionStorage.removeItem("accessToken");
-  sessionStorage.removeItem("refreshToken");
-  sessionStorage.removeItem("userInfo");
-  sessionStorage.removeItem("isLoggedIn");
-
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("userInfo");
-  localStorage.removeItem("isLoggedIn");
+  const keys = ["userInfo", "isLoggedIn"];
+  keys.forEach((key) => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  });
   localStorage.removeItem("rememberMe");
 
   if (
@@ -79,12 +38,103 @@ const handleTokenExpired = () => {
   }
 };
 
+// ---- Token 自动刷新队列机制 ----
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+const subscribeTokenRefresh = (resolve, reject) =>
+  refreshSubscribers.push({ resolve, reject });
+const onTokenRefreshed = () => {
+  refreshSubscribers.forEach(({ resolve }) => resolve());
+  refreshSubscribers = [];
+};
+const onRefreshFailed = (err) => {
+  refreshSubscribers.forEach(({ reject }) => reject(err));
+  refreshSubscribers = [];
+};
+
+// 请求拦截器：token 由 Cookie 自动携带，无需手动注入 Authorization header
+cloudApi.interceptors.request.use(
+  (config) => config,
+  (error) => Promise.reject(error),
+);
+
+// 响应拦截器
+cloudApi.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const message = error.response?.data?.message || error.message;
+    error.message = message;
+
+    if (error.response?.status !== 401) {
+      return Promise.reject(error);
+    }
+
+    const originalRequest = error.config;
+
+    // 认证类接口本身 401 不走刷新（避免死循环）
+    if (originalRequest.url?.startsWith("/auth/")) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+
+    // 已经重试过仍 401，刷新也无效
+    if (originalRequest._retry) {
+      handleTokenExpired();
+      return Promise.reject(error);
+    }
+
+    // 刷新进行中：将请求加入队列，等刷新完成后重试
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        subscribeTokenRefresh(
+          () => resolve(cloudApi(originalRequest)),
+          reject,
+        );
+      });
+    }
+
+    originalRequest._retry = true;
+    isRefreshing = true;
+
+    try {
+      // 直接使用原生 axios 发请求，绕过本实例拦截器；
+      // Cookie 由浏览器自动携带，无需在请求体中传递 token。
+      const refreshResponse = await axios.post(
+        `${runtimeBaseURL}/auth/refresh`,
+        {},
+        {
+          withCredentials: true,
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+
+      if (refreshResponse.data?.success) {
+        // 新 Cookie 已由后端通过 Set-Cookie 写入，前端无需操作
+        onTokenRefreshed();
+        isRefreshing = false;
+        return cloudApi(originalRequest);
+      } else {
+        isRefreshing = false;
+        onRefreshFailed(error);
+        handleTokenExpired();
+        return Promise.reject(error);
+      }
+    } catch (refreshError) {
+      isRefreshing = false;
+      onRefreshFailed(refreshError);
+      handleTokenExpired();
+      return Promise.reject(refreshError);
+    }
+  },
+);
+
 // 检查服务器状态，返回布尔值
 export const checkServerStatus = async () => {
   try {
     const response = await cloudApi.get("/api/server-status");
     return response.data.success === true;
-  } catch (error) {
+  } catch {
     return false;
   }
 };
