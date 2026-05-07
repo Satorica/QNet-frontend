@@ -776,8 +776,7 @@ const startSolve = async () => {
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
       addLog(`任务已提交，ID: ${submitResponse.taskId}`);
-
-      // 任务已提交到后端，会自动保存到数据库，不需要手动添加到历史
+      loadTaskHistory();
 
       // 开始轮询任务状态
       await pollTaskStatus(submitResponse.taskId, startTime);
@@ -860,6 +859,7 @@ const pollTaskStatus = async (taskId, startTime) => {
         }
 
         addLog("求解完成");
+        loadTaskHistory();
       } else if (
         statusResponse.state === "failed" ||
         statusResponse.state === "cancelled"
@@ -870,16 +870,16 @@ const pollTaskStatus = async (taskId, startTime) => {
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
         addLog(statusResponse.message || "任务失败");
+        loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         stateText.value = statusResponse.cancelRequested ? "取消中..." : "计算中...";
         addLog("任务正在计算中");
         setTimeout(poll, pollInterval);
       } else if (statusResponse.state === "queued") {
-        // 任务排队中
-        stateText.value = `排队中${
+        stateText.value = `计算中${
           statusResponse.queuePosition
-            ? `(第${statusResponse.queuePosition}位)`
+            ? `(队列第${statusResponse.queuePosition}位)`
             : ""
         }`;
         setTimeout(poll, pollInterval);
@@ -889,8 +889,6 @@ const pollTaskStatus = async (taskId, startTime) => {
       stateText.value = "连接失败";
       solving.value = false;
       addLog("无法获取任务状态: " + error.message);
-    } finally {
-      // 每次轮询结束（成功拿到状态或请求失败）刷新任务历史
       loadTaskHistory();
     }
   };
@@ -1028,10 +1026,10 @@ const getModelTypeText = (type) => {
 
 const getStatusText = (status) => {
   const statuses = {
-    queued: "排队中",
+    queued: "计算中",
     processing: "计算中",
     completed: "已完成",
-    failed: "失败",
+    failed: "已失败",
     cancelled: "已取消",
   };
   return statuses[status] || status;
@@ -1039,7 +1037,7 @@ const getStatusText = (status) => {
 
 const getStatusType = (status) => {
   const types = {
-    queued: "info",
+    queued: "warning",
     processing: "warning",
     completed: "success",
     failed: "danger",

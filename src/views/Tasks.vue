@@ -617,10 +617,10 @@ const modelTypeMap = {
 
 // 与 backend.models.task Task.task_status 枚举一致
 const statusTextMap = {
-  queued: "排队中",
-  processing: "运行中",
+  queued: "计算中",
+  processing: "计算中",
   completed: "已完成",
-  failed: "失败",
+  failed: "已失败",
   cancelled: "已取消",
 };
 
@@ -660,7 +660,7 @@ const getStatusText = (status) => {
 
 const getStatusType = (status) => {
   const types = {
-    queued: "info",
+    queued: "warning",
     processing: "warning",
     completed: "success",
     failed: "danger",
