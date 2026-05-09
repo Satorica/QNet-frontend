@@ -32,8 +32,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      // "hidden" 在构建产物中不嵌入 sourcemap 引用，但仍生成 .map 文件供内部调试
-      sourcemap: "hidden",
+      // Production builds must not publish source maps.
+      sourcemap: mode === "production" ? false : "hidden",
     },
     esbuild:
       mode === "production"
