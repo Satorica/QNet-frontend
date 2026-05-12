@@ -5,6 +5,7 @@
         <el-input
           v-model="taskName"
           placeholder="请输入任务名："
+          :maxlength="TASK_NAME_MAX_LENGTH"
           style="width: 300px"
         />
         <el-button type="primary" @click="handleOk">OK</el-button>
@@ -77,6 +78,7 @@ import { useCustomTaskName } from "../stores/customTaskName.js";
 
 const router = useRouter();
 const route = useRoute();
+const TASK_NAME_MAX_LENGTH = 64;
 const taskName = ref("");
 const currentTime = ref("");
 const currentWeekday = ref("");
