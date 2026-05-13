@@ -39,13 +39,13 @@
                   <strong>用户名:</strong>
                   {{ userInfo?.username }}
                 </div>
-                <div v-if="userInfo?.email">
+                <div v-if="userInfo?.maskedEmail">
                   <strong>邮箱:</strong>
-                  {{ userInfo?.email }}
+                  {{ userInfo?.maskedEmail }}
                 </div>
-                <div v-if="userInfo?.phone">
+                <div v-if="userInfo?.maskedPhone">
                   <strong>手机:</strong>
-                  {{ userInfo?.phone }}
+                  {{ userInfo?.maskedPhone }}
                 </div>
               </div>
             </el-dropdown-item>
