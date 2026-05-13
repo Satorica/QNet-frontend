@@ -754,6 +754,10 @@ const handleFileImport = (event) => {
 const startSolve = async () => {
   solving.value = true;
   stateClass.value = "state-running";
+  solveTime.value = "--";
+  candidates.value = [];
+  partition.value = {};
+  currentTaskId.value = null;
   stateText.value = "求解中";
 
   const startTime = Date.now();

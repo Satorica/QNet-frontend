@@ -590,6 +590,8 @@ const startSolve = async () => {
 
   solving.value = true;
   statusClass.value = "status-running";
+  solveTime.value = "--";
+  currentTaskId.value = null;
   statusText.value = "求解中";
   result.value = null;
   candidates.value = [];

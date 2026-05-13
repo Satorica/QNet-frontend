@@ -1163,6 +1163,11 @@ const submitSolve = async () => {
   try {
     solving.value = true;
     statusClass.value = "status-running";
+    solveTime.value = "--";
+    iterations.value = 0;
+    currentRoute.value = [];
+    bestRoute.value = [];
+    currentTaskId.value = null;
     statusText.value = "求解中";
     solveCandidates.value = [];
     const start = Date.now();

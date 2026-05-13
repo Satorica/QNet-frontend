@@ -1082,8 +1082,11 @@ const submitSolve = async () => {
   solving.value = true;
   statusClass.value = "status-idle";
   statusText.value = "求解中...";
+  solveTime.value = "--";
   conflicts.value = 0;
+  coloring.value = {};
   solveCandidates.value = [];
+  currentTaskId.value = null;
   logs.value = ["求解开始"];
 
   const startTime = Date.now();
