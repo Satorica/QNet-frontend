@@ -540,7 +540,7 @@ const parseNumbers = () => {
     result.value = null;
     addLog(`解析得到${numbers.value.length}个数字`);
     ElMessage.success(`成功解析${numbers.value.length}个数字`);
-  } catch (error) {
+  } catch {
     ElMessage.error("数字解析失败");
     addLog("数字解析失败");
   }

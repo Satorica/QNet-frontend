@@ -533,7 +533,6 @@ const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 const nodeCount = ref(8);
 const graphType = ref("random");
 const edgeDensity = ref(0.3);
-const selectedColor = ref(0);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const conflicts = ref(0);
@@ -746,11 +745,11 @@ const toggleEdge = (a, b) => {
   coloring.value = {};
 };
 
-const clearSelected = () => {
+const _clearSelected = () => {
   selectedNodes.value = [];
 };
 
-const clearEdges = () => {
+const _clearEdges = () => {
   edges.value = [];
   syncMatrixFromEdges();
   // validateColoring() // 移除前端冲突检测
@@ -833,7 +832,7 @@ const handleFileImport = (event) => {
 
       const newMatrix = lines.map((line) =>
         line
-          .split(/[\,\s]+/)
+          .split(/[,\s]+/)
           .filter((cell) => cell.trim())
           .map((cell) => {
             const val = cell.trim();
@@ -1309,7 +1308,7 @@ const cancelSolve = async () => {
 };
 
 // 经典算法求解 (示例)
-const solveClassic = async (graph) => {
+const _solveClassic = async (graph) => {
   const n = graph.nodes.length;
   const m = graph.edges.length;
   const d = Array(n).fill(0);
@@ -1327,12 +1326,7 @@ const solveClassic = async (graph) => {
     d[v]++;
   });
 
-  let usedColors = 0;
-  let conflicts = 0;
-  let solution = {};
-
   // 尝试所有可能的颜色组合
-  const maxColors = Math.max(...d) + 1; // 色数下界
   const totalCombinations = Math.pow(availableColors.length, n);
   let bestSolution = {};
   let bestConflicts = Infinity;
@@ -1340,13 +1334,10 @@ const solveClassic = async (graph) => {
   for (let i = 0; i < totalCombinations; i++) {
     const currentSolution = {};
     let currentConflicts = 0;
-    let currentUsedColors = 0;
-
     for (let j = 0; j < n; j++) {
       const colorIndex =
         (i / Math.pow(availableColors.length, j)) % availableColors.length;
       currentSolution[j] = colorIndex;
-      currentUsedColors++;
     }
 
     // 检查冲突
@@ -1365,10 +1356,6 @@ const solveClassic = async (graph) => {
   }
 
   // 使用最佳解决方案
-  solution = bestSolution;
-  conflicts = bestConflicts;
-  usedColors = new Set(Object.values(solution)).size;
-
   // 计算统计信息（不能直接赋值给computed属性）
   const computedChromaticLowerBound = Math.max(
     maxDegree.value + 1,
@@ -1378,9 +1365,9 @@ const solveClassic = async (graph) => {
   const computedGraphDensity = m / ((n * (n - 1)) / 2);
 
   return {
-    solution,
-    conflicts,
-    usedColors,
+    solution: bestSolution,
+    conflicts: bestConflicts,
+    usedColors: new Set(Object.values(bestSolution)).size,
     chromaticLowerBound: computedChromaticLowerBound,
     maxDegree: computedMaxDegree,
     graphDensity: computedGraphDensity,
@@ -1397,7 +1384,7 @@ const addLog = (message) => {
 };
 
 // 清空颜色与状态
-const clearColoring = () => {
+const _clearColoring = () => {
   coloring.value = {};
   conflicts.value = 0;
   selectedNodes.value = [];

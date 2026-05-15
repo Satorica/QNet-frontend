@@ -513,7 +513,6 @@ const cityCount = ref(8);
 const generationMode = ref("random");
 const algorithm = ref("nearest");
 const temperature = ref(500);
-const populationSize = ref(100);
 const solveType = ref("classic");
 const solving = ref(false);
 const statusClass = ref("status-idle");
@@ -560,7 +559,7 @@ const bestDistance = computed(() => {
   return calculateRouteDistance(bestRoute.value);
 });
 
-const optimizationRatio = computed(() => {
+const _optimizationRatio = computed(() => {
   if (currentDistance.value === 0 || bestDistance.value === 0) return 0;
   return (
     ((currentDistance.value - bestDistance.value) / currentDistance.value) *
@@ -688,13 +687,13 @@ const generateClusterCities = () => {
 
 // removed duplicate calculateRouteDistance (see distance-aware implementation below)
 
-const clearRoute = () => {
+const _clearRoute = () => {
   currentRoute.value = [];
   bestRoute.value = [];
   addLog("清除所有路径");
 };
 
-const startSolve = async () => {
+const _startSolve = async () => {
   solving.value = true;
   statusClass.value = "status-running";
   statusText.value = "求解中";
@@ -858,7 +857,7 @@ const simulatedAnnealingAlgorithm = () => {
 
 // removed duplicate getDistance (use distanceBetween)
 
-const stepSolve = () => {
+const _stepSolve = () => {
   if (currentRoute.value.length < 2) return;
 
   // 执行一次2-opt优化
@@ -889,7 +888,7 @@ const stepSolve = () => {
   }
 };
 
-const resetToWorst = () => {
+const _resetToWorst = () => {
   // 生成一个相对较差的路径（随机排列）
   const route = Array.from({ length: cityCount.value }, (_, i) => i);
   for (let i = route.length - 1; i > 0; i--) {
@@ -1014,7 +1013,7 @@ const handleFileImport = (event) => {
 
       const newMatrix = lines.map((line, lineIdx) =>
         line
-          .split(/[\,\s]+/)
+          .split(/[,\s]+/)
           .filter((cell) => cell.trim())
           .map((cell, colIdx) => {
             const val = cell.trim();
