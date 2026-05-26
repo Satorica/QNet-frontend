@@ -199,7 +199,7 @@
                     >候选解 {{ candidate.rank ?? index + 1 }}</span
                   >
                   <span class="candidate-value"
-                    >路径长度：{{ candidate.value }}</span
+                    >路径长度：{{ formatPathLength(candidate.value) }}</span
                   >
                 </div>
                 <div class="candidate-solution">
@@ -401,7 +401,7 @@
             <div class="detail-row">
               <span class="detail-label">最短路径长度：</span>
               <span class="detail-value highlight">{{
-                selectedTask.bestValue || "--"
+                formatPathLength(selectedTask.bestValue)
               }}</span>
             </div>
             <div class="detail-row">
@@ -433,7 +433,7 @@
                     >候选解 {{ candidate.rank || index + 1 }}</span
                   >
                   <span class="candidate-value"
-                    >路径长度：{{ candidate.value }}</span
+                    >路径长度：{{ formatPathLength(candidate.value) }}</span
                   >
                 </div>
                 <div class="candidate-solution">
@@ -577,6 +577,13 @@ const positiveEdgeCount = computed(() => {
   }
   return count;
 });
+
+const formatPathLength = (value) => {
+  if (value === null || value === undefined || value === "") return "--";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return value;
+  return num.toFixed(2);
+};
 
 // 方法
 const generateCitiesAndMatrix = () => {
@@ -1264,7 +1271,7 @@ const pollTaskStatus = async (taskId, startTime) => {
           bestRoute.value = route;
           currentRoute.value = route;
 
-          addLog(`求解完成，最短距离：${routeValue.toFixed(2)}`);
+          addLog(`求解完成，最短距离：${formatPathLength(routeValue)}`);
         }
         loadTaskHistory();
       } else if (
