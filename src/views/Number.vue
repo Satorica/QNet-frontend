@@ -97,7 +97,7 @@
               type="primary"
               size="large"
               :loading="solving"
-              :disabled="numbers.length === 0"
+              :disabled="!numberInput.trim()"
               @click="startSolve"
               class="solve-btn"
             >
@@ -521,28 +521,32 @@ const average = computed(() =>
 );
 
 // 方法
+const parseNumberInput = () => {
+  const tokens = numberInput.value
+    .split(/[,，\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s);
+
+  if (tokens.length === 0) {
+    throw new Error("请输入有效的正整数");
+  }
+  if (tokens.some((s) => !/^[1-9]\d*$/.test(s))) {
+    throw new Error("请输入有效的正整数，非法内容请先删除");
+  }
+  return tokens.map((s) => Number(s));
+};
+
 const parseNumbers = () => {
   try {
-    const parsed = numberInput.value
-      .split(/[,\s]+/)
-      .map((s) => s.trim())
-      .filter((s) => s)
-      .map((s) => parseInt(s))
-      .filter((n) => !isNaN(n) && n > 0);
-
-    if (parsed.length === 0) {
-      ElMessage.warning("请输入有效的正整数");
-      return;
-    }
-
-    numbers.value = [...new Set(parsed)]; // 去重
+    numbers.value = parseNumberInput();
     // 清除之前的结果
     result.value = null;
     addLog(`解析得到${numbers.value.length}个数字`);
     ElMessage.success(`成功解析${numbers.value.length}个数字`);
-  } catch {
-    ElMessage.error("数字解析失败");
-    addLog("数字解析失败");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "数字解析失败";
+    ElMessage.warning(message);
+    addLog(message);
   }
 };
 
@@ -570,9 +574,10 @@ const clearNumbers = () => {
 };
 
 const removeNumber = (index) => {
+  const removed = numbers.value[index];
   numbers.value.splice(index, 1);
   numberInput.value = numbers.value.join(", ");
-  addLog(`移除数字：${numbers.value[index]}`);
+  addLog(`移除数字：${removed}`);
 };
 
 const getNumberTagType = (num) => {
@@ -583,11 +588,16 @@ const getNumberTagType = (num) => {
 };
 
 const startSolve = async () => {
-  if (numbers.value.length === 0) {
-    ElMessage.warning("请先输入数字");
+  let parsedNumbers;
+  try {
+    parsedNumbers = parseNumberInput();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "请输入有效的正整数";
+    ElMessage.warning(message);
     return;
   }
 
+  numbers.value = parsedNumbers;
   solving.value = true;
   statusClass.value = "status-running";
   solveTime.value = "--";
@@ -605,8 +615,8 @@ const startSolve = async () => {
       taskName: customTaskName.value || `NumberPartition_${Date.now()}`,
       problemType: "number_partition",
       modelType: solveType.value, // classic | sim | cloud
-      matrixSize: numbers.value.length,
-      adjacencyMatrix: numbers.value,
+      matrixSize: parsedNumbers.length,
+      adjacencyMatrix: parsedNumbers,
     };
 
     // 提交任务到后端
