@@ -474,7 +474,7 @@ import {
   cancelTask,
   getTaskHistory,
   deleteTask,
-  deleteAllTasks,
+  deleteTasksByFilter,
 } from "../api/index.js";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName.js";
@@ -506,6 +506,7 @@ const historyTaskName = ref("");
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
 const historyTotal = ref(0);
+const appliedHistoryTaskName = ref("");
 
 // 任务详情对话框
 const detailDialogVisible = ref(false);
@@ -837,12 +838,20 @@ const exportResult = () => {
 };
 
 // 任务历史相关方法
+const getHistoryDeleteFilters = () => {
+  const taskName = appliedHistoryTaskName.value.trim();
+  return taskName
+    ? { problemType: "number_partition", taskName }
+    : { problemType: "number_partition" };
+};
+
 const loadTaskHistory = async (params = {}) => {
+  const requestTaskName = (params.taskName ?? appliedHistoryTaskName.value).trim();
   const requestParams = {
     problemType: "number_partition",
     page: params.page ?? historyCurrentPage.value,
     pageSize: params.pageSize ?? historyPageSize.value,
-    taskName: params.taskName ?? historyTaskName.value.trim(),
+    taskName: requestTaskName,
   };
 
   try {
@@ -851,6 +860,7 @@ const loadTaskHistory = async (params = {}) => {
     if (response.success && response.data) {
       taskHistory.value = response.data.tasks || [];
       historyTotal.value = response.data.total || 0;
+      appliedHistoryTaskName.value = requestTaskName;
     } else {
       taskHistory.value = [];
       historyTotal.value = 0;
@@ -989,7 +999,7 @@ const handleDeleteAllTasks = async () => {
         type: "warning",
       }
     );
-    const response = await deleteAllTasks("number_partition");
+    const response = await deleteTasksByFilter(getHistoryDeleteFilters());
     if (response.success) {
       ElMessage.success(
         getDeleteAllResultMessage(

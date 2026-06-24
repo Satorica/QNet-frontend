@@ -379,7 +379,7 @@ import {
   getTaskHistory,
   getTaskQuota,
   deleteTask as deleteTaskAPI,
-  deleteAllTasks as deleteAllTasksAPI,
+  deleteTasksByFilter as deleteTasksByFilterAPI,
   getTaskStatus,
 } from "../api/index.js";
 import {
@@ -399,6 +399,11 @@ const taskDetailVisible = ref(false);
 const selectedTask = ref(null);
 const taskDetailResults = ref(null);
 const historyLoading = ref(false);
+const appliedTaskFilters = ref({
+  taskName: "",
+  modelType: "",
+  problemType: "",
+});
 const modelTypeOptions = ["classic", "sim", "cloud"];
 const quotaSummary = ref(null);
 const problemTypeOptions = [
@@ -414,13 +419,29 @@ const quotaColorMap = {
 };
 
 // 方法
+const normalizeTaskFilters = (filters = {}) => ({
+  taskName: (filters.taskName ?? "").trim(),
+  modelType: (filters.modelType ?? "").trim(),
+  problemType: (filters.problemType ?? "").trim(),
+});
+
+const compactTaskFilters = (filters = {}) => {
+  const normalizedFilters = normalizeTaskFilters(filters);
+  return Object.fromEntries(
+    Object.entries(normalizedFilters).filter(([, value]) => value)
+  );
+};
+
 const loadTasks = async (params = {}) => {
+  const requestFilters = normalizeTaskFilters({
+    taskName: params.taskName ?? appliedTaskFilters.value.taskName,
+    modelType: params.modelType ?? appliedTaskFilters.value.modelType,
+    problemType: params.problemType ?? appliedTaskFilters.value.problemType,
+  });
   const requestParams = {
     page: params.page ?? currentPage.value,
     pageSize: params.pageSize ?? pageSize.value,
-    taskName: params.taskName ?? (taskName.value ?? "").trim(),
-    modelType: params.modelType ?? (modelType.value ?? "").trim(),
-    problemType: params.problemType ?? (problemType.value ?? "").trim(),
+    ...requestFilters,
   };
 
   try {
@@ -430,6 +451,7 @@ const loadTasks = async (params = {}) => {
     if (response.success && response.data) {
       tasks.value = response.data.tasks || [];
       total.value = response.data.total || 0;
+      appliedTaskFilters.value = requestFilters;
       return;
     }
 
@@ -581,7 +603,9 @@ const handleDeleteAllTasks = async () => {
       }
     );
 
-    const response = await deleteAllTasksAPI();
+    const response = await deleteTasksByFilterAPI(
+      compactTaskFilters(appliedTaskFilters.value)
+    );
     if (response.success) {
       ElMessage.success(
         getDeleteAllResultMessage(

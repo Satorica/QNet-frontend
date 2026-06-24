@@ -212,9 +212,8 @@ export const deleteTask = async (taskId) => {
   return response.data;
 };
 
-export const deleteAllTasks = async (problemType = null) => {
-  const payload = problemType ? { problemType } : {};
-  const response = await cloudApi.post("/api/tasks/delete-all", payload);
+export const deleteTasksByFilter = async (params = {}) => {
+  const response = await cloudApi.post("/api/tasks/delete-by-filter", params);
   return response.data;
 };
 
