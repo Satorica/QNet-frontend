@@ -13,6 +13,20 @@
             </el-radio-group>
           </div>
 
+          <!-- 规模控制 -->
+          <div class="controls-row">
+            <div class="control-item">
+              <span class="ctrl-label">数字规模：</span>
+              <el-input-number
+                v-model="numberSize"
+                :min="NUMBER_MIN_SIZE"
+                :max="NUMBER_MAX_SIZE"
+                style="width: 130px"
+                @change="handleNumberSizeChange"
+              />
+            </div>
+          </div>
+
           <!-- 数字输入区域 -->
           <el-card class="input-card">
             <template #header>
@@ -486,9 +500,14 @@ import {
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
+const NUMBER_MIN_SIZE = 1;
+const NUMBER_MAX_SIZE = 10;
+const NUMBER_DEFAULT_SIZE = 8;
+
 // 响应式数据
 const numberInput = ref("");
 const numbers = ref([]);
+const numberSize = ref(NUMBER_DEFAULT_SIZE);
 const solveType = ref("classic");
 const solving = ref(false);
 const statusClass = ref("status-idle");
@@ -537,9 +556,50 @@ const parseNumberInput = () => {
   return tokens.map((s) => Number(s));
 };
 
+const assertWithinNumberSize = (values) => {
+  if (values.length > numberSize.value) {
+    throw new Error(`数字数量不能超过当前规模 ${numberSize.value}`);
+  }
+};
+
+const assertMatchedNumberSize = (values) => {
+  if (values.length !== numberSize.value) {
+    throw new Error(
+      `数字数量需与当前规模一致：当前 ${values.length} 个，规模 ${numberSize.value}`
+    );
+  }
+};
+
+const handleNumberSizeChange = () => {
+  let nextNumbers;
+  let nextInput;
+
+  try {
+    const parsedNumbers = parseNumberInput();
+    nextNumbers = parsedNumbers.slice(0, numberSize.value);
+    nextInput =
+      parsedNumbers.length > numberSize.value
+        ? nextNumbers.join(", ")
+        : numberInput.value;
+  } catch {
+    nextNumbers = numbers.value.slice(0, numberSize.value);
+    nextInput =
+      numbers.value.length > numberSize.value
+        ? nextNumbers.join(", ")
+        : numberInput.value;
+  }
+
+  numbers.value = nextNumbers;
+  numberInput.value = nextInput;
+  result.value = null;
+  candidates.value = [];
+};
+
 const parseNumbers = () => {
   try {
-    numbers.value = parseNumberInput();
+    const parsedNumbers = parseNumberInput();
+    assertWithinNumberSize(parsedNumbers);
+    numbers.value = parsedNumbers;
     // 清除之前的结果
     result.value = null;
     addLog(`解析得到${numbers.value.length}个数字`);
@@ -552,7 +612,7 @@ const parseNumbers = () => {
 };
 
 const generateRandomNumbers = () => {
-  const count = Math.floor(Math.random() * 8) + 6; // 6-13个数字
+  const count = numberSize.value;
   const newNumbers = [];
 
   for (let i = 0; i < count; i++) {
@@ -582,7 +642,7 @@ const removeNumber = (index) => {
 };
 
 const getNumberTagType = (num) => {
-  if (num <= 10) return "";
+  if (num <= 10) return "primary";
   if (num <= 30) return "success";
   if (num <= 50) return "warning";
   return "danger";
@@ -592,6 +652,7 @@ const startSolve = async () => {
   let parsedNumbers;
   try {
     parsedNumbers = parseNumberInput();
+    assertMatchedNumberSize(parsedNumbers);
   } catch (error) {
     const message = error instanceof Error ? error.message : "请输入有效的正整数";
     ElMessage.warning(message);
@@ -1093,6 +1154,28 @@ loadTaskHistory();
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
+}
+
+.controls-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.control-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ctrl-label {
+  white-space: nowrap;
+  color: #8c8fa3;
+  font-size: 14px;
+  flex-shrink: 0;
 }
 
 .solve-type-group {
