@@ -854,7 +854,7 @@ const pollTaskStatus = async (taskId, startTime) => {
             partition.value = newPartition;
             console.log("分区结果:", newPartition);
             addLog(
-              `图着色完成：${
+              `图分割完成：${
                 Object.values(newPartition).filter((v) => v === 0).length
               } 个节点在分区A（红色），${
                 Object.values(newPartition).filter((v) => v === 1).length
