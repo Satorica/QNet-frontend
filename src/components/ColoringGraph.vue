@@ -86,7 +86,7 @@ const nodeRadius = 16
 
 const getNodeColor = (nodeId) => {
   const colorIndex = props.coloring[nodeId]
-  return colorIndex !== undefined ? props.colors[colorIndex] : '#E0E0E0'
+  return colorIndex !== undefined ? props.colors[colorIndex] || '#E0E0E0' : '#E0E0E0'
 }
 
 const isSelected = (nodeId) => {

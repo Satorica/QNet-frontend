@@ -170,16 +170,8 @@
                 <span class="value">{{ usedColors }}</span>
               </div>
               <div class="stat-item">
-                <span class="label">色数下界：</span>
-                <span class="value">{{ chromaticLowerBound }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="label">最大度数：</span>
-                <span class="value">{{ maxDegree }}</span>
-              </div>
-              <div class="stat-item">
-                <span class="label">图密度：</span>
-                <span class="value">{{ graphDensity.toFixed(3) }}</span>
+                <span class="label">冲突数：</span>
+                <span class="value">{{ conflicts }}</span>
               </div>
             </div>
           </el-card>
@@ -535,7 +527,7 @@ const graphType = ref("random");
 const edgeDensity = ref(0.3);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
-const conflicts = ref(0);
+const conflicts = ref("--");
 const logs = ref(["图着色系统已就绪"]);
 
 const nodes = ref([]);
@@ -549,22 +541,30 @@ const fileInput = ref(null);
 
 // 颜色定义
 const availableColors = [
-  "#FF6B6B",
-  "#4ECDC4",
-  "#45B7D1",
-  "#96CEB4",
-  "#FFEAA7",
-  "#DDA0DD",
-  "#98D8C8",
-  "#F7DC6F",
-  "#BB8FCE",
-  "#85C1E9",
-  "#F8C471",
-  "#82E0AA",
-  "#F1948A",
-  "#85CDFD",
-  "#F9E79F",
-  "#D7BDE2",
+  "#D7263D",
+  "#1B66D2",
+  "#2E9F45",
+  "#7E2F8E",
+  "#F28C28",
+  "#00A6A6",
+  "#6B4E16",
+  "#C2185B",
+  "#111827",
+  "#9E6A03",
+  "#005F73",
+  "#5B21B6",
+  "#B91C1C",
+  "#047857",
+  "#1D4ED8",
+  "#BE123C",
+  "#4D7C0F",
+  "#A16207",
+  "#0F766E",
+  "#6D28D9",
+  "#C2410C",
+  "#0369A1",
+  "#86198F",
+  "#374151",
 ];
 
 // 两点选中以建边/取消边
@@ -597,10 +597,6 @@ const usedColors = computed(() => {
   return colors.size;
 });
 
-const chromaticLowerBound = computed(() => {
-  return Math.max(maxDegree.value + 1, Math.ceil(Math.sqrt(nodeCount.value)));
-});
-
 const maxDegree = computed(() => {
   if (nodes.value.length === 0) return 0;
   const degrees = Array(nodeCount.value).fill(0);
@@ -611,10 +607,62 @@ const maxDegree = computed(() => {
   return Math.max(...degrees);
 });
 
-const graphDensity = computed(() => {
-  const maxEdges = (nodeCount.value * (nodeCount.value - 1)) / 2;
-  return edges.value.length / maxEdges;
-});
+const normalizeColoringSolution = (solution, size) => {
+  if (!Array.isArray(solution)) {
+    return { coloringMap: {}, usedColorsCount: 0 };
+  }
+
+  const vector = isColorVector(solution, size)
+    ? solution.map(Number)
+    : extractVectorFromOneHotSolution(solution, size);
+
+  const colorValues = vector.slice(0, size).map(Number);
+  const uniqueColors = Array.from(
+    new Set(colorValues.filter((value) => Number.isFinite(value)))
+  ).sort((a, b) => a - b);
+  const colorToPaletteIndex = new Map(
+    uniqueColors.map((colorValue, index) => [colorValue, index])
+  );
+  const coloringMap = {};
+
+  colorValues.forEach((colorValue, index) => {
+    if (Number.isFinite(colorValue)) {
+      coloringMap[index] = colorToPaletteIndex.get(colorValue);
+    }
+  });
+
+  return {
+    coloringMap,
+    usedColorsCount: uniqueColors.length,
+  };
+};
+
+const isColorVector = (solution, size) =>
+  solution.length === size &&
+  solution.every((value) => !Array.isArray(value) && Number.isFinite(Number(value)));
+
+const extractVectorFromOneHotSolution = (solution, size) => {
+  if (
+    solution.length === size &&
+    solution.every((row) => Array.isArray(row))
+  ) {
+    return solution.map((row) =>
+      row.findIndex((value) => Number(value) === 1)
+    );
+  }
+
+  if (solution.length === size * size) {
+    const vector = Array(size).fill(Number.NaN);
+    solution.forEach((value, index) => {
+      if (Number(value) === 1) {
+        vector[Math.floor(index / size)] = index % size;
+      }
+    });
+    return vector;
+  }
+
+  return solution.map(Number);
+};
 
 // 方法
 const generateGraph = () => {
@@ -1083,7 +1131,7 @@ const submitSolve = async () => {
   statusClass.value = "status-idle";
   statusText.value = "求解中...";
   solveTime.value = "--";
-  conflicts.value = 0;
+  conflicts.value = "--";
   coloring.value = {};
   solveCandidates.value = [];
   currentTaskId.value = null;
@@ -1158,84 +1206,28 @@ const pollTaskStatus = async (taskId, startTime) => {
           // 取第一个候选结果
           const bestResult = resultCandidates[0];
 
-          // 解析着色矩阵：solution是一个矩阵，第i行第j列为1表示节点i使用颜色j
-          const solutionMatrix = bestResult.solution;
-          const newColoring = {};
-          let conflictCount = 0;
-
-          // 第一步：找出所有被使用的列（颜色）
-          const usedColumnsSet = new Set();
-          console.log("-----solutionMatrix START------");
-          console.log(solutionMatrix);
-          console.log("-----solutionMatrix END------");
-
-          for (let i = 0; i < solutionMatrix.length; i++) {
-            if (solutionMatrix[i] === 1)
-              usedColumnsSet.add(i % Math.sqrt(solutionMatrix.length));
-          }
-          if (Array.isArray(solutionMatrix)) {
-            for (let i = 0; i < solutionMatrix.length; i++) {
-              if (Array.isArray(solutionMatrix[i])) {
-                for (let j = 0; j < solutionMatrix[i].length; j++) {
-                  if (solutionMatrix[i][j] === 1) {
-                    usedColumnsSet.add(j);
-                  }
-                }
-              }
-            }
-          }
-          console.log("-----usedColumnsSet START------");
-          console.log(usedColumnsSet);
-          console.log("-----usedColumnsSet END------");
-          // 第二步：将使用的列映射到连续的颜色索引
-          const usedColumns = Array.from(usedColumnsSet).sort((a, b) => a - b);
-          const columnToColorMap = {};
-          usedColumns.forEach((col, index) => {
-            columnToColorMap[col] = index;
-          });
-
-          console.log("使用的列:", usedColumns);
-          console.log("列到颜色的映射:", columnToColorMap);
-
-          // 第三步：将矩阵转换为着色映射 {nodeId: colorIndex}
-          if (Array.isArray(solutionMatrix)) {
-            for (let i = 0; i < solutionMatrix.length; i++) {
-              if (solutionMatrix[i] === 1) {
-                let color_num = i % Math.sqrt(solutionMatrix.length);
-                newColoring[Math.floor(i / Math.sqrt(solutionMatrix.length))] =
-                  columnToColorMap[color_num];
-              }
-            }
-          }
-
-          // 检查冲突
-          edges.value.forEach((edge) => {
-            if (newColoring[edge.source] === newColoring[edge.target]) {
-              conflictCount++;
-            }
-          });
+          const { coloringMap, usedColorsCount } = normalizeColoringSolution(
+            bestResult.solution,
+            nodeCount.value
+          );
+          const unsatisfiedCount = Number(bestResult.unsatisfied_count);
+          const conflictCount = Number.isFinite(unsatisfiedCount)
+            ? unsatisfiedCount
+            : "--";
 
           // 更新图着色
-          coloring.value = newColoring;
+          coloring.value = coloringMap;
           conflicts.value = conflictCount;
 
-          const usedColorsCount = usedColumns.length;
+          statusClass.value = "status-success";
+          statusText.value = "求解成功";
 
-          statusClass.value =
-            conflictCount > 0 ? "status-fail" : "status-success";
-          statusText.value =
-            conflictCount > 0 ? `冲突数: ${conflictCount}` : "求解成功";
-
-          console.log("最终着色结果:", newColoring);
+          console.log("最终着色结果:", coloringMap);
           console.log("使用颜色数:", usedColorsCount);
 
           addLog(
             `求解完成！使用${usedColorsCount}种颜色，目标值: ${bestResult.value}`
           );
-          addLog(`颜色分配: ${JSON.stringify(newColoring)}`);
-          if (conflictCount > 0) {
-            addLog(`警告：存在${conflictCount}个颜色冲突`);
-          }
         } else {
           statusClass.value = "status-warning";
           statusText.value = "无候选解";
@@ -1387,7 +1379,7 @@ const addLog = (message) => {
 // 清空颜色与状态
 const _clearColoring = () => {
   coloring.value = {};
-  conflicts.value = 0;
+  conflicts.value = "--";
   selectedNodes.value = [];
   addLog("清空结果/颜色");
 };
