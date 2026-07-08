@@ -25,19 +25,6 @@
                 @change="generateCitiesAndMatrix"
               />
             </div>
-            <div class="control-item">
-              <span class="ctrl-label">生成模式：</span>
-              <el-select
-                v-model="generationMode"
-                style="width: 120px"
-                @change="generateCitiesAndMatrix"
-              >
-                <el-option label="随机分布" value="random" />
-                <el-option label="网格分布" value="grid" />
-                <el-option label="环形分布" value="circle" />
-                <el-option label="聚类分布" value="cluster" />
-              </el-select>
-            </div>
           </div>
 
           <!-- 距离矩阵（可非负权重） -->
@@ -94,9 +81,7 @@
                 </div>
               </div>
             </div>
-            <div class="tip">
-              点击单元格编辑权重；输入0表示删除该边（对称）。
-            </div>
+            <div class="tip">点击单元格编辑距离，非对角线距离需 ≥ 0.1（对称）。</div>
           </el-card>
 
           <!-- TSP可视化 -->
@@ -510,7 +495,6 @@ const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
 // 响应式数据
 const cityCount = ref(8);
-const generationMode = ref("random");
 const algorithm = ref("nearest");
 const temperature = ref(500);
 const solveType = ref("classic");
@@ -541,7 +525,7 @@ const cities = ref([]);
 const currentRoute = ref([]);
 const bestRoute = ref([]);
 
-// 两点选择用于添加/删除边（并输入权重）
+// 两点选择用于编辑边权
 const selectedNodes = ref([]);
 
 // 距离矩阵（允许非负数）
@@ -637,71 +621,19 @@ const normalizeTspRouteFromSolution = (solution, n) => {
 
 // 方法
 const generateCitiesAndMatrix = () => {
-  generateCities();
-  // 初始化/重置距离矩阵
   const size = cityCount.value;
-  distanceMatrix.value = Array(size)
-    .fill()
-    .map(() => Array(size).fill(0));
-  // 清除路径结果
+  distanceMatrix.value = createRandomDistanceMatrix(size);
+  generateCities();
+  layoutCitiesByDistanceMatrix();
   currentRoute.value = [];
   bestRoute.value = [];
   solveCandidates.value = [];
   resetSolveStatus();
+  matrixMode.value = "random";
 };
 
 const generateCities = () => {
   cities.value = [];
-  switch (generationMode.value) {
-    case "random":
-      generateRandomCities();
-      break;
-    case "grid":
-      generateGridCities();
-      break;
-    case "circle":
-      generateCircleCities();
-      break;
-    case "cluster":
-      generateClusterCities();
-      break;
-  }
-  currentRoute.value = [];
-  bestRoute.value = [];
-  addLog(`生成${cityCount.value}个城市，${generationMode.value}分布`);
-};
-
-const generateRandomCities = () => {
-  for (let i = 0; i < cityCount.value; i++) {
-    cities.value.push({
-      id: i,
-      x: Math.random() * 320 + 40,
-      y: Math.random() * 280 + 40,
-      name: `城市${i}`,
-    });
-  }
-};
-
-const generateGridCities = () => {
-  const side = Math.ceil(Math.sqrt(cityCount.value));
-  const rows = Math.ceil(cityCount.value / side);
-  const spacing = Math.min(300 / side, 260 / rows);
-  const startX = (400 - (side - 1) * spacing) / 2;
-  const startY = (360 - (rows - 1) * spacing) / 2;
-
-  for (let i = 0; i < cityCount.value; i++) {
-    const row = Math.floor(i / side);
-    const col = i % side;
-    cities.value.push({
-      id: i,
-      x: startX + col * spacing,
-      y: startY + row * spacing,
-      name: `城市${i}`,
-    });
-  }
-};
-
-const generateCircleCities = () => {
   const centerX = 200;
   const centerY = 180;
   const radius = 120;
@@ -715,34 +647,10 @@ const generateCircleCities = () => {
       name: `城市${i}`,
     });
   }
-};
 
-const generateClusterCities = () => {
-  const clusterCount = Math.min(3, Math.ceil(cityCount.value / 3));
-  const clusterCenters = [];
-
-  // 生成聚类中心
-  for (let i = 0; i < clusterCount; i++) {
-    clusterCenters.push({
-      x: Math.random() * 300 + 50,
-      y: Math.random() * 240 + 50,
-    });
-  }
-
-  // 在聚类中心周围生成城市
-  for (let i = 0; i < cityCount.value; i++) {
-    const clusterIndex = i % clusterCount;
-    const center = clusterCenters[clusterIndex];
-    const angle = Math.random() * 2 * Math.PI;
-    const distance = Math.random() * 50 + 10;
-
-    cities.value.push({
-      id: i,
-      x: center.x + distance * Math.cos(angle),
-      y: center.y + distance * Math.sin(angle),
-      name: `城市${i}`,
-    });
-  }
+  currentRoute.value = [];
+  bestRoute.value = [];
+  addLog(`生成${cityCount.value}个城市，按距离矩阵布局`);
 };
 
 const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
@@ -755,7 +663,7 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const weight = Number(matrix[i]?.[j]);
-      if (Number.isFinite(weight) && weight > 0) {
+      if (Number.isFinite(weight) && weight >= MIN_DISTANCE_WEIGHT) {
         edges.push({ i, j, weight });
       }
     }
@@ -786,7 +694,7 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
     const d01 = Number(matrix[0]?.[1]);
     const d02 = Number(matrix[0]?.[2]);
     const d12 = Number(matrix[1]?.[2]);
-    if (d01 > 0 && d02 > 0 && d12 > 0) {
+    if (d01 >= MIN_DISTANCE_WEIGHT && d02 >= MIN_DISTANCE_WEIGHT && d12 >= MIN_DISTANCE_WEIGHT) {
       const visualScale = 270 / Math.max(d01, d02, d12);
       const sides = [d01 * visualScale, d02 * visualScale, d12 * visualScale];
       const maxSideIndex = sides.indexOf(Math.max(...sides));
@@ -795,29 +703,26 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
         sides[maxSideIndex] = otherSideSum * 0.9;
       }
 
-      const [a, b, c] = sides;
-      const x2 = (b * b + a * a - c * c) / (2 * a);
-      const y2 = Math.sqrt(Math.max(0, b * b - x2 * x2));
+      const [side01, side02, side12] = sides;
+      const x2 = (side02 * side02 + side01 * side01 - side12 * side12) / (2 * side01);
+      const y2 = Math.sqrt(Math.max(0, side02 * side02 - x2 * x2));
 
       fitAndApplyCityPoints([
         { x: 0, y: 0 },
-        { x: a, y: 0 },
+        { x: side01, y: 0 },
         { x: x2, y: y2 },
       ]);
       return;
     }
   }
 
-  const sortedWeights = edges
-    .map((edge) => edge.weight)
-    .sort((a, b) => a - b);
+  const sortedWeights = edges.map((edge) => edge.weight).sort((a, b) => a - b);
   const minWeight = sortedWeights[0];
   const p95Index =
     sortedWeights.length < 20
       ? sortedWeights.length - 1
       : Math.ceil((sortedWeights.length - 1) * 0.95);
-  const p95Weight = sortedWeights[p95Index];
-  const visualMaxWeight = Math.max(minWeight, p95Weight);
+  const visualMaxWeight = Math.max(minWeight, sortedWeights[p95Index]);
   const minTargetDistance = 34;
   const maxTargetDistance = 270;
   const weightSpan = visualMaxWeight - minWeight;
@@ -827,23 +732,22 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
     return Math.log1p(clampedWeight - minWeight) / Math.log1p(weightSpan);
   };
   const targetDistance = (weight) =>
-    minTargetDistance +
-    normalizeWeight(weight) * (maxTargetDistance - minTargetDistance);
+    minTargetDistance + normalizeWeight(weight) * (maxTargetDistance - minTargetDistance);
   const constraintStrength = (weight) => {
     const normalized = normalizeWeight(weight);
-    return 0.035 + Math.pow(1 - normalized, 1.8) * 0.07;
+    return 0.025 + Math.pow(1 - normalized, 1.8) * 0.06;
   };
 
   const radius = 120;
   const points = Array.from({ length: n }, (_, index) => {
-    const angle = (2 * Math.PI * index) / n;
+    const angle = (2 * Math.PI * index) / n - Math.PI / 2;
     return {
       x: centerX + radius * Math.cos(angle),
       y: centerY + radius * Math.sin(angle),
     };
   });
 
-  for (let iteration = 0; iteration < 520; iteration++) {
+  for (let iteration = 0; iteration < 620; iteration++) {
     for (const edge of edges) {
       const from = points[edge.i];
       const to = points[edge.j];
@@ -851,16 +755,14 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
       let dy = to.y - from.y;
       let distance = Math.sqrt(dx * dx + dy * dy);
       if (distance < 0.1) {
-        dx = Math.random() - 0.5;
-        dy = Math.random() - 0.5;
-        distance = Math.sqrt(dx * dx + dy * dy);
+        const angle = (((edge.i + 1) * 17 + (edge.j + 1) * 31) % 360) * Math.PI / 180;
+        dx = Math.cos(angle);
+        dy = Math.sin(angle);
+        distance = 1;
       }
 
       const diff = distance - targetDistance(edge.weight);
-      const force = Math.max(
-        -10,
-        Math.min(10, diff * constraintStrength(edge.weight))
-      );
+      const force = Math.max(-9, Math.min(9, diff * constraintStrength(edge.weight)));
       const moveX = (dx / distance) * force * 0.5;
       const moveY = (dy / distance) * force * 0.5;
       from.x += moveX;
@@ -1129,14 +1031,13 @@ const onCityClick = async (cityId) => {
 
   if (selectedNodes.value.length === 2) {
     const [a, b] = selectedNodes.value;
-    // 询问边权：0 表示删除
     const { value } = await ElMessageBox.prompt(
-      "请输入边长度（非负数，0 表示删除边）",
+      "请输入边长度（最小 0.1）",
       "设置边权",
       {
-        inputValue: String(distanceMatrix.value[a][b] || 0),
-        inputPattern: /^\d+(?:\.\d+)?$/,
-        inputErrorMessage: "请输入非负数",
+        inputValue: String(distanceMatrix.value[a][b] || MIN_DISTANCE_WEIGHT),
+        inputPattern: /^(?:0\.[1-9]\d*|[1-9]\d*(?:\.\d+)?)$/,
+        inputErrorMessage: "请输入不小于 0.1 的数字",
         confirmButtonText: "确定",
         cancelButtonText: "取消",
       }
@@ -1153,15 +1054,11 @@ const setEdgeWeight = (i, j, w) => {
   if (i === j) return;
   const a = Math.min(i, j);
   const b = Math.max(i, j);
-  if (w <= 0 || isNaN(w)) {
-    distanceMatrix.value[a][b] = 0;
-    distanceMatrix.value[b][a] = 0;
-    addLog(`删除边 (${a}, ${b})`);
-  } else {
-    distanceMatrix.value[a][b] = w;
-    distanceMatrix.value[b][a] = w;
-    addLog(`设置边 (${a}, ${b}) = ${w}`);
-  }
+  const nextWeight = normalizeDistanceWeight(w);
+  distanceMatrix.value[a][b] = nextWeight;
+  distanceMatrix.value[b][a] = nextWeight;
+  layoutCitiesByDistanceMatrix();
+  addLog(`设置边 (${a}, ${b}) = ${nextWeight}`);
   // 修改边权时清除路径结果
   currentRoute.value = [];
   bestRoute.value = [];
@@ -1180,21 +1077,32 @@ const setMatrixMode = (mode) => {
   addLog("切换矩阵模式，清除路径结果");
 };
 
-const createRandomEdgeWeight = () => Number((Math.random() * 9 + 1).toFixed(1));
+const MIN_DISTANCE_WEIGHT = 0.1;
+const normalizeDistanceWeight = (value) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return MIN_DISTANCE_WEIGHT;
+  return Number(Math.max(MIN_DISTANCE_WEIGHT, numericValue).toFixed(2));
+};
+const createRandomEdgeWeight = () =>
+  Number((Math.random() * (10 - MIN_DISTANCE_WEIGHT) + MIN_DISTANCE_WEIGHT).toFixed(1));
 
-const generateRandomMatrix = () => {
-  const size = cityCount.value;
-  const m = Array(size)
+const createRandomDistanceMatrix = (size) => {
+  const matrix = Array(size)
     .fill()
     .map(() => Array(size).fill(0));
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
       const w = createRandomEdgeWeight();
-      m[i][j] = w;
-      m[j][i] = m[i][j];
+      matrix[i][j] = w;
+      matrix[j][i] = w;
     }
   }
+  return matrix;
+};
 
+const generateRandomMatrix = () => {
+  const size = cityCount.value;
+  const m = createRandomDistanceMatrix(size);
   distanceMatrix.value = m;
   layoutCitiesByDistanceMatrix(m);
   // 清除路径结果
@@ -1202,7 +1110,7 @@ const generateRandomMatrix = () => {
   bestRoute.value = [];
   solveCandidates.value = [];
   resetSolveStatus();
-  addLog("随机生成距离矩阵（对角线为0，其余为正权重）");
+  addLog("随机生成距离矩阵（对角线为0，其余单元格均为非零距离）");
 };
 
 const triggerFileInput = () => {
@@ -1292,6 +1200,10 @@ const handleFileImport = (event) => {
       // 验证3：检查是否对称
       for (let i = 0; i < size; i++) {
         for (let j = i + 1; j < size; j++) {
+          if (newMatrix[i][j] < MIN_DISTANCE_WEIGHT || newMatrix[j][i] < MIN_DISTANCE_WEIGHT) {
+            addLog(`导入失败：非对角线距离必须 ≥ 0.1（[${i}][${j}] 或 [${j}][${i}] 不符合）`);
+            return;
+          }
           const diff = Math.abs(newMatrix[i][j] - newMatrix[j][i]);
           // 使用小的容差来处理浮点数精度问题
           if (diff > 0.0001) {
@@ -1330,7 +1242,7 @@ const handleFileImport = (event) => {
       // 所有验证通过，导入数据
       cityCount.value = size;
       distanceMatrix.value = newMatrix;
-      generateCities(); // 重建城市布局与默认路径
+      generateCities();
       layoutCitiesByDistanceMatrix(newMatrix);
       currentRoute.value = [];
       bestRoute.value = [];
@@ -1361,12 +1273,12 @@ const toggleMatrixCell = async (i, j) => {
   )
     return;
   const { value } = await ElMessageBox.prompt(
-    "请输入边长度（非负数，0 表示删除边）",
+    "请输入边长度（最小 0.1）",
     "编辑矩阵单元",
     {
-      inputValue: String(distanceMatrix.value[i][j] || 0),
-      inputPattern: /^\d+(?:\.\d+)?$/,
-      inputErrorMessage: "请输入非负数",
+      inputValue: String(distanceMatrix.value[i][j] || MIN_DISTANCE_WEIGHT),
+      inputPattern: /^(?:0\.[1-9]\d*|[1-9]\d*(?:\.\d+)?)$/,
+      inputErrorMessage: "请输入不小于 0.1 的数字",
       confirmButtonText: "确定",
       cancelButtonText: "取消",
     }

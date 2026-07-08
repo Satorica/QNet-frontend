@@ -212,8 +212,21 @@ export const deleteTask = async (taskId) => {
   return response.data;
 };
 
+const compactTaskFilterPayload = (params = {}) =>
+  Object.fromEntries(
+    Object.entries(params)
+      .map(([key, value]) => [
+        key,
+        typeof value === "string" ? value.trim() : value,
+      ])
+      .filter(([, value]) => value !== "" && value !== null && value !== undefined)
+  );
+
 export const deleteTasksByFilter = async (params = {}) => {
-  const response = await cloudApi.post("/api/tasks/delete-by-filter", params);
+  const response = await cloudApi.post(
+    "/api/tasks/delete-by-filter",
+    compactTaskFilterPayload(params)
+  );
   return response.data;
 };
 

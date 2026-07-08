@@ -16,16 +16,21 @@
         </g>
       </g>
 
-      <!-- 最佳路径线（标粗） -->
-      <g v-if="bestRoute.length > 1">
-        <path
-          :d="getRoutePath(bestRoute, false)"
+      <!-- 最佳路径线：按解向量方向逐段绘制，并在每段终点显示箭头 -->
+      <g v-if="routeSegments.length > 0">
+        <line
+          v-for="segment in routeSegments"
+          :key="`route-${segment.from}-${segment.to}-${segment.index}`"
+          :x1="segment.x1"
+          :y1="segment.y1"
+          :x2="segment.x2"
+          :y2="segment.y2"
           fill="none"
           stroke="#40C878"
           stroke-width="4"
           opacity="0.8"
           stroke-linecap="round"
-          stroke-linejoin="round"
+          marker-end="url(#tspRouteArrow)"
         />
       </g>
 
@@ -66,6 +71,17 @@
           <stop offset="0%" stop-color="#4050F8" />
           <stop offset="100%" stop-color="#7848E8" />
         </linearGradient>
+        <marker
+          id="tspRouteArrow"
+          markerWidth="12"
+          markerHeight="12"
+          refX="10"
+          refY="6"
+          orient="auto"
+          markerUnits="userSpaceOnUse"
+        >
+          <path d="M 0 0 L 12 6 L 0 12 z" fill="#40C878" opacity="0.9" />
+        </marker>
       </defs>
     </svg>
   </div>
@@ -106,32 +122,10 @@ const emit = defineEmits(["city-move", "route-change", "city-click"]);
 const width = 400;
 const height = 360;
 const cityRadius = 12;
+const routeEndpointGap = cityRadius + 5;
 
-const getRoutePath = (route, closeRoute = true) => {
-  if (route.length < 2) return "";
-
-  let path = "";
-  for (let i = 0; i < route.length; i++) {
-    const cityId = route[i];
-    const city = props.cities[cityId];
-    if (city) {
-      if (i === 0) {
-        path += `M ${city.x} ${city.y}`;
-      } else {
-        path += ` L ${city.x} ${city.y}`;
-      }
-    }
-  }
-
-  // 回到起点
-  if (closeRoute && route.length > 2) {
-    const firstCity = props.cities[route[0]];
-    if (firstCity) {
-      path += ` L ${firstCity.x} ${firstCity.y}`;
-    }
-  }
-
-  return path;
+const getCityById = (cityId) => {
+  return props.cities.find((city) => city?.id === cityId) || props.cities[cityId];
 };
 
 const renderedEdges = computed(() => {
@@ -146,6 +140,40 @@ const renderedEdges = computed(() => {
       }
     }
   }
+  return result;
+});
+
+const routeSegments = computed(() => {
+  const route = Array.isArray(props.bestRoute) ? props.bestRoute : [];
+  const result = [];
+
+  for (let index = 0; index < route.length - 1; index++) {
+    const from = route[index];
+    const to = route[index + 1];
+    const fromCity = getCityById(from);
+    const toCity = getCityById(to);
+    if (!fromCity || !toCity) continue;
+
+    const dx = toCity.x - fromCity.x;
+    const dy = toCity.y - fromCity.y;
+    const length = Math.hypot(dx, dy);
+    if (!length) continue;
+
+    const ux = dx / length;
+    const uy = dy / length;
+    const gap = Math.min(routeEndpointGap, length / 3);
+
+    result.push({
+      from,
+      to,
+      index,
+      x1: fromCity.x + ux * gap,
+      y1: fromCity.y + uy * gap,
+      x2: toCity.x - ux * gap,
+      y2: toCity.y - uy * gap,
+    });
+  }
+
   return result;
 });
 
