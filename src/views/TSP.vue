@@ -155,12 +155,12 @@
                 <span class="value">{{ positiveEdgeCount }}</span>
               </div>
               <div class="stat-item">
-                <span class="label">当前路径长度：</span>
-                <span class="value">{{ currentDistance.toFixed(2) }}</span>
+                <span class="label">最短路径长度：</span>
+                <span class="value">{{ firstCandidatePathLength }}</span>
               </div>
               <div class="stat-item">
-                <span class="label">最短路径长度：</span>
-                <span class="value">{{ bestDistance.toFixed(2) }}</span>
+                <span class="label">冲突数：</span>
+                <span class="value">{{ firstCandidateConflictCount }}</span>
               </div>
             </div>
           </el-card>
@@ -579,11 +579,60 @@ const positiveEdgeCount = computed(() => {
   return count;
 });
 
+const firstCandidate = computed(() => solveCandidates.value[0] || null);
+
 const formatPathLength = (value) => {
   if (value === null || value === undefined || value === "") return "--";
   const num = Number(value);
   if (!Number.isFinite(num)) return value;
   return num.toFixed(2);
+};
+
+const firstCandidatePathLength = computed(() =>
+  formatPathLength(firstCandidate.value?.value)
+);
+
+const firstCandidateConflictCount = computed(() => {
+  const count = firstCandidate.value?.unsatisfied_count;
+  if (count === null || count === undefined || count === "") return "--";
+  return count;
+});
+
+const isValidTspRoute = (route, n) => {
+  if (!Array.isArray(route) || route.length !== n) return false;
+  const seen = new Set();
+  for (const node of route) {
+    if (!Number.isInteger(node) || node < 0 || node >= n || seen.has(node)) {
+      return false;
+    }
+    seen.add(node);
+  }
+  return true;
+};
+
+const normalizeTspRouteFromSolution = (solution, n) => {
+  if (!Array.isArray(solution)) return [];
+
+  const flatSolution = solution.flat ? solution.flat() : solution;
+  const routeVector = flatSolution.map((node) => Number(node));
+  if (isValidTspRoute(routeVector, n)) {
+    return routeVector;
+  }
+
+  if (flatSolution.length !== n * n) return [];
+
+  const route = [];
+  for (let step = 0; step < n; step++) {
+    for (let node = 0; node < n; node++) {
+      const index = step * n + node;
+      if (Number(flatSolution[index]) === 1) {
+        route.push(node);
+        break;
+      }
+    }
+  }
+
+  return isValidTspRoute(route, n) ? route : [];
 };
 
 // 方法
@@ -595,7 +644,10 @@ const generateCitiesAndMatrix = () => {
     .fill()
     .map(() => Array(size).fill(0));
   // 清除路径结果
+  currentRoute.value = [];
   bestRoute.value = [];
+  solveCandidates.value = [];
+  resetSolveStatus();
 };
 
 const generateCities = () => {
@@ -614,7 +666,7 @@ const generateCities = () => {
       generateClusterCities();
       break;
   }
-  currentRoute.value = Array.from({ length: cityCount.value }, (_, i) => i);
+  currentRoute.value = [];
   bestRoute.value = [];
   addLog(`生成${cityCount.value}个城市，${generationMode.value}分布`);
 };
@@ -693,12 +745,154 @@ const generateClusterCities = () => {
   }
 };
 
+const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
+  const n = cityCount.value;
+  if (!Array.isArray(matrix) || matrix.length !== n || cities.value.length !== n) {
+    return;
+  }
+
+  const edges = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const weight = Number(matrix[i]?.[j]);
+      if (Number.isFinite(weight) && weight > 0) {
+        edges.push({ i, j, weight });
+      }
+    }
+  }
+  if (edges.length === 0) return;
+
+  const centerX = 200;
+  const centerY = 180;
+  const fitAndApplyCityPoints = (points) => {
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const spanX = Math.max(1, maxX - minX);
+    const spanY = Math.max(1, maxY - minY);
+    const fitScale = Math.min(1, 320 / spanX, 280 / spanY);
+    const layoutCenterX = (minX + maxX) / 2;
+    const layoutCenterY = (minY + maxY) / 2;
+
+    cities.value = cities.value.map((city, index) => ({
+      ...city,
+      x: Number((centerX + (points[index].x - layoutCenterX) * fitScale).toFixed(1)),
+      y: Number((centerY + (points[index].y - layoutCenterY) * fitScale).toFixed(1)),
+    }));
+  };
+
+  if (n === 3) {
+    const d01 = Number(matrix[0]?.[1]);
+    const d02 = Number(matrix[0]?.[2]);
+    const d12 = Number(matrix[1]?.[2]);
+    if (d01 > 0 && d02 > 0 && d12 > 0) {
+      const visualScale = 270 / Math.max(d01, d02, d12);
+      const sides = [d01 * visualScale, d02 * visualScale, d12 * visualScale];
+      const maxSideIndex = sides.indexOf(Math.max(...sides));
+      const otherSideSum = sides.reduce((sum, side) => sum + side, 0) - sides[maxSideIndex];
+      if (sides[maxSideIndex] >= otherSideSum) {
+        sides[maxSideIndex] = otherSideSum * 0.9;
+      }
+
+      const [a, b, c] = sides;
+      const x2 = (b * b + a * a - c * c) / (2 * a);
+      const y2 = Math.sqrt(Math.max(0, b * b - x2 * x2));
+
+      fitAndApplyCityPoints([
+        { x: 0, y: 0 },
+        { x: a, y: 0 },
+        { x: x2, y: y2 },
+      ]);
+      return;
+    }
+  }
+
+  const sortedWeights = edges
+    .map((edge) => edge.weight)
+    .sort((a, b) => a - b);
+  const minWeight = sortedWeights[0];
+  const p95Index =
+    sortedWeights.length < 20
+      ? sortedWeights.length - 1
+      : Math.ceil((sortedWeights.length - 1) * 0.95);
+  const p95Weight = sortedWeights[p95Index];
+  const visualMaxWeight = Math.max(minWeight, p95Weight);
+  const minTargetDistance = 34;
+  const maxTargetDistance = 270;
+  const weightSpan = visualMaxWeight - minWeight;
+  const normalizeWeight = (weight) => {
+    if (weightSpan <= 0) return 0.5;
+    const clampedWeight = Math.min(Math.max(weight, minWeight), visualMaxWeight);
+    return Math.log1p(clampedWeight - minWeight) / Math.log1p(weightSpan);
+  };
+  const targetDistance = (weight) =>
+    minTargetDistance +
+    normalizeWeight(weight) * (maxTargetDistance - minTargetDistance);
+  const constraintStrength = (weight) => {
+    const normalized = normalizeWeight(weight);
+    return 0.035 + Math.pow(1 - normalized, 1.8) * 0.07;
+  };
+
+  const radius = 120;
+  const points = Array.from({ length: n }, (_, index) => {
+    const angle = (2 * Math.PI * index) / n;
+    return {
+      x: centerX + radius * Math.cos(angle),
+      y: centerY + radius * Math.sin(angle),
+    };
+  });
+
+  for (let iteration = 0; iteration < 520; iteration++) {
+    for (const edge of edges) {
+      const from = points[edge.i];
+      const to = points[edge.j];
+      let dx = to.x - from.x;
+      let dy = to.y - from.y;
+      let distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance < 0.1) {
+        dx = Math.random() - 0.5;
+        dy = Math.random() - 0.5;
+        distance = Math.sqrt(dx * dx + dy * dy);
+      }
+
+      const diff = distance - targetDistance(edge.weight);
+      const force = Math.max(
+        -10,
+        Math.min(10, diff * constraintStrength(edge.weight))
+      );
+      const moveX = (dx / distance) * force * 0.5;
+      const moveY = (dy / distance) * force * 0.5;
+      from.x += moveX;
+      from.y += moveY;
+      to.x -= moveX;
+      to.y -= moveY;
+    }
+
+    const avgX = points.reduce((sum, point) => sum + point.x, 0) / n;
+    const avgY = points.reduce((sum, point) => sum + point.y, 0) / n;
+    for (const point of points) {
+      point.x += centerX - avgX;
+      point.y += centerY - avgY;
+    }
+  }
+
+  fitAndApplyCityPoints(points);
+};
+
 // removed duplicate calculateRouteDistance (see distance-aware implementation below)
 
 const _clearRoute = () => {
   currentRoute.value = [];
   bestRoute.value = [];
   addLog("清除所有路径");
+};
+
+const resetSolveStatus = () => {
+  solveTime.value = "--";
+  statusClass.value = "status-idle";
+  statusText.value = "等待求解";
+  currentTaskId.value = null;
 };
 
 const _startSolve = async () => {
@@ -969,16 +1163,24 @@ const setEdgeWeight = (i, j, w) => {
     addLog(`设置边 (${a}, ${b}) = ${w}`);
   }
   // 修改边权时清除路径结果
+  currentRoute.value = [];
   bestRoute.value = [];
+  solveCandidates.value = [];
+  resetSolveStatus();
 };
 
 // 距离矩阵交互：自定义/随机/导入
 const setMatrixMode = (mode) => {
   matrixMode.value = mode;
   // 切换模式时清除路径结果
+  currentRoute.value = [];
   bestRoute.value = [];
+  solveCandidates.value = [];
+  resetSolveStatus();
   addLog("切换矩阵模式，清除路径结果");
 };
+
+const createRandomEdgeWeight = () => Number((Math.random() * 9 + 1).toFixed(1));
 
 const generateRandomMatrix = () => {
   const size = cityCount.value;
@@ -987,15 +1189,20 @@ const generateRandomMatrix = () => {
     .map(() => Array(size).fill(0));
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
-      const w = Math.random() < 0.6 ? Math.random() * 9 + 1 : 0; // 60% 概率有边
-      m[i][j] = Number(w.toFixed(1));
+      const w = createRandomEdgeWeight();
+      m[i][j] = w;
       m[j][i] = m[i][j];
     }
   }
+
   distanceMatrix.value = m;
+  layoutCitiesByDistanceMatrix(m);
   // 清除路径结果
+  currentRoute.value = [];
   bestRoute.value = [];
-  addLog("随机生成距离矩阵（非负权），覆盖当前图结构");
+  solveCandidates.value = [];
+  resetSolveStatus();
+  addLog("随机生成距离矩阵（对角线为0，其余为正权重）");
 };
 
 const triggerFileInput = () => {
@@ -1124,6 +1331,11 @@ const handleFileImport = (event) => {
       cityCount.value = size;
       distanceMatrix.value = newMatrix;
       generateCities(); // 重建城市布局与默认路径
+      layoutCitiesByDistanceMatrix(newMatrix);
+      currentRoute.value = [];
+      bestRoute.value = [];
+      solveCandidates.value = [];
+      resetSolveStatus();
 
       // 计算边数（非零边）
       let edgeCount = 0;
@@ -1245,26 +1457,12 @@ const pollTaskStatus = async (taskId, startTime) => {
         if (resultCandidates.length > 0) {
           // 取第一个候选结果
           const bestResult = resultCandidates[0];
-          const solutionMatrix = bestResult.solution; // 一维数组
           const routeValue = bestResult.value; // 路径长度
 
-          // 将解矩阵转换为路径
-          // solutionMatrix是N×N矩阵的一维表示
-          // 第i行第j列为1表示第i步经过第j个节点
-          const n = cityCount.value;
-          const route = [];
-
-          if (Array.isArray(solutionMatrix)) {
-            for (let step = 0; step < n; step++) {
-              for (let node = 0; node < n; node++) {
-                const index = step * n + node; // 一维数组索引
-                if (solutionMatrix[index] === 1) {
-                  route.push(node);
-                  break;
-                }
-              }
-            }
-          }
+          const route = normalizeTspRouteFromSolution(
+            bestResult.solution,
+            cityCount.value
+          );
 
           console.log("解析的路径:", route);
           console.log("路径长度:", routeValue);

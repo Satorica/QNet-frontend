@@ -16,47 +16,17 @@
         </g>
       </g>
 
-      <!-- 当前路径线 -->
-      <g v-if="route.length > 1">
-        <path
-          :d="getRoutePath(route)"
-          fill="none"
-          stroke="#8C8FA3"
-          stroke-width="2"
-          opacity="0.5"
-        />
-      </g>
-
       <!-- 最佳路径线（标粗） -->
       <g v-if="bestRoute.length > 1">
         <path
-          :d="getRoutePath(bestRoute)"
+          :d="getRoutePath(bestRoute, false)"
           fill="none"
           stroke="#40C878"
           stroke-width="4"
           opacity="0.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         />
-      </g>
-
-      <!-- 最佳路径权值标签 -->
-      <g v-if="bestRoute.length > 1">
-        <text
-          v-for="(segment, index) in getBestRouteSegments()"
-          :key="`label-${index}`"
-          :x="segment.midX"
-          :y="segment.midY"
-          text-anchor="middle"
-          dy="-5"
-          fill="#40C878"
-          font-size="11"
-          font-weight="600"
-          style="
-            pointer-events: none;
-            text-shadow: 0 0 3px white, 0 0 3px white, 0 0 3px white;
-          "
-        >
-          {{ segment.weight.toFixed(1) }}
-        </text>
       </g>
 
       <!-- 城市节点 -->
@@ -137,7 +107,7 @@ const width = 400;
 const height = 360;
 const cityRadius = 12;
 
-const getRoutePath = (route) => {
+const getRoutePath = (route, closeRoute = true) => {
   if (route.length < 2) return "";
 
   let path = "";
@@ -154,7 +124,7 @@ const getRoutePath = (route) => {
   }
 
   // 回到起点
-  if (route.length > 2) {
+  if (closeRoute && route.length > 2) {
     const firstCity = props.cities[route[0]];
     if (firstCity) {
       path += ` L ${firstCity.x} ${firstCity.y}`;
@@ -183,55 +153,6 @@ const isSelected = (cityId) => {
   return (
     Array.isArray(props.selectedNodes) && props.selectedNodes.includes(cityId)
   );
-};
-
-// 获取边的权重（优先使用矩阵，否则计算欧几里得距离）
-const getEdgeWeight = (cityAId, cityBId) => {
-  const m = props.distanceMatrix;
-  if (
-    m &&
-    m[cityAId] &&
-    typeof m[cityAId][cityBId] === "number" &&
-    m[cityAId][cityBId] > 0
-  ) {
-    return m[cityAId][cityBId];
-  }
-
-  const cityA = props.cities[cityAId];
-  const cityB = props.cities[cityBId];
-  if (cityA && cityB) {
-    const dx = cityA.x - cityB.x;
-    const dy = cityA.y - cityB.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-  return 0;
-};
-
-// 获取最佳路径的所有段及其权重
-const getBestRouteSegments = () => {
-  if (!props.bestRoute || props.bestRoute.length < 2) return [];
-
-  const segments = [];
-  for (let i = 0; i < props.bestRoute.length; i++) {
-    const fromId = props.bestRoute[i];
-    const toId = props.bestRoute[(i + 1) % props.bestRoute.length];
-
-    const fromCity = props.cities[fromId];
-    const toCity = props.cities[toId];
-
-    if (fromCity && toCity) {
-      const weight = getEdgeWeight(fromId, toId);
-      segments.push({
-        from: fromId,
-        to: toId,
-        midX: (fromCity.x + toCity.x) / 2,
-        midY: (fromCity.y + toCity.y) / 2,
-        weight: weight,
-      });
-    }
-  }
-
-  return segments;
 };
 
 const startDrag = (city) => {
@@ -271,4 +192,4 @@ const handleCityClick = (cityId) => {
 .clickable:hover {
   r: 14;
 }
-</style> 
+</style>
