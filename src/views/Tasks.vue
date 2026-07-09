@@ -294,7 +294,7 @@
             <div class="detail-row" v-else>
               <span class="detail-label">最优值：</span>
               <span class="detail-value highlight">{{
-                selectedTask.bestValue || "--"
+                formatCandidateValue(selectedTask.bestValue)
               }}</span>
             </div>
             <div class="detail-row">
@@ -320,7 +320,7 @@
                   >候选解 {{ candidate.rank || index + 1 }}</span
                 >
                 <span class="candidate-value"
-                  >目标值：{{ candidate.value }}</span
+                  >目标值：{{ formatCandidateValue(candidate.value) }}</span
                 >
               </div>
               <div class="candidate-solution">
@@ -386,6 +386,7 @@ import {
   getDeleteAllResultMessage,
   isTaskDeletable,
 } from "../utils/task.js";
+import { formatCandidateValue } from "../utils/format.js";
 
 // 响应式数据
 const tasks = ref([]);

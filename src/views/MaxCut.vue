@@ -150,7 +150,7 @@
                 <div class="candidate-header">
                   <span class="candidate-rank">候选解 {{ index + 1 }}</span>
                   <span class="candidate-value"
-                    >目标值：{{ candidate.value ?? "--" }}</span
+                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
                   >
                 </div>
                 <div class="candidate-solution">
@@ -354,7 +354,7 @@
             <div class="detail-row">
               <span class="detail-label">最优目标值：</span>
               <span class="detail-value highlight">{{
-                selectedTask.bestValue || "--"
+                formatCandidateValue(selectedTask.bestValue)
               }}</span>
             </div>
             <div class="detail-row">
@@ -386,7 +386,7 @@
                     >候选解 {{ candidate.rank || index + 1 }}</span
                   >
                   <span class="candidate-value"
-                    >目标值：{{ candidate.value }}</span
+                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
                   >
                 </div>
                 <div class="candidate-solution">
@@ -453,7 +453,11 @@ import {
 import { ElMessage, ElMessageBox } from "element-plus";
 import MaxCutGraph from "../components/MaxCutGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName.js";
-import { formatBestValue, formatSolveTime } from "../utils/format.js";
+import {
+  formatBestValue,
+  formatCandidateValue,
+  formatSolveTime,
+} from "../utils/format.js";
 import {
   createSolveLogController,
   SOLVE_LOG_IDLE_MESSAGE,

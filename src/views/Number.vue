@@ -90,7 +90,7 @@
                     >候选解 {{ index + 1 }}</span
                   >
                   <span class="candidate-value-main"
-                    >目标值：{{ candidate.value ?? "--" }}</span
+                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
                   >
                 </div>
                 <div class="candidate-solution-main">
@@ -394,7 +394,7 @@
             <div class="detail-row">
               <span class="detail-label">最优值：</span>
               <span class="detail-value highlight">{{
-                selectedTask.bestValue || "--"
+                formatCandidateValue(selectedTask.bestValue)
               }}</span>
             </div>
             <div class="detail-row">
@@ -426,7 +426,7 @@
                     >候选解 {{ candidate.rank || index + 1 }}</span
                   >
                   <span class="candidate-value"
-                    >目标值：{{ candidate.value }}</span
+                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
                   >
                 </div>
                 <div class="candidate-solution">
@@ -492,7 +492,11 @@ import {
 } from "../api/index.js";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName.js";
-import { formatBestValue, formatSolveTime } from "../utils/format.js";
+import {
+  formatBestValue,
+  formatCandidateValue,
+  formatSolveTime,
+} from "../utils/format.js";
 import {
   createSolveLogController,
   SOLVE_LOG_IDLE_MESSAGE,

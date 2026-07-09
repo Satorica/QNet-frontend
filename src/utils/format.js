@@ -9,6 +9,16 @@ export function formatBestValue(value) {
 }
 
 /**
+ * 候选结果目标值：固定保留两位小数，避免 -92.9 / -84.399999 这类展示抖动。
+ */
+export function formatCandidateValue(value) {
+  if (value === null || value === undefined || value === "") return "--";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return value;
+  return num.toFixed(2);
+}
+
+/**
  * 求解时间字符串（可带末尾 s）；数值部分至多保留两位小数。
  */
 export function formatSolveTime(value) {

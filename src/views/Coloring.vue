@@ -210,7 +210,7 @@
                     >候选解 {{ candidate.rank ?? index + 1 }}</span
                   >
                   <span class="candidate-value"
-                    >目标值：{{ candidate.value }}</span
+                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
                   >
                 </div>
                 <div class="candidate-solution">
@@ -446,7 +446,7 @@
                     >候选解 {{ candidate.rank || index + 1 }}</span
                   >
                   <span class="candidate-value"
-                    >目标值：{{ candidate.value }}</span
+                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
                   >
                 </div>
                 <div class="candidate-solution">
@@ -513,7 +513,7 @@ import {
 import { ElMessage, ElMessageBox } from "element-plus";
 import ColoringGraph from "../components/ColoringGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName.js";
-import { formatSolveTime } from "../utils/format.js";
+import { formatCandidateValue, formatSolveTime } from "../utils/format.js";
 import {
   createSolveLogController,
   SOLVE_LOG_IDLE_MESSAGE,
