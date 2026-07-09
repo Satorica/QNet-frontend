@@ -515,6 +515,10 @@ import ColoringGraph from "../components/ColoringGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName.js";
 import { formatSolveTime } from "../utils/format.js";
 import {
+  createSolveLogController,
+  SOLVE_LOG_IDLE_MESSAGE,
+} from "../utils/solveLog.js";
+import {
   getDeleteAllResultMessage,
   isTaskDeletable,
 } from "../utils/task.js";
@@ -528,7 +532,9 @@ const edgeDensity = ref(0.3);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const conflicts = ref("--");
-const logs = ref(["图着色系统已就绪"]);
+const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
+const { addLog, resetSolveLogs, addTaskProgressLog } =
+  createSolveLogController(logs);
 
 const nodes = ref([]);
 const edges = ref([]);
@@ -662,6 +668,19 @@ const extractVectorFromOneHotSolution = (solution, size) => {
   }
 
   return solution.map(Number);
+};
+
+const applyTerminalTaskStatus = (taskStatus) => {
+  if (taskStatus === "completed") {
+    statusClass.value = "status-success";
+    statusText.value = "求解成功";
+  } else if (taskStatus === "cancelled") {
+    statusClass.value = "status-fail";
+    statusText.value = "已取消";
+  } else if (taskStatus === "failed") {
+    statusClass.value = "status-fail";
+    statusText.value = "求解失败";
+  }
 };
 
 // 方法
@@ -1135,9 +1154,11 @@ const submitSolve = async () => {
   coloring.value = {};
   solveCandidates.value = [];
   currentTaskId.value = null;
-  logs.value = ["求解开始"];
 
   const startTime = Date.now();
+  resetSolveLogs(
+    `开始求解图着色问题（求解模型：${getModelTypeText(solveType.value)}，${nodeCount.value}个节点，${edges.value.length}条边）`
+  );
 
   try {
     // 准备任务数据
@@ -1149,7 +1170,7 @@ const submitSolve = async () => {
       adjacencyMatrix: adjacencyMatrix.value,
     };
 
-    addLog("提交着色任务到后端...");
+    addLog("提交任务中");
 
     // 提交任务到后端
     const submitResponse = await submitTask(taskData);
@@ -1157,7 +1178,7 @@ const submitSolve = async () => {
     if (submitResponse.success) {
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
-      addLog(`任务已提交，ID: ${submitResponse.taskId}`);
+      addLog("任务已提交，等待结果");
       loadTaskHistory();
 
       // 开始轮询任务状态
@@ -1225,13 +1246,11 @@ const pollTaskStatus = async (taskId, startTime) => {
           console.log("最终着色结果:", coloringMap);
           console.log("使用颜色数:", usedColorsCount);
 
-          addLog(
-            `求解完成！使用${usedColorsCount}种颜色，目标值: ${bestResult.value}`
-          );
+          addLog("求解完成");
         } else {
           statusClass.value = "status-warning";
           statusText.value = "无候选解";
-          addLog("求解完成，但未返回候选解（candidates 为空）");
+          addLog("求解完成，但未返回候选解");
         }
         loadTaskHistory();
       } else if (
@@ -1243,11 +1262,16 @@ const pollTaskStatus = async (taskId, startTime) => {
         statusText.value =
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
-        addLog(statusResponse.message || "任务失败");
+        addLog(
+          statusResponse.state === "cancelled"
+            ? "任务已取消"
+            : `求解失败：${statusResponse.message || "任务失败"}`
+        );
         loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         statusText.value = "计算中...";
+        addTaskProgressLog("processing");
         setTimeout(poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
@@ -1255,6 +1279,7 @@ const pollTaskStatus = async (taskId, startTime) => {
             ? `(队列第${statusResponse.queuePosition}位)`
             : ""
         }`;
+        addTaskProgressLog("queued", statusResponse.queuePosition);
         setTimeout(poll, pollInterval);
       }
     } catch (error) {
@@ -1276,9 +1301,14 @@ const cancelSolve = async () => {
       const res = await cancelTaskAPI(currentTaskId.value);
       if (res?.success === false) {
         ElMessage.warning(res?.message || "取消失败");
-        addLog(res?.message || "取消失败");
-        // 任务已是终态（如刚好完成），停止轮询并刷新历史
+        addLog(`取消失败：${res?.message || "取消失败"}`);
+        // 任务刚好完成时继续保留轮询，让完成分支回填结果。
         if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
+          applyTerminalTaskStatus(res.taskStatus);
+          if (res.taskStatus === "completed") {
+            loadTaskHistory();
+            return;
+          }
           solving.value = false;
           currentTaskId.value = null;
           loadTaskHistory();
@@ -1365,15 +1395,6 @@ const _solveClassic = async (graph) => {
     maxDegree: computedMaxDegree,
     graphDensity: computedGraphDensity,
   };
-};
-
-// 工具：日志
-const addLog = (message) => {
-  const timestamp = new Date().toLocaleTimeString("zh-CN");
-  logs.value.unshift(`${timestamp} - ${message}`);
-  if (logs.value.length > 20) {
-    logs.value = logs.value.slice(0, 20);
-  }
 };
 
 // 清空颜色与状态

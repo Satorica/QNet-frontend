@@ -1,6 +1,12 @@
 <template>
   <div class="tsp-graph">
-    <svg :width="width" :height="height" class="graph-svg">
+    <svg
+      :width="width"
+      :height="height"
+      :viewBox="`0 0 ${width} ${height}`"
+      preserveAspectRatio="xMidYMid meet"
+      class="graph-svg"
+    >
       <!-- 矩阵定义的边（非零权重） - 背景边 -->
       <g v-if="distanceMatrix && distanceMatrix.length > 0">
         <g v-for="edge in renderedEdges" :key="`e-${edge.i}-${edge.j}`">
@@ -27,7 +33,7 @@
           :y2="segment.y2"
           fill="none"
           stroke="#40C878"
-          stroke-width="4"
+          stroke-width="3"
           opacity="0.8"
           stroke-linecap="round"
           marker-end="url(#tspRouteArrow)"
@@ -73,14 +79,14 @@
         </linearGradient>
         <marker
           id="tspRouteArrow"
-          markerWidth="12"
-          markerHeight="12"
-          refX="10"
-          refY="6"
+          markerWidth="10"
+          markerHeight="10"
+          refX="8.5"
+          refY="5"
           orient="auto"
           markerUnits="userSpaceOnUse"
         >
-          <path d="M 0 0 L 12 6 L 0 12 z" fill="#40C878" opacity="0.9" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#40C878" opacity="0.9" />
         </marker>
       </defs>
     </svg>
@@ -119,8 +125,8 @@ const props = defineProps({
 
 const emit = defineEmits(["city-move", "route-change", "city-click"]);
 
-const width = 400;
-const height = 360;
+const width = 760;
+const height = 380;
 const cityRadius = 12;
 const routeEndpointGap = cityRadius + 5;
 
@@ -209,8 +215,10 @@ const handleCityClick = (cityId) => {
 }
 
 .graph-svg {
+  width: min(100%, 760px);
+  height: 380px;
   border-radius: 8px;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .clickable {

@@ -72,13 +72,13 @@
                 :class="{ editable: i !== j }"
                 @click="toggleCell(i, j)"
               >
-                {{ cell }}
+                {{ formatMatrixCell(cell) }}
               </div>
             </div>
           </div>
 
           <div class="tip">
-            互相转化（邻接矩阵 ↔ 图）。点击矩阵单元格可随时编辑连接关系。
+            互相转化（邻接矩阵 ↔ 图）。点击非对角线单元格可在0到30间循环编辑权重，最多保留一位小数。
           </div>
 
           <!-- 图形可视化 -->
@@ -455,6 +455,10 @@ import MaxCutGraph from "../components/MaxCutGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName.js";
 import { formatBestValue, formatSolveTime } from "../utils/format.js";
 import {
+  createSolveLogController,
+  SOLVE_LOG_IDLE_MESSAGE,
+} from "../utils/solveLog.js";
+import {
   getDeleteAllResultMessage,
   isTaskDeletable,
 } from "../utils/task.js";
@@ -470,7 +474,9 @@ const solving = ref(false);
 const stateClass = ref("state-idle");
 const stateText = ref("等待求解");
 const solveTime = ref("--");
-const logs = ref(["参数校验通过"]);
+const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
+const { addLog, resetSolveLogs, addTaskProgressLog } =
+  createSolveLogController(logs);
 const candidates = ref([]);
 const currentTaskId = ref(null);
 
@@ -495,17 +501,41 @@ const nodes = ref([]);
 const edges = ref([]);
 const selectedNodes = ref([]);
 const partition = ref({});
+const MAX_ADJACENCY_WEIGHT = 30;
+const ADJACENCY_WEIGHT_STEP = 1;
 
 // 计算属性
 const edgeCount = computed(() => {
   let count = 0;
   for (let i = 0; i < matrix.value.length; i++) {
     for (let j = i + 1; j < matrix.value[i].length; j++) {
-      if (matrix.value[i][j] === 1) count++;
+      if (Number(matrix.value[i][j]) !== 0) count++;
     }
   }
   return count;
 });
+
+const parseAdjacencyWeight = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_ADJACENCY_WEIGHT) {
+    throw new Error(`包含非法数值：${value}（仅允许0到${MAX_ADJACENCY_WEIGHT}，保留一位小数）`);
+  }
+  if (Math.abs(parsed * 10 - Math.round(parsed * 10)) > 1e-8) {
+    throw new Error(`包含非法数值：${value}（最多保留一位小数）`);
+  }
+  return normalizeAdjacencyWeight(parsed);
+};
+
+const normalizeAdjacencyWeight = (value) => Number(Number(value).toFixed(1));
+
+const formatMatrixCell = (value) => String(normalizeAdjacencyWeight(value));
+
+const nextAdjacencyWeight = (value) => {
+  const currentValue = normalizeAdjacencyWeight(Number(value) || 0);
+  return currentValue >= MAX_ADJACENCY_WEIGHT
+    ? 0
+    : normalizeAdjacencyWeight(currentValue + ADJACENCY_WEIGHT_STEP);
+};
 
 // 初始化矩阵
 const generateMatrix = () => {
@@ -539,9 +569,15 @@ const generateRandomMatrix = () => {
 
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
-      const connected = Math.random() > 0.6 ? 1 : 0;
-      newMatrix[i][j] = connected;
-      newMatrix[j][i] = connected;
+      const weight =
+        Math.random() > 0.6
+          ? normalizeAdjacencyWeight(
+              (Math.floor(Math.random() * (MAX_ADJACENCY_WEIGHT * 10)) + 1) /
+                10
+            )
+          : 0;
+      newMatrix[i][j] = weight;
+      newMatrix[j][i] = weight;
     }
   }
 
@@ -564,7 +600,7 @@ const setEditMode = (mode) => {
 // 切换单元格状态
 const toggleCell = (i, j) => {
   if (i !== j) {
-    const newValue = matrix.value[i][j] === 1 ? 0 : 1;
+    const newValue = nextAdjacencyWeight(matrix.value[i][j]);
     matrix.value[i][j] = newValue;
     matrix.value[j][i] = newValue;
     syncEdgesFromMatrix();
@@ -580,25 +616,26 @@ const syncEdgesFromMatrix = () => {
   const newEdges = [];
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
-      if (matrix.value[i] && matrix.value[i][j] === 1) {
-        newEdges.push({ source: i, target: j });
+      const weight = Number(matrix.value[i]?.[j]);
+      if (Number.isFinite(weight) && weight !== 0) {
+        newEdges.push({ source: i, target: j, weight });
       }
     }
   }
   edges.value = newEdges;
 };
 
-// 从边同步到邻接矩阵
-const syncMatrixFromEdges = () => {
-  const size = matrixSize.value;
-  const newMatrix = Array(size)
-    .fill()
-    .map(() => Array(size).fill(0));
-  for (const edge of edges.value) {
-    newMatrix[edge.source][edge.target] = 1;
-    newMatrix[edge.target][edge.source] = 1;
+const applyTerminalTaskStatus = (taskStatus) => {
+  if (taskStatus === "completed") {
+    stateClass.value = "state-success";
+    stateText.value = "求解成功";
+  } else if (taskStatus === "cancelled") {
+    stateClass.value = "state-fail";
+    stateText.value = "已取消";
+  } else if (taskStatus === "failed") {
+    stateClass.value = "state-fail";
+    stateText.value = "求解失败";
   }
-  matrix.value = newMatrix;
 };
 
 // 节点点击事件处理
@@ -631,14 +668,16 @@ const toggleEdge = (a, b) => {
   );
 
   if (idx >= 0) {
-    edges.value.splice(idx, 1);
+    matrix.value[i][j] = 0;
+    matrix.value[j][i] = 0;
     addLog(`移除边 (${i}, ${j})`);
   } else {
-    edges.value.push({ source: i, target: j });
+    matrix.value[i][j] = 1;
+    matrix.value[j][i] = 1;
     addLog(`新增边 (${i}, ${j})`);
   }
 
-  syncMatrixFromEdges();
+  syncEdgesFromMatrix();
   // 修改边时清除分区结果
   partition.value = {};
   candidates.value = [];
@@ -673,11 +712,7 @@ const handleFileImport = (event) => {
           .split(/[,\s]+/)
           .filter((cell) => cell.trim())
           .map((cell) => {
-            const val = cell.trim();
-            if (val !== "0" && val !== "1") {
-              throw new Error(`包含非法字符：${val}（仅允许0和1）`);
-            }
-            return parseInt(val);
+            return parseAdjacencyWeight(cell.trim());
           })
       );
 
@@ -699,11 +734,17 @@ const handleFileImport = (event) => {
         }
       }
 
-      // 验证2：检查是否只包含0和1
+      // 验证2：检查是否只包含允许的权重范围
       for (let i = 0; i < size; i++) {
         for (let j = 0; j < size; j++) {
-          if (newMatrix[i][j] !== 0 && newMatrix[i][j] !== 1) {
-            addLog(`导入失败：矩阵[${i}][${j}]=${newMatrix[i][j]}，只允许0或1`);
+          if (
+            !Number.isFinite(newMatrix[i][j]) ||
+            newMatrix[i][j] < 0 ||
+            newMatrix[i][j] > MAX_ADJACENCY_WEIGHT
+          ) {
+            addLog(
+              `导入失败：矩阵[${i}][${j}]=${newMatrix[i][j]}，只允许0到${MAX_ADJACENCY_WEIGHT}，保留一位小数`
+            );
             return;
           }
         }
@@ -762,7 +803,9 @@ const startSolve = async () => {
   stateText.value = "求解中";
 
   const startTime = Date.now();
-  addLog("开始求解...");
+  resetSolveLogs(
+    `开始求解图分割问题（求解模型：${getModelTypeText(solveType.value)}，${matrixSize.value}个节点，${edgeCount.value}条边）`
+  );
 
   try {
     // 准备任务数据
@@ -775,12 +818,13 @@ const startSolve = async () => {
     };
 
     // 提交任务到后端
+    addLog("提交任务中");
     const submitResponse = await submitTask(taskData);
 
     if (submitResponse.success) {
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
-      addLog(`任务已提交，ID: ${submitResponse.taskId}`);
+      addLog("任务已提交，等待结果");
       loadTaskHistory();
 
       // 开始轮询任务状态
@@ -853,17 +897,14 @@ const pollTaskStatus = async (taskId, startTime) => {
 
             partition.value = newPartition;
             console.log("分区结果:", newPartition);
-            addLog(
-              `图分割完成：${
-                Object.values(newPartition).filter((v) => v === 0).length
-              } 个节点在分区A（红色），${
-                Object.values(newPartition).filter((v) => v === 1).length
-              } 个节点在分区B（蓝绿色）`
-            );
           }
         }
 
-        addLog("求解完成");
+        addLog(
+          resultCandidates.length > 0
+            ? "求解完成"
+            : "求解完成，但未返回候选解"
+        );
         loadTaskHistory();
       } else if (
         statusResponse.state === "failed" ||
@@ -874,11 +915,15 @@ const pollTaskStatus = async (taskId, startTime) => {
         stateText.value =
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
-        addLog(statusResponse.message || "任务失败");
+        addLog(
+          statusResponse.state === "cancelled"
+            ? "任务已取消"
+            : `求解失败：${statusResponse.message || "任务失败"}`
+        );
         loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         stateText.value = "计算中...";
-        addLog("任务正在计算中");
+        addTaskProgressLog("processing");
         setTimeout(poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         stateText.value = `计算中${
@@ -886,6 +931,7 @@ const pollTaskStatus = async (taskId, startTime) => {
             ? `(队列第${statusResponse.queuePosition}位)`
             : ""
         }`;
+        addTaskProgressLog("queued", statusResponse.queuePosition);
         setTimeout(poll, pollInterval);
       }
     } catch (error) {
@@ -908,9 +954,14 @@ const cancelSolve = async () => {
       const res = await cancelTask(currentTaskId.value);
       if (res?.success === false) {
         ElMessage.warning(res?.message || "取消失败");
-        addLog(res?.message || "取消失败");
-        // 任务已是终态（如刚好完成），停止轮询并刷新历史
+        addLog(`取消失败：${res?.message || "取消失败"}`);
+        // 任务刚好完成时继续保留轮询，让完成分支回填结果。
         if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
+          applyTerminalTaskStatus(res.taskStatus);
+          if (res.taskStatus === "completed") {
+            loadTaskHistory();
+            return;
+          }
           solving.value = false;
           currentTaskId.value = null;
           loadTaskHistory();
@@ -930,13 +981,6 @@ const cancelSolve = async () => {
       ElMessage.error(error.message || "取消任务失败");
     }
   }
-};
-
-// 添加日志
-const addLog = (message) => {
-  const now = new Date();
-  const timestamp = now.toLocaleString("zh-CN");
-  logs.value.unshift(`${timestamp}：${message}`);
 };
 
 // 导出结果
@@ -1291,7 +1335,7 @@ onMounted(() => {
   border: 1px solid #e6eaf5;
   border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-top: 12px;
 }
 
 .matrix-row {
@@ -1299,14 +1343,14 @@ onMounted(() => {
 }
 
 .matrix-cell {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-right: 1px solid #e6eaf5;
   border-bottom: 1px solid #e6eaf5;
-  font-size: 14px;
+  font-size: 12px;
   background: #fafbfc;
 }
 
@@ -1330,6 +1374,7 @@ onMounted(() => {
 .tip {
   color: #8c8fa3;
   font-size: 12px;
+  margin-top: 8px;
   margin-bottom: 16px;
 }
 

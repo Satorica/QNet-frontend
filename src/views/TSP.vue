@@ -487,6 +487,10 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName.js";
 import { formatBestValue, formatSolveTime } from "../utils/format.js";
 import {
+  createSolveLogController,
+  SOLVE_LOG_IDLE_MESSAGE,
+} from "../utils/solveLog.js";
+import {
   getDeleteAllResultMessage,
   isTaskDeletable,
 } from "../utils/task.js";
@@ -503,9 +507,20 @@ const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const solveTime = ref("--");
 const iterations = ref(0);
-const logs = ref(["TSP求解系统已就绪"]);
+const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
+const { addLog, resetSolveLogs, addTaskProgressLog } =
+  createSolveLogController(logs);
 const currentTaskId = ref(null);
 const solveCandidates = ref([]);
+
+const TSP_LAYOUT_CENTER_X = 380;
+const TSP_LAYOUT_CENTER_Y = 190;
+const TSP_LAYOUT_INITIAL_RADIUS_X = 164;
+const TSP_LAYOUT_INITIAL_RADIUS_Y = 146;
+const TSP_LAYOUT_MAX_WIDTH = 640;
+const TSP_LAYOUT_MAX_HEIGHT = 330;
+const TSP_LAYOUT_MAX_UPSCALE_X = 1.82;
+const TSP_LAYOUT_MAX_UPSCALE_Y = 1.42;
 
 // 任务历史
 const taskHistory = ref([]);
@@ -634,16 +649,13 @@ const generateCitiesAndMatrix = () => {
 
 const generateCities = () => {
   cities.value = [];
-  const centerX = 200;
-  const centerY = 180;
-  const radius = 120;
 
   for (let i = 0; i < cityCount.value; i++) {
     const angle = (2 * Math.PI * i) / cityCount.value;
     cities.value.push({
       id: i,
-      x: centerX + radius * Math.cos(angle),
-      y: centerY + radius * Math.sin(angle),
+      x: TSP_LAYOUT_CENTER_X + TSP_LAYOUT_INITIAL_RADIUS_X * Math.cos(angle),
+      y: TSP_LAYOUT_CENTER_Y + TSP_LAYOUT_INITIAL_RADIUS_Y * Math.sin(angle),
       name: `城市${i}`,
     });
   }
@@ -670,8 +682,6 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
   }
   if (edges.length === 0) return;
 
-  const centerX = 200;
-  const centerY = 180;
   const fitAndApplyCityPoints = (points) => {
     const minX = Math.min(...points.map((point) => point.x));
     const maxX = Math.max(...points.map((point) => point.x));
@@ -679,14 +689,31 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
     const maxY = Math.max(...points.map((point) => point.y));
     const spanX = Math.max(1, maxX - minX);
     const spanY = Math.max(1, maxY - minY);
-    const fitScale = Math.min(1, 320 / spanX, 280 / spanY);
+    const fitScaleX = Math.min(
+      TSP_LAYOUT_MAX_UPSCALE_X,
+      TSP_LAYOUT_MAX_WIDTH / spanX
+    );
+    const fitScaleY = Math.min(
+      TSP_LAYOUT_MAX_UPSCALE_Y,
+      TSP_LAYOUT_MAX_HEIGHT / spanY
+    );
     const layoutCenterX = (minX + maxX) / 2;
     const layoutCenterY = (minY + maxY) / 2;
 
     cities.value = cities.value.map((city, index) => ({
       ...city,
-      x: Number((centerX + (points[index].x - layoutCenterX) * fitScale).toFixed(1)),
-      y: Number((centerY + (points[index].y - layoutCenterY) * fitScale).toFixed(1)),
+      x: Number(
+        (
+          TSP_LAYOUT_CENTER_X +
+          (points[index].x - layoutCenterX) * fitScaleX
+        ).toFixed(1)
+      ),
+      y: Number(
+        (
+          TSP_LAYOUT_CENTER_Y +
+          (points[index].y - layoutCenterY) * fitScaleY
+        ).toFixed(1)
+      ),
     }));
   };
 
@@ -695,7 +722,7 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
     const d02 = Number(matrix[0]?.[2]);
     const d12 = Number(matrix[1]?.[2]);
     if (d01 >= MIN_DISTANCE_WEIGHT && d02 >= MIN_DISTANCE_WEIGHT && d12 >= MIN_DISTANCE_WEIGHT) {
-      const visualScale = 270 / Math.max(d01, d02, d12);
+      const visualScale = 330 / Math.max(d01, d02, d12);
       const sides = [d01 * visualScale, d02 * visualScale, d12 * visualScale];
       const maxSideIndex = sides.indexOf(Math.max(...sides));
       const otherSideSum = sides.reduce((sum, side) => sum + side, 0) - sides[maxSideIndex];
@@ -723,8 +750,8 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
       ? sortedWeights.length - 1
       : Math.ceil((sortedWeights.length - 1) * 0.95);
   const visualMaxWeight = Math.max(minWeight, sortedWeights[p95Index]);
-  const minTargetDistance = 34;
-  const maxTargetDistance = 270;
+  const minTargetDistance = 52;
+  const maxTargetDistance = 560;
   const weightSpan = visualMaxWeight - minWeight;
   const normalizeWeight = (weight) => {
     if (weightSpan <= 0) return 0.5;
@@ -738,12 +765,11 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
     return 0.025 + Math.pow(1 - normalized, 1.8) * 0.06;
   };
 
-  const radius = 120;
   const points = Array.from({ length: n }, (_, index) => {
     const angle = (2 * Math.PI * index) / n - Math.PI / 2;
     return {
-      x: centerX + radius * Math.cos(angle),
-      y: centerY + radius * Math.sin(angle),
+      x: TSP_LAYOUT_CENTER_X + TSP_LAYOUT_INITIAL_RADIUS_X * Math.cos(angle),
+      y: TSP_LAYOUT_CENTER_Y + TSP_LAYOUT_INITIAL_RADIUS_Y * Math.sin(angle),
     };
   });
 
@@ -774,8 +800,8 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
     const avgX = points.reduce((sum, point) => sum + point.x, 0) / n;
     const avgY = points.reduce((sum, point) => sum + point.y, 0) / n;
     for (const point of points) {
-      point.x += centerX - avgX;
-      point.y += centerY - avgY;
+      point.x += TSP_LAYOUT_CENTER_X - avgX;
+      point.y += TSP_LAYOUT_CENTER_Y - avgY;
     }
   }
 
@@ -821,11 +847,7 @@ const _startSolve = async () => {
     statusText.value = "求解成功";
     solveTime.value = `${duration}s`;
 
-    addLog(
-      `求解完成，最短距离：${bestDistance.value.toFixed(2)}，迭代${
-        result.iterations
-      }次`
-    );
+    addLog("求解完成");
   } catch (error) {
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
@@ -1289,6 +1311,19 @@ const toggleMatrixCell = async (i, j) => {
   }
 };
 
+const applyTerminalTaskStatus = (taskStatus) => {
+  if (taskStatus === "completed") {
+    statusClass.value = "status-success";
+    statusText.value = "求解成功";
+  } else if (taskStatus === "cancelled") {
+    statusClass.value = "status-fail";
+    statusText.value = "已取消";
+  } else if (taskStatus === "failed") {
+    statusClass.value = "status-fail";
+    statusText.value = "求解失败";
+  }
+};
+
 // 求解提交（统一POST参数）
 const submitSolve = async () => {
   try {
@@ -1302,6 +1337,9 @@ const submitSolve = async () => {
     statusText.value = "求解中";
     solveCandidates.value = [];
     const start = Date.now();
+    resetSolveLogs(
+      `开始求解旅行商问题（求解模型：${getModelTypeText(solveType.value)}，${cityCount.value}个城市）`
+    );
 
     const payload = {
       taskName: customTaskName.value || `TSP_${Date.now()}`,
@@ -1313,11 +1351,12 @@ const submitSolve = async () => {
       adjacencyMatrix: distanceMatrix.value,
     };
 
+    addLog("提交任务中");
     const res = await submitTask(payload);
     if (res?.success) {
       clearCustomTaskName();
       currentTaskId.value = res.taskId;
-      addLog(`任务已提交，ID: ${res.taskId}`);
+      addLog("任务已提交，等待结果");
       loadTaskHistory();
 
       // 开始轮询任务状态
@@ -1382,7 +1421,9 @@ const pollTaskStatus = async (taskId, startTime) => {
           bestRoute.value = route;
           currentRoute.value = route;
 
-          addLog(`求解完成，最短距离：${formatPathLength(routeValue)}`);
+          addLog("求解完成");
+        } else {
+          addLog("求解完成，但未返回候选解");
         }
         loadTaskHistory();
       } else if (
@@ -1394,11 +1435,16 @@ const pollTaskStatus = async (taskId, startTime) => {
         statusText.value =
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
-        addLog(statusResponse.message || "任务失败");
+        addLog(
+          statusResponse.state === "cancelled"
+            ? "任务已取消"
+            : `求解失败：${statusResponse.message || "任务失败"}`
+        );
         loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         statusText.value = "计算中...";
+        addTaskProgressLog("processing");
         setTimeout(poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
@@ -1406,6 +1452,7 @@ const pollTaskStatus = async (taskId, startTime) => {
             ? `(队列第${statusResponse.queuePosition}位)`
             : ""
         }`;
+        addTaskProgressLog("queued", statusResponse.queuePosition);
         setTimeout(poll, pollInterval);
       }
     } catch (error) {
@@ -1427,9 +1474,14 @@ const cancelSolve = async () => {
       const res = await cancelTask(currentTaskId.value);
       if (res?.success === false) {
         ElMessage.warning(res?.message || "取消失败");
-        addLog(res?.message || "取消失败");
-        // 任务已是终态（如刚好完成），停止轮询并刷新历史
+        addLog(`取消失败：${res?.message || "取消失败"}`);
+        // 任务刚好完成时继续保留轮询，让完成分支回填结果。
         if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
+          applyTerminalTaskStatus(res.taskStatus);
+          if (res.taskStatus === "completed") {
+            loadTaskHistory();
+            return;
+          }
           solving.value = false;
           currentTaskId.value = null;
           loadTaskHistory();
@@ -1448,14 +1500,6 @@ const cancelSolve = async () => {
       addLog("取消任务失败: " + error.message);
       ElMessage.error(error.message || "取消任务失败");
     }
-  }
-};
-
-const addLog = (message) => {
-  const timestamp = new Date().toLocaleTimeString("zh-CN");
-  logs.value.unshift(`${timestamp} - ${message}`);
-  if (logs.value.length > 20) {
-    logs.value = logs.value.slice(0, 20);
   }
 };
 
