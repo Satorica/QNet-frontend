@@ -78,7 +78,7 @@
           </div>
 
           <div class="tip">
-            互相转化（邻接矩阵 ↔ 图）。点击非对角线单元格可在0到30间循环编辑权重，最多保留一位小数。
+            矩阵与图同步；点矩阵改权重（0-30，1位小数），点两节点连/删边。
           </div>
 
           <!-- 图形可视化 -->
@@ -107,7 +107,12 @@
             >
               {{ solving ? "求解中..." : "求解" }}
             </el-button>
-            <el-button @click="cancelSolve">取消任务</el-button>
+            <el-button
+              :loading="historyCancelingTaskId === currentTaskId"
+              :disabled="!solving || historyCancelingTaskId !== null"
+              @click="cancelSolve"
+              >取消任务</el-button
+            >
           </div>
 
           <!-- 求解状态 -->
@@ -236,7 +241,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="taskId" label="操作" width="190" align="center">
+        <el-table-column prop="taskId" label="操作" width="220" align="center">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -245,9 +250,21 @@
               >查看详情</el-button
             >
             <el-button
+              v-if="isTaskCancellable(row.status)"
+              type="warning"
+              size="small"
+              :loading="historyCancelingTaskId === row.taskId"
+              :disabled="
+                historyCancelingTaskId !== null &&
+                historyCancelingTaskId !== row.taskId
+              "
+              @click="handleCancelHistoryTask(row)"
+              >取消</el-button
+            >
+            <el-button
+              v-else
               type="danger"
               size="small"
-              :disabled="!isTaskDeletable(row.status)"
               @click="handleDeleteTask(row)"
               >删除</el-button
             >
@@ -464,6 +481,8 @@ import {
 } from "../utils/solveLog.js";
 import {
   getDeleteAllResultMessage,
+  isDialogDismissed,
+  isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task.js";
 
@@ -489,6 +508,7 @@ const fileInput = ref(null);
 // 任务历史
 const taskHistory = ref([]);
 const historyLoading = ref(false);
+const historyCancelingTaskId = ref(null);
 const historyTaskName = ref("");
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
@@ -506,7 +526,6 @@ const edges = ref([]);
 const selectedNodes = ref([]);
 const partition = ref({});
 const MAX_ADJACENCY_WEIGHT = 30;
-const ADJACENCY_WEIGHT_STEP = 1;
 
 // 计算属性
 const edgeCount = computed(() => {
@@ -533,13 +552,6 @@ const parseAdjacencyWeight = (value) => {
 const normalizeAdjacencyWeight = (value) => Number(Number(value).toFixed(1));
 
 const formatMatrixCell = (value) => String(normalizeAdjacencyWeight(value));
-
-const nextAdjacencyWeight = (value) => {
-  const currentValue = normalizeAdjacencyWeight(Number(value) || 0);
-  return currentValue >= MAX_ADJACENCY_WEIGHT
-    ? 0
-    : normalizeAdjacencyWeight(currentValue + ADJACENCY_WEIGHT_STEP);
-};
 
 // 初始化矩阵
 const generateMatrix = () => {
@@ -601,16 +613,52 @@ const setEditMode = (mode) => {
   addLog("切换编辑模式，清除分区结果");
 };
 
-// 切换单元格状态
-const toggleCell = (i, j) => {
-  if (i !== j) {
-    const newValue = nextAdjacencyWeight(matrix.value[i][j]);
-    matrix.value[i][j] = newValue;
-    matrix.value[j][i] = newValue;
-    syncEdgesFromMatrix();
-    // 修改矩阵时清除分区结果
-    partition.value = {};
-    candidates.value = [];
+const setEdgeWeight = (i, j, weight) => {
+  if (i === j) return;
+  const normalizedWeight = normalizeAdjacencyWeight(weight);
+  matrix.value[i][j] = normalizedWeight;
+  matrix.value[j][i] = normalizedWeight;
+  syncEdgesFromMatrix();
+  partition.value = {};
+  candidates.value = [];
+  addLog(`设置边 (${i}, ${j}) = ${normalizedWeight}`);
+};
+
+// 弹窗输入并校验边权重（0~MAX_ADJACENCY_WEIGHT，最多 1 位小数），返回有效数值或 null
+const promptEdgeWeight = async (i, j, title = "编辑矩阵单元") => {
+  const inputValue = String(formatMatrixCell(matrix.value[i][j]));
+  const { value } = await ElMessageBox.prompt(
+    `请输入边权重（0-${MAX_ADJACENCY_WEIGHT}，最多 1 位小数）`,
+    title,
+    {
+      inputValue,
+      inputPattern: /^(?:0|[1-9]\d*)(?:\.\d)?$/,
+      inputErrorMessage: `请输入 0-${MAX_ADJACENCY_WEIGHT} 之间的数字，最多 1 位小数`,
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+    }
+  ).catch(() => ({ value: null }));
+  if (value === null || value === undefined) return null;
+
+  const weight = Number(value);
+  if (!Number.isFinite(weight) || weight < 0 || weight > MAX_ADJACENCY_WEIGHT) {
+    ElMessage.warning(`请输入 0-${MAX_ADJACENCY_WEIGHT} 之间的数字`);
+    return null;
+  }
+  if (Math.abs(weight * 10 - Math.round(weight * 10)) > 1e-8) {
+    ElMessage.warning("最多保留 1 位小数");
+    return null;
+  }
+
+  return weight;
+};
+
+// 邻接矩阵交互：弹窗编辑边权重
+const toggleCell = async (i, j) => {
+  if (i === j) return;
+  const weight = await promptEdgeWeight(i, j, "编辑矩阵单元");
+  if (weight !== null) {
+    setEdgeWeight(i, j, weight);
   }
 };
 
@@ -656,35 +704,23 @@ const onGraphNodeClick = (nodeId) => {
 
   if (selectedNodes.value.length === 2) {
     const [a, b] = selectedNodes.value;
-    toggleEdge(a, b);
     selectedNodes.value = [];
+    openEdgeDialog(a, b);
   }
 };
 
-// 切换边
-const toggleEdge = (a, b) => {
+// 弹窗编辑边权重（从图节点点击触发）
+const openEdgeDialog = async (a, b) => {
   if (a === b) return;
   const i = Math.min(a, b);
   const j = Math.max(a, b);
-  const idx = edges.value.findIndex(
-    (e) =>
-      (e.source === i && e.target === j) || (e.source === j && e.target === i)
-  );
-
-  if (idx >= 0) {
-    matrix.value[i][j] = 0;
-    matrix.value[j][i] = 0;
-    addLog(`移除边 (${i}, ${j})`);
-  } else {
-    matrix.value[i][j] = 1;
-    matrix.value[j][i] = 1;
-    addLog(`新增边 (${i}, ${j})`);
+  const weight = await promptEdgeWeight(i, j, "编辑边权重");
+  if (weight !== null) {
+    setEdgeWeight(i, j, weight);
+    if (weight === 0) {
+      addLog(`删除边 (${i}, ${j})（权重设为 0）`);
+    }
   }
-
-  syncEdgesFromMatrix();
-  // 修改边时清除分区结果
-  partition.value = {};
-  candidates.value = [];
 };
 
 // 触发文件输入
@@ -953,36 +989,46 @@ const pollTaskStatus = async (taskId, startTime) => {
 
 // 取消求解
 const cancelSolve = async () => {
-  if (currentTaskId.value) {
-    try {
-      const res = await cancelTask(currentTaskId.value);
-      if (res?.success === false) {
-        ElMessage.warning(res?.message || "取消失败");
-        addLog(`取消失败：${res?.message || "取消失败"}`);
-        // 任务刚好完成时继续保留轮询，让完成分支回填结果。
-        if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
-          applyTerminalTaskStatus(res.taskStatus);
-          if (res.taskStatus === "completed") {
-            loadTaskHistory();
-            return;
-          }
-          solving.value = false;
-          currentTaskId.value = null;
-          loadTaskHistory();
-        }
-        return;
-      }
+  const taskId = currentTaskId.value;
+  if (!taskId || historyCancelingTaskId.value !== null) return;
 
-      ElMessage.success(res?.message || "任务已取消");
-      addLog("任务已取消");
-      solving.value = false;
-      stateClass.value = "state-fail";
-      stateText.value = "已取消";
-      currentTaskId.value = null;
-      loadTaskHistory();
-    } catch (error) {
+  historyCancelingTaskId.value = taskId;
+  try {
+    await confirmCancelTask();
+
+    const res = await cancelTask(taskId);
+    if (res?.success === false) {
+      ElMessage.warning(res?.message || "取消失败");
+      addLog(`取消失败：${res?.message || "取消失败"}`);
+      // 任务刚好完成时继续保留轮询，让完成分支回填结果。
+      if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
+        applyTerminalTaskStatus(res.taskStatus);
+        if (res.taskStatus === "completed") {
+          loadTaskHistory();
+          return;
+        }
+        solving.value = false;
+        currentTaskId.value = null;
+        loadTaskHistory();
+      }
+      return;
+    }
+
+    ElMessage.success(res?.message || "任务已取消");
+    addLog("任务已取消");
+    solving.value = false;
+    stateClass.value = "state-fail";
+    stateText.value = "已取消";
+    currentTaskId.value = null;
+    loadTaskHistory();
+  } catch (error) {
+    if (!isDialogDismissed(error)) {
       addLog("取消任务失败: " + error.message);
       ElMessage.error(error.message || "取消任务失败");
+    }
+  } finally {
+    if (historyCancelingTaskId.value === taskId) {
+      historyCancelingTaskId.value = null;
     }
   }
 };
@@ -1107,6 +1153,54 @@ const getStatusType = (status) => {
     cancelled: "info",
   };
   return types[status] || "info";
+};
+
+const confirmCancelTask = async (taskName = "") => {
+  const taskLabel = taskName ? `任务“${taskName}”` : "当前任务";
+  await ElMessageBox.confirm(
+    `确定要取消${taskLabel}吗？取消后任务将停止计算。`,
+    "确认取消任务",
+    {
+      confirmButtonText: "确定取消",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+  );
+};
+
+const handleCancelHistoryTask = async (row) => {
+  if (!isTaskCancellable(row.status)) {
+    ElMessage.warning("仅支持取消计算中的任务");
+    return;
+  }
+  if (historyCancelingTaskId.value !== null) return;
+
+  if (row.taskId === currentTaskId.value) {
+    await cancelSolve();
+    return;
+  }
+
+  historyCancelingTaskId.value = row.taskId;
+  try {
+    await confirmCancelTask(row.taskName);
+    const response = await cancelTask(row.taskId);
+    if (response?.success === false) {
+      ElMessage.warning(response?.message || "取消失败");
+      loadTaskHistory();
+      return;
+    }
+
+    ElMessage.success(response?.message || "任务已取消");
+    loadTaskHistory();
+  } catch (error) {
+    if (!isDialogDismissed(error)) {
+      ElMessage.error(error.message || "取消任务失败");
+    }
+  } finally {
+    if (historyCancelingTaskId.value === row.taskId) {
+      historyCancelingTaskId.value = null;
+    }
+  }
 };
 
 const formatDate = (timestamp) => {

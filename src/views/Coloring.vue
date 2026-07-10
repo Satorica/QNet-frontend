@@ -139,7 +139,12 @@
             >
               {{ solving ? "求解中..." : "求解" }}
             </el-button>
-            <el-button @click="cancelSolve">取消任务</el-button>
+            <el-button
+              :loading="historyCancelingTaskId === currentTaskId"
+              :disabled="!solving || historyCancelingTaskId !== null"
+              @click="cancelSolve"
+              >取消任务</el-button
+            >
           </div>
 
           <!-- 求解状态 -->
@@ -296,7 +301,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="taskId" label="操作" width="190" align="center">
+        <el-table-column prop="taskId" label="操作" width="220" align="center">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -305,9 +310,21 @@
               >查看详情</el-button
             >
             <el-button
+              v-if="isTaskCancellable(row.status)"
+              type="warning"
+              size="small"
+              :loading="historyCancelingTaskId === row.taskId"
+              :disabled="
+                historyCancelingTaskId !== null &&
+                historyCancelingTaskId !== row.taskId
+              "
+              @click="handleCancelHistoryTask(row)"
+              >取消</el-button
+            >
+            <el-button
+              v-else
               type="danger"
               size="small"
-              :disabled="!isTaskDeletable(row.status)"
               @click="handleDeleteTask(row)"
               >删除</el-button
             >
@@ -520,6 +537,8 @@ import {
 } from "../utils/solveLog.js";
 import {
   getDeleteAllResultMessage,
+  isDialogDismissed,
+  isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task.js";
 
@@ -586,6 +605,7 @@ const solveCandidates = ref([]);
 // 任务历史
 const taskHistory = ref([]);
 const historyLoading = ref(false);
+const historyCancelingTaskId = ref(null);
 const historyTaskName = ref("");
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
@@ -1296,36 +1316,46 @@ const pollTaskStatus = async (taskId, startTime) => {
 };
 
 const cancelSolve = async () => {
-  if (currentTaskId.value) {
-    try {
-      const res = await cancelTaskAPI(currentTaskId.value);
-      if (res?.success === false) {
-        ElMessage.warning(res?.message || "取消失败");
-        addLog(`取消失败：${res?.message || "取消失败"}`);
-        // 任务刚好完成时继续保留轮询，让完成分支回填结果。
-        if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
-          applyTerminalTaskStatus(res.taskStatus);
-          if (res.taskStatus === "completed") {
-            loadTaskHistory();
-            return;
-          }
-          solving.value = false;
-          currentTaskId.value = null;
-          loadTaskHistory();
-        }
-        return;
-      }
+  const taskId = currentTaskId.value;
+  if (!taskId || historyCancelingTaskId.value !== null) return;
 
-      ElMessage.success(res?.message || "任务已取消");
-      addLog("任务已取消");
-      solving.value = false;
-      statusClass.value = "status-fail";
-      statusText.value = "已取消";
-      currentTaskId.value = null;
-      loadTaskHistory();
-    } catch (error) {
+  historyCancelingTaskId.value = taskId;
+  try {
+    await confirmCancelTask();
+
+    const res = await cancelTaskAPI(taskId);
+    if (res?.success === false) {
+      ElMessage.warning(res?.message || "取消失败");
+      addLog(`取消失败：${res?.message || "取消失败"}`);
+      // 任务刚好完成时继续保留轮询，让完成分支回填结果。
+      if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
+        applyTerminalTaskStatus(res.taskStatus);
+        if (res.taskStatus === "completed") {
+          loadTaskHistory();
+          return;
+        }
+        solving.value = false;
+        currentTaskId.value = null;
+        loadTaskHistory();
+      }
+      return;
+    }
+
+    ElMessage.success(res?.message || "任务已取消");
+    addLog("任务已取消");
+    solving.value = false;
+    statusClass.value = "status-fail";
+    statusText.value = "已取消";
+    currentTaskId.value = null;
+    loadTaskHistory();
+  } catch (error) {
+    if (!isDialogDismissed(error)) {
       addLog("取消任务失败: " + error.message);
       ElMessage.error(error.message || "取消任务失败");
+    }
+  } finally {
+    if (historyCancelingTaskId.value === taskId) {
+      historyCancelingTaskId.value = null;
     }
   }
 };
@@ -1516,6 +1546,54 @@ const getStatusType = (status) => {
     cancelled: "info",
   };
   return types[status] || "info";
+};
+
+const confirmCancelTask = async (taskName = "") => {
+  const taskLabel = taskName ? `任务“${taskName}”` : "当前任务";
+  await ElMessageBox.confirm(
+    `确定要取消${taskLabel}吗？取消后任务将停止计算。`,
+    "确认取消任务",
+    {
+      confirmButtonText: "确定取消",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+  );
+};
+
+const handleCancelHistoryTask = async (row) => {
+  if (!isTaskCancellable(row.status)) {
+    ElMessage.warning("仅支持取消计算中的任务");
+    return;
+  }
+  if (historyCancelingTaskId.value !== null) return;
+
+  if (row.taskId === currentTaskId.value) {
+    await cancelSolve();
+    return;
+  }
+
+  historyCancelingTaskId.value = row.taskId;
+  try {
+    await confirmCancelTask(row.taskName);
+    const response = await cancelTaskAPI(row.taskId);
+    if (response?.success === false) {
+      ElMessage.warning(response?.message || "取消失败");
+      loadTaskHistory();
+      return;
+    }
+
+    ElMessage.success(response?.message || "任务已取消");
+    loadTaskHistory();
+  } catch (error) {
+    if (!isDialogDismissed(error)) {
+      ElMessage.error(error.message || "取消任务失败");
+    }
+  } finally {
+    if (historyCancelingTaskId.value === row.taskId) {
+      historyCancelingTaskId.value = null;
+    }
+  }
 };
 
 const formatDate = (timestamp) => {

@@ -1,7 +1,14 @@
 export const TERMINAL_TASK_STATUSES = ["completed", "failed", "cancelled"];
+export const CANCELLABLE_TASK_STATUSES = ["queued", "processing"];
 
 export const isTaskDeletable = (status) =>
   TERMINAL_TASK_STATUSES.includes(status);
+
+export const isTaskCancellable = (status) =>
+  CANCELLABLE_TASK_STATUSES.includes(status);
+
+export const isDialogDismissed = (error) =>
+  error === "cancel" || error === "close";
 
 export const getDeleteAllResultMessage = (
   deletedCount = 0,

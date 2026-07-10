@@ -127,7 +127,7 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          width="180"
+          width="210"
           align="center"
         >
           <template #default="{ row }">
@@ -139,9 +139,17 @@
                 >查看</el-button
               >
               <el-button
+                v-if="isTaskCancellable(row.status)"
+                size="small"
+                type="warning"
+                :loading="cancelingTaskId === row.taskId"
+                @click.stop="cancelTask(row)"
+                >取消</el-button
+              >
+              <el-button
+                v-else
                 size="small"
                 type="danger"
-                :disabled="!isTaskDeletable(row.status)"
                 @click.stop="deleteTask(row)"
                 >删除</el-button
               >
@@ -167,13 +175,39 @@
     <el-card class="quota-panel-card">
       <div class="quota-panel">
         <div class="quota-panel-header">
-          <div class="quota-panel-title">计算额度</div>
-          <el-button type="primary" @click="loadQuotaSummary(true)"
-            >刷新额度</el-button
+          <div class="quota-panel-heading">
+            <div class="quota-panel-title">计算额度</div>
+            <div
+              class="quota-panel-status"
+              :class="{
+                'is-updating': quotaLoading,
+                'is-error': quotaError && !quotaLoading,
+              }"
+              aria-live="polite"
+              data-testid="quota-refresh-status"
+            >
+              <span class="quota-status-dot"></span>
+              <span>{{ quotaStatusText }}</span>
+            </div>
+          </div>
+          <el-button
+            class="quota-refresh-button"
+            type="primary"
+            :loading="quotaLoading"
+            :disabled="quotaLoading"
+            data-testid="quota-refresh-button"
+            @click="loadQuotaSummary(true)"
+          >
+            <el-icon v-if="!quotaLoading"><Refresh /></el-icon>
+            <span>{{ quotaLoading ? "刷新中" : "刷新额度" }}</span>
+          </el-button
           >
         </div>
 
-        <div class="quota-row">
+        <div
+          class="quota-row"
+          :class="{ 'quota-row--refreshing': quotaLoading }"
+        >
           <div
             v-for="card in quotaCards"
             :key="card.key"
@@ -375,15 +409,19 @@
 <script setup>
 import { computed, ref, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { Refresh } from "@element-plus/icons-vue";
 import {
   getTaskHistory,
   getTaskQuota,
+  cancelTask as cancelTaskAPI,
   deleteTask as deleteTaskAPI,
   deleteTasksByFilter as deleteTasksByFilterAPI,
   getTaskStatus,
 } from "../api/index.js";
 import {
   getDeleteAllResultMessage,
+  isDialogDismissed,
+  isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task.js";
 import { formatCandidateValue } from "../utils/format.js";
@@ -400,6 +438,7 @@ const taskDetailVisible = ref(false);
 const selectedTask = ref(null);
 const taskDetailResults = ref(null);
 const historyLoading = ref(false);
+const cancelingTaskId = ref(null);
 const appliedTaskFilters = ref({
   taskName: "",
   modelType: "",
@@ -407,6 +446,12 @@ const appliedTaskFilters = ref({
 });
 const modelTypeOptions = ["classic", "sim", "cloud"];
 const quotaSummary = ref(null);
+const quotaLoading = ref(false);
+const quotaError = ref("");
+const quotaLastUpdatedAt = ref(null);
+let quotaRefreshPromise = null;
+let quotaRefreshQueued = false;
+let quotaFeedbackRequested = false;
 const problemTypeOptions = [
   { value: "maxcut", label: "图分割问题" },
   { value: "number_partition", label: "数分问题" },
@@ -469,25 +514,56 @@ const loadTasks = async (params = {}) => {
   }
 };
 
-const loadQuotaSummary = async (showError = false) => {
+const requestQuotaSummary = async () => {
+  quotaError.value = "";
   try {
     const response = await getTaskQuota();
-    if (response.success && response.data) {
-      quotaSummary.value = response.data.quotaSummary || null;
-      return;
+    if (response.success && response.data?.quotaSummary) {
+      quotaSummary.value = response.data.quotaSummary;
+      quotaLastUpdatedAt.value = new Date();
+      return true;
     }
 
-    quotaSummary.value = null;
-    if (showError) {
-      ElMessage.error(response.message || "加载额度失败");
-    }
+    quotaError.value = response.message || "加载额度失败";
   } catch (error) {
     console.error("加载额度失败:", error);
-    quotaSummary.value = null;
-    if (showError) {
-      ElMessage.error(error.message || "加载额度失败");
-    }
+    quotaError.value = error.message || "加载额度失败";
   }
+  return false;
+};
+
+const loadQuotaSummary = (showFeedback = false) => {
+  quotaFeedbackRequested = quotaFeedbackRequested || showFeedback;
+  if (quotaRefreshPromise) {
+    quotaRefreshQueued = true;
+    return quotaRefreshPromise;
+  }
+
+  quotaLoading.value = true;
+  const runRefreshQueue = async () => {
+    let refreshed;
+    do {
+      quotaRefreshQueued = false;
+      refreshed = await requestQuotaSummary();
+    } while (quotaRefreshQueued);
+
+    if (quotaFeedbackRequested) {
+      if (refreshed) {
+        ElMessage.success("额度已更新");
+      } else {
+        ElMessage.error(quotaError.value || "加载额度失败");
+      }
+    }
+    return refreshed;
+  };
+
+  quotaRefreshPromise = runRefreshQueue().finally(() => {
+    quotaRefreshPromise = null;
+    quotaRefreshQueued = false;
+    quotaFeedbackRequested = false;
+    quotaLoading.value = false;
+  });
+  return quotaRefreshPromise;
 };
 
 const handlePageSizeChange = (size) => {
@@ -544,6 +620,49 @@ const viewTask = async (task) => {
   } catch (error) {
     console.error("获取任务详情失败:", error);
     ElMessage.error(error.message || "获取任务详情失败");
+  }
+};
+
+const confirmCancelTask = async (taskName = "") => {
+  const taskLabel = taskName ? `任务“${taskName}”` : "该任务";
+  await ElMessageBox.confirm(
+    `确定要取消${taskLabel}吗？取消后任务将停止计算。`,
+    "确认取消任务",
+    {
+      confirmButtonText: "确定取消",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+  );
+};
+
+const cancelTask = async (task) => {
+  if (!isTaskCancellable(task.status)) {
+    ElMessage.warning("仅支持取消计算中的任务");
+    return;
+  }
+
+  try {
+    await confirmCancelTask(task.taskName);
+    cancelingTaskId.value = task.taskId;
+    const response = await cancelTaskAPI(task.taskId);
+    if (response?.success === false) {
+      ElMessage.warning(response?.message || "取消失败");
+      if (isTaskDeletable(response?.taskStatus)) {
+        await Promise.all([loadTasks(), loadQuotaSummary()]);
+      }
+      return;
+    }
+
+    await Promise.all([loadTasks(), loadQuotaSummary()]);
+    ElMessage.success(response?.message || "任务已取消");
+  } catch (error) {
+    if (!isDialogDismissed(error)) {
+      console.error("取消任务失败:", error);
+      ElMessage.error(error.message || "取消任务失败");
+    }
+  } finally {
+    cancelingTaskId.value = null;
   }
 };
 
@@ -658,11 +777,34 @@ const getModelTypeText = (type) => {
   return modelTypeMap[type] ?? type;
 };
 
+const quotaStatusText = computed(() => {
+  if (quotaLoading.value) {
+    return quotaSummary.value
+      ? "正在同步最新额度，当前数据仍可查看"
+      : "正在获取额度数据";
+  }
+  if (quotaError.value) {
+    return quotaSummary.value
+      ? "刷新失败，当前显示上次数据"
+      : "额度加载失败，请重试";
+  }
+  if (quotaLastUpdatedAt.value) {
+    return `最近更新 ${quotaLastUpdatedAt.value.toLocaleTimeString("zh-CN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    })}`;
+  }
+  return "展示各计算模型当前可用额度";
+});
+
 const quotaCards = computed(() =>
   modelTypeOptions.map((type) => {
     const quotaData = quotaSummary.value?.models?.[type] || {};
     const total = quotaData.default || quotaSummary.value?.defaultQuota || 50;
-    const available = quotaData.available ?? 0;
+    const hasAvailable = Number.isFinite(Number(quotaData.available));
+    const available = hasAvailable ? Number(quotaData.available) : "--";
     const pending = quotaData.pending ?? 0;
 
     return {
@@ -671,7 +813,10 @@ const quotaCards = computed(() =>
       total,
       available,
       pending,
-      percentage: total > 0 ? Math.round((available / total) * 100) : 0,
+      percentage:
+        hasAvailable && total > 0
+          ? Math.min(Math.max(Math.round((Number(available) / total) * 100), 0), 100)
+          : 0,
       colors: quotaColorMap[type] || ["#5b6ef6", "#60dbe8"],
       accentColor: (quotaColorMap[type] || ["#5b6ef6"])[0],
     };
@@ -807,13 +952,65 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
+.quota-panel-heading {
+  min-width: 0;
+}
+
 .quota-panel-title {
   font-size: 16px;
   font-weight: 600;
   color: #1f2937;
 }
 
+.quota-panel-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 7px;
+  color: #7b879c;
+  font-size: 12px;
+  line-height: 1.4;
+  transition: color 0.2s ease;
+}
+
+.quota-status-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #9aabc4;
+  box-shadow: 0 0 0 3px rgba(154, 171, 196, 0.12);
+}
+
+.quota-panel-status.is-updating {
+  color: #2878e5;
+}
+
+.quota-panel-status.is-updating .quota-status-dot {
+  background: #409eff;
+  box-shadow: 0 0 0 4px rgba(64, 158, 255, 0.13);
+  animation: quota-status-pulse 1.4s ease-in-out infinite;
+}
+
+.quota-panel-status.is-error {
+  color: #c45656;
+}
+
+.quota-panel-status.is-error .quota-status-dot {
+  background: #f56c6c;
+  box-shadow: 0 0 0 3px rgba(245, 108, 108, 0.12);
+}
+
+.quota-refresh-button {
+  min-width: 112px;
+}
+
+.quota-refresh-button :deep(.el-icon) {
+  margin-right: 6px;
+}
+
 .quota-row {
+  position: relative;
   display: flex;
   gap: 14px;
 }
@@ -824,6 +1021,8 @@ onMounted(() => {
 }
 
 .quota-card {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -834,6 +1033,29 @@ onMounted(() => {
   background: #ffffff;
   border: 1px solid rgba(232, 237, 248, 0.95);
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.quota-row--refreshing .quota-card {
+  border-color: rgba(64, 158, 255, 0.28);
+  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.08);
+}
+
+.quota-row--refreshing .quota-card::after {
+  position: absolute;
+  top: 0;
+  left: -36%;
+  width: 36%;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(64, 158, 255, 0),
+    rgba(64, 158, 255, 0.9),
+    rgba(96, 219, 232, 0)
+  );
+  content: "";
+  animation: quota-refresh-scan 1.35s ease-in-out infinite;
 }
 
 .quota-card-label {
@@ -884,6 +1106,64 @@ onMounted(() => {
 .quota-progress-text span {
   font-size: 12px;
   color: #9ca3af;
+}
+
+@keyframes quota-status-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.76);
+    opacity: 0.65;
+  }
+}
+
+@keyframes quota-refresh-scan {
+  from {
+    left: -36%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .quota-row {
+    flex-wrap: wrap;
+  }
+
+  .quota-item {
+    flex: 1 1 calc(50% - 7px);
+    min-width: 260px;
+  }
+}
+
+@media (max-width: 620px) {
+  .quota-panel-header {
+    align-items: flex-start;
+  }
+
+  .quota-panel-status {
+    max-width: 210px;
+  }
+
+  .quota-refresh-button {
+    min-width: 104px;
+  }
+
+  .quota-item {
+    flex-basis: 100%;
+    min-width: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quota-panel-status.is-updating .quota-status-dot,
+  .quota-row--refreshing .quota-card::after {
+    animation: none;
+  }
 }
 
 .task-name-text {
