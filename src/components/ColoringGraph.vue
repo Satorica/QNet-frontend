@@ -22,8 +22,8 @@
         :cy="node.y"
         :r="nodeRadius"
         :fill="getNodeColor(node.id)"
-        :stroke="isSelected(node.id) ? '#4050F8' : '#FFFFFF'"
-        :stroke-width="isSelected(node.id) ? 4 : 2"
+        :stroke="isSelected(node.id) ? '#4050F8' : getNodeStrokeColor(node.id)"
+        :stroke-width="isSelected(node.id) ? 4 : (hasColor(node.id) ? 2 : 3)"
         :class="{ clickable: editable }"
         @click="handleNodeClick(node.id)"
       />
@@ -82,11 +82,17 @@ const emit = defineEmits(['node-click', 'node-color'])
 const graphContainer = ref(null)
 const width = 400
 const height = 360
-const nodeRadius = 16
+const nodeRadius = 12
 
 const getNodeColor = (nodeId) => {
   const colorIndex = props.coloring[nodeId]
-  return colorIndex !== undefined ? props.colors[colorIndex] || '#E0E0E0' : '#E0E0E0'
+  return colorIndex !== undefined ? props.colors[colorIndex] || '#E0E0E0' : '#B0B0B0'
+}
+
+const hasColor = (nodeId) => props.coloring[nodeId] !== undefined
+
+const getNodeStrokeColor = (nodeId) => {
+  return hasColor(nodeId) ? '#FFFFFF' : '#909090'
 }
 
 const isSelected = (nodeId) => {

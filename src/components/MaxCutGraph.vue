@@ -91,7 +91,7 @@ const emit = defineEmits(["node-click"]);
 const graphContainer = ref(null);
 const width = 400;
 const height = 360;
-const nodeRadius = 18;
+const nodeRadius = 12;
 
 // 根据分区着色 - 使用更鲜明的颜色
 const getNodeColor = (nodeId) => {

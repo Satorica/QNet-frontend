@@ -703,14 +703,63 @@ const applyTerminalTaskStatus = (taskStatus) => {
   }
 };
 
-// 方法
-const generateGraph = () => {
-  // 生成节点布局
-  nodes.value = Array.from({ length: nodeCount.value }, (_, i) => ({
+const GRAPH_WIDTH = 400;
+const GRAPH_HEIGHT = 360;
+const NODE_RADIUS = 12;
+const NODE_MARGIN = NODE_RADIUS + 8;
+
+const createCircleLayout = () =>
+  Array.from({ length: nodeCount.value }, (_, i) => ({
     id: i,
     x: 200 + 150 * Math.cos((2 * Math.PI * i) / nodeCount.value),
     y: 180 + 150 * Math.sin((2 * Math.PI * i) / nodeCount.value),
   }));
+
+const createRandomLayout = () => {
+  const innerWidth = GRAPH_WIDTH - NODE_MARGIN * 2;
+  const innerHeight = GRAPH_HEIGHT - NODE_MARGIN * 2;
+  const columns = Math.max(
+    1,
+    Math.ceil(Math.sqrt((nodeCount.value * innerWidth) / innerHeight))
+  );
+  const rows = Math.ceil(nodeCount.value / columns);
+  const cellWidth = innerWidth / columns;
+  const cellHeight = innerHeight / rows;
+  // 预留悬停放大到 18px 后与相邻节点及描边的安全距离。
+  const minNodeGap = NODE_RADIUS * 2 + 10;
+  const jitterX = Math.max(0, (cellWidth - minNodeGap) / 2);
+  const jitterY = Math.max(0, (cellHeight - minNodeGap) / 2);
+  const slots = Array.from({ length: nodeCount.value }, (_, index) => index);
+
+  for (let index = slots.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [slots[index], slots[swapIndex]] = [slots[swapIndex], slots[index]];
+  }
+
+  // 与小程序一致：随机排序的网格加受限扰动，既随机又不重叠。
+  return Array.from({ length: nodeCount.value }, (_, id) => {
+    const slot = slots[id];
+    const row = Math.floor(slot / columns);
+    const col = slot % columns;
+    return {
+      id,
+      x:
+        NODE_MARGIN +
+        (col + 0.5) * cellWidth +
+        (Math.random() * 2 - 1) * jitterX,
+      y:
+        NODE_MARGIN +
+        (row + 0.5) * cellHeight +
+        (Math.random() * 2 - 1) * jitterY,
+    };
+  });
+};
+
+// 方法
+const generateGraph = () => {
+  // 随机图同时随机拓扑和节点坐标；其他图保持稳定的规则布局。
+  nodes.value =
+    graphType.value === "random" ? createRandomLayout() : createCircleLayout();
 
   // 按图类型生成边
   edges.value = [];
@@ -892,6 +941,9 @@ const generateRandomMatrix = () => {
   adjacencyMatrix.value = newMatrix;
   // 覆盖图结构
   syncEdgesFromMatrix();
+  if (graphType.value === "random") {
+    nodes.value = createRandomLayout();
+  }
   // 清除颜色结果
   coloring.value = {};
   addLog("随机生成邻接矩阵并覆盖当前图结构");
@@ -1027,11 +1079,8 @@ const toggleMatrixCell = (i, j) => {
 };
 
 const rebuildNodesLayout = () => {
-  nodes.value = Array.from({ length: nodeCount.value }, (_, i) => ({
-    id: i,
-    x: 200 + 150 * Math.cos((2 * Math.PI * i) / nodeCount.value),
-    y: 180 + 150 * Math.sin((2 * Math.PI * i) / nodeCount.value),
-  }));
+  nodes.value =
+    graphType.value === "random" ? createRandomLayout() : createCircleLayout();
 };
 
 const handleDeleteTask = async (row) => {

@@ -153,9 +153,10 @@ const routeSegments = computed(() => {
   const route = Array.isArray(props.bestRoute) ? props.bestRoute : [];
   const result = [];
 
-  for (let index = 0; index < route.length - 1; index++) {
+  for (let index = 0; index < route.length; index++) {
     const from = route[index];
-    const to = route[index + 1];
+    // TSP 路径是闭环：最后一个城市需要回到首个城市。
+    const to = route[(index + 1) % route.length];
     const fromCity = getCityById(from);
     const toCity = getCityById(to);
     if (!fromCity || !toCity) continue;
