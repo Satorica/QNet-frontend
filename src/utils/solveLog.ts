@@ -6,10 +6,10 @@ const IMPORTANT_LOG_PATTERN =
 const formatLogTime = () =>
   new Date().toLocaleTimeString("zh-CN", { hour12: false });
 
-export const createSolveLogController = (logs) => {
+export const createSolveLogController = (logs: Ref<string[]>) => {
   let lastProgressLogState = "";
 
-  const addLog = (message) => {
+  const addLog = (message: string) => {
     if (!IMPORTANT_LOG_PATTERN.test(message)) return;
     logs.value.unshift(`${formatLogTime()} - ${message}`);
     if (logs.value.length > SOLVE_LOG_LIMIT) {
@@ -17,13 +17,16 @@ export const createSolveLogController = (logs) => {
     }
   };
 
-  const resetSolveLogs = (message) => {
+  const resetSolveLogs = (message: string) => {
     logs.value = [];
     lastProgressLogState = "";
     addLog(message);
   };
 
-  const addTaskProgressLog = (state, queuePosition) => {
+  const addTaskProgressLog = (
+    state: Extract<TaskStatus, "queued" | "processing">,
+    queuePosition?: number,
+  ) => {
     const logKey = `${state}:${queuePosition || ""}`;
     if (lastProgressLogState === logKey) return;
     lastProgressLogState = logKey;
@@ -40,3 +43,5 @@ export const createSolveLogController = (logs) => {
     addTaskProgressLog,
   };
 };
+import type { Ref } from "vue";
+import type { TaskStatus } from "../types/api";

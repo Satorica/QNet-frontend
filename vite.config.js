@@ -19,9 +19,11 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       AutoImport({
+        dts: false,
         resolvers: [ElementPlusResolver()],
       }),
       Components({
+        dts: "components.d.ts",
         resolvers: [ElementPlusResolver()],
       }),
     ],

@@ -1,11 +1,18 @@
 import { ElMessage, ElNotification } from 'element-plus'
-import { authApi } from '../api/auth.js'
+import axios from 'axios'
+import { authApi } from '../api/auth'
+import type { UserInfo } from '../types/api'
+
+export type SafeUserInfo = Pick<
+    UserInfo,
+    'id' | 'username' | 'maskedEmail' | 'maskedPhone' | 'is_verified' | 'status'
+>
 
 const USER_INFO_STORAGE_KEY = 'userInfo'
 const LOGIN_STATE_STORAGE_KEY = 'isLoggedIn'
 const REMEMBER_ME_STORAGE_KEY = 'rememberMe'
 
-const toSafeUserInfo = (userInfo = {}) => ({
+const toSafeUserInfo = (userInfo: UserInfo): SafeUserInfo => ({
     id: userInfo.id,
     username: userInfo.username,
     maskedEmail: userInfo.maskedEmail,
@@ -14,17 +21,17 @@ const toSafeUserInfo = (userInfo = {}) => ({
     status: userInfo.status,
 })
 
-const removeAuthState = (storage) => {
+const removeAuthState = (storage: Storage): void => {
     storage.removeItem(USER_INFO_STORAGE_KEY)
     storage.removeItem(LOGIN_STATE_STORAGE_KEY)
 }
 
-const readStoredUserInfo = (storage) => {
+const readStoredUserInfo = (storage: Storage): UserInfo | null => {
     const raw = storage.getItem(USER_INFO_STORAGE_KEY)
     if (!raw) return null
 
     try {
-        return JSON.parse(raw)
+        return JSON.parse(raw) as UserInfo
     } catch {
         storage.removeItem(USER_INFO_STORAGE_KEY)
         return null
@@ -42,8 +49,8 @@ export const tokenManager = {
             }
             tokenManager.clearTokens()
             return false
-        } catch (error) {
-            if ([401, 403].includes(error.response?.status)) {
+        } catch (error: unknown) {
+            if (axios.isAxiosError(error) && [401, 403].includes(error.response?.status ?? 0)) {
                 tokenManager.clearTokens()
             } else {
                 console.error('Token verification failed:', error)
@@ -60,7 +67,7 @@ export const tokenManager = {
 }
 
 export const userManager = {
-    setUserInfo: (userInfo, remember = false) => {
+    setUserInfo: (userInfo: UserInfo, remember = false): void => {
         const storage = remember ? localStorage : sessionStorage
         const safeUserInfo = toSafeUserInfo(userInfo)
 
@@ -97,7 +104,7 @@ export const userManager = {
     logout: async () => {
         try {
             await authApi.logout()
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Logout request failed:', error)
         }
         tokenManager.clearTokens()
@@ -105,7 +112,7 @@ export const userManager = {
 }
 
 export const notificationManager = {
-    showCodeNotification: (type, code) => {
+    showCodeNotification: (type: "email" | "phone", code: string): void => {
         const message = type === 'email'
             ? `邮箱验证码: ${code}`
             : `手机验证码: ${code}`
@@ -120,11 +127,11 @@ export const notificationManager = {
         })
     },
 
-    showSuccessNotification: (message) => {
+    showSuccessNotification: (message: string): void => {
         ElMessage.success(message)
     },
 
-    showErrorNotification: (message) => {
+    showErrorNotification: (message: string): void => {
         ElMessage.error(message)
     }
 }

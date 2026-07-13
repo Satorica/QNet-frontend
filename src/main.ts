@@ -5,8 +5,8 @@ import 'element-plus/dist/index.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 import App from './App.vue'
-import routes from './router/index.js'
-import { setupRouterGuards } from './router/guards.js'
+import routes from './router/index'
+import { setupRouterGuards } from './router/guards'
 
 const app = createApp(App)
 
@@ -27,4 +27,4 @@ app.use(ElementPlus, {
 
 app.mount('#app')
 
-// HMR trigger: ensure latest file with mount is served 
+// HMR trigger: ensure latest file with mount is served

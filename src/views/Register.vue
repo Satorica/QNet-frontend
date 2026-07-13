@@ -231,21 +231,24 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, computed, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
-import { authApi } from "../api/auth.js";
-import { EMAIL_REGEX } from "../utils/validation.js";
-// import { notificationManager } from "../utils/auth.js"; // 手机号注册暂未启用
+import { ElMessage, type FormInstance } from "element-plus";
+import { authApi } from "../api/auth";
+import { EMAIL_REGEX } from "../utils/validation";
+import { getErrorMessage } from "../utils/error";
+import type { RegisterRequest } from "../types/api";
+// import { notificationManager } from "../utils/auth"; // 手机号注册暂未启用
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,16}$/;
+type ValidatorCallback = (error?: Error) => void;
 
 const router = useRouter();
-const registerFormRef = ref(null);
+const registerFormRef = ref<FormInstance>();
 const loading = ref(false);
 const legalDialogVisible = ref(false);
-const legalDocumentType = ref("terms");
+const legalDocumentType = ref<keyof typeof LEGAL_DOCUMENTS>("terms");
 
 const LEGAL_DOCUMENTS = {
   terms: {
@@ -274,13 +277,13 @@ const activeLegalDocument = computed(
   () => LEGAL_DOCUMENTS[legalDocumentType.value]
 );
 
-const openLegalDocument = (type) => {
+const openLegalDocument = (type: keyof typeof LEGAL_DOCUMENTS) => {
   legalDocumentType.value = type;
   legalDialogVisible.value = true;
 };
 
 // 注册方式（手机号注册暂未启用，固定为邮箱）
-const registerType = ref("email");
+const registerType = ref<"email">("email");
 // const translatedRegisterOptions = computed(() => [
 //   { label: t("register.type.email"), value: "email" },
 //   { label: t("register.type.phone"), value: "phone" },
@@ -319,7 +322,7 @@ const emailCodeText = computed(() => {
 // });
 
 // 表单验证规则
-const validateUsername = (rule, value, callback) => {
+const validateUsername = (_rule: unknown, value: string, callback: ValidatorCallback) => {
   if (!value) {
     callback(new Error("请输入用户名"));
   } else if (!/^[a-zA-Z0-9_]{3,20}$/.test(value)) {
@@ -329,7 +332,7 @@ const validateUsername = (rule, value, callback) => {
   }
 };
 
-const validateEmail = (rule, value, callback) => {
+const validateEmail = (_rule: unknown, value: string, callback: ValidatorCallback) => {
   if (registerType.value === "email") {
     if (!value) {
       callback(new Error("请输入邮箱地址"));
@@ -358,7 +361,7 @@ const validateEmail = (rule, value, callback) => {
 //   }
 // };
 
-const validateCode = (rule, value, callback) => {
+const validateCode = (_rule: unknown, _value: string, callback: ValidatorCallback) => {
   if (!registerForm.emailCode) {
     callback(new Error("请输入验证码"));
   } else {
@@ -366,7 +369,7 @@ const validateCode = (rule, value, callback) => {
   }
 };
 
-const validatePassword = (rule, value, callback) => {
+const validatePassword = (_rule: unknown, value: string, callback: ValidatorCallback) => {
   if (!value) {
     callback(new Error("请输入密码"));
   } else if (!PASSWORD_REGEX.test(value)) {
@@ -376,7 +379,7 @@ const validatePassword = (rule, value, callback) => {
   }
 };
 
-const validateConfirmPassword = (rule, value, callback) => {
+const validateConfirmPassword = (_rule: unknown, value: string, callback: ValidatorCallback) => {
   if (!value) {
     callback(new Error("请再次输入密码"));
   } else if (value !== registerForm.password) {
@@ -386,7 +389,7 @@ const validateConfirmPassword = (rule, value, callback) => {
   }
 };
 
-const validateAgree = (rule, value, callback) => {
+const validateAgree = (_rule: unknown, value: boolean, callback: ValidatorCallback) => {
   if (!value) {
     callback(new Error("请阅读并同意用户协议和隐私政策"));
   } else {
@@ -405,16 +408,16 @@ const registerRules = computed(() => ({
   agree: [{ validator: validateAgree, trigger: "change" }],
 }));
 
-let emailCodeTimer = null;
+let emailCodeTimer: ReturnType<typeof setInterval> | null = null;
 // let phoneCodeTimer = null; // 手机号注册暂未启用
 
 const startEmailCodeCountdown = () => {
-  clearInterval(emailCodeTimer);
+  if (emailCodeTimer) clearInterval(emailCodeTimer);
   emailCodeCountdown.value = 60;
   emailCodeTimer = setInterval(() => {
     emailCodeCountdown.value--;
     if (emailCodeCountdown.value <= 0) {
-      clearInterval(emailCodeTimer);
+      if (emailCodeTimer) clearInterval(emailCodeTimer);
       emailCodeTimer = null;
       emailCodeDisabled.value = false;
     }
@@ -436,7 +439,7 @@ const startEmailCodeCountdown = () => {
 // };
 
 onBeforeUnmount(() => {
-  clearInterval(emailCodeTimer);
+  if (emailCodeTimer) clearInterval(emailCodeTimer);
   // clearInterval(phoneCodeTimer); // 手机号注册暂未启用
 });
 
@@ -471,9 +474,7 @@ const sendEmailCode = async () => {
       ElMessage.error(response.message || "发送验证码失败");
     }
   } catch (error) {
-    ElMessage.error(
-      error.response?.data?.message || "发送验证码失败"
-    );
+    ElMessage.error(getErrorMessage(error, "发送验证码失败"));
     emailCodeDisabled.value = false;
   } finally {
     emailCodeLoading.value = false;
@@ -528,17 +529,13 @@ const handleRegister = async () => {
 
       try {
         // 准备注册数据
-        const registerData = {
+        const registerData: RegisterRequest = {
           username: registerForm.username,
           password: registerForm.password,
-          register_type: registerType.value, // 后端期望 register_type
+          register_type: registerType.value,
+          email: registerForm.email,
+          code: registerForm.emailCode,
         };
-
-        // 根据注册方式添加相应字段（手机号注册暂未启用，固定为邮箱）
-        if (registerType.value === "email") {
-          registerData.email = registerForm.email;
-          registerData.code = registerForm.emailCode; // 后端期望 code 字段
-        }
         // else {                                      // 手机号注册暂未启用
         //   registerData.phone = registerForm.phone;
         //   registerData.code = registerForm.phoneCode;
@@ -559,15 +556,13 @@ const handleRegister = async () => {
         }
       } catch (error) {
         console.error("Register error:", error);
-        ElMessage.error(
-          error.response?.data?.message || "注册失败，请检查网络连接"
-        );
+        ElMessage.error(getErrorMessage(error, "注册失败，请检查网络连接"));
       } finally {
         loading.value = false;
       }
     } else {
       ElMessage.error("请正确填写表单");
-      return false;
+      return;
     }
   });
 };

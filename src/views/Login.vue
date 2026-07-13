@@ -96,16 +96,17 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, computed } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, type FormInstance } from "element-plus";
 import { User, Lock } from "@element-plus/icons-vue";
-import { authApi } from "../api/auth.js";
-import { userManager } from "../utils/auth.js";
+import { authApi } from "../api/auth";
+import { userManager } from "../utils/auth";
+import { getErrorMessage } from "../utils/error";
 
 const router = useRouter();
-const loginFormRef = ref(null);
+const loginFormRef = ref<FormInstance>();
 const loading = ref(false);
 
 // 登录表单数据
@@ -150,7 +151,7 @@ const handleLogin = async () => {
           loginForm.remember
         );
 
-        if (response.success) {
+        if (response.success && response.data?.user) {
           // Token 已由后端通过 HttpOnly Cookie 写入，前端只缓存展示用的用户信息
           const remember = loginForm.remember;
           if (remember) localStorage.setItem("rememberMe", "true");
@@ -173,15 +174,13 @@ const handleLogin = async () => {
         }
       } catch (error) {
         console.error("Login error:", error);
-        ElMessage.error(
-          error.response?.data?.message || "登录失败，请检查网络连接"
-        );
+        ElMessage.error(getErrorMessage(error, "登录失败，请检查网络连接"));
       } finally {
         loading.value = false;
       }
     } else {
       ElMessage.error("请正确填写表单");
-      return false;
+      return;
     }
   });
 };
@@ -388,4 +387,3 @@ const goToForgotPassword = () => {
   }
 }
 </style>
-

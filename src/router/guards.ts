@@ -1,8 +1,9 @@
-import { tokenManager, userManager } from "../utils/auth.js";
+import { tokenManager, userManager } from "../utils/auth";
+import type { Router } from "vue-router";
 
 const AUTH_PATHS = new Set(["/login", "/register", "/forgot-password"]);
 let serverSessionVerified = false;
-let verificationPromise = null;
+let verificationPromise: Promise<boolean> | null = null;
 
 const verifyServerSession = () => {
   if (serverSessionVerified && userManager.isLoggedIn()) {
@@ -25,7 +26,7 @@ const verifyServerSession = () => {
 };
 
 // 路由守卫配置
-export const setupRouterGuards = (router) => {
+export const setupRouterGuards = (router: Router): void => {
   // 全局前置守卫
   router.beforeEach(async (to) => {
     // 检查是否需要认证的页面

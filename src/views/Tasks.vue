@@ -352,7 +352,7 @@
             >
               <div class="candidate-header">
                 <span class="candidate-rank"
-                  >候选解 {{ candidate.rank || index + 1 }}</span
+                  >候选解 {{ candidate.rank || Number(index) + 1 }}</span
                 >
                 <span class="candidate-value"
                   >目标值：{{ formatCandidateValue(candidate.value) }}</span
@@ -407,7 +407,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
@@ -418,40 +418,57 @@ import {
   deleteTask as deleteTaskAPI,
   deleteTasksByFilter as deleteTasksByFilterAPI,
   getTaskStatus,
-} from "../api/index.js";
+} from "../api";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
   isTaskCancellable,
   isTaskDeletable,
-} from "../utils/task.js";
-import { formatCandidateValue } from "../utils/format.js";
-import { createLatestRequestGuard } from "../utils/asyncScope.js";
+} from "../utils/task";
+import { formatCandidateValue } from "../utils/format";
+import { createLatestRequestGuard } from "../utils/asyncScope";
+import { getErrorMessage } from "../utils/error";
+import type {
+  ModelType,
+  ProblemType,
+  QuotaSummary,
+  TaskHistoryItem,
+  TaskHistoryParams,
+  TaskResults,
+  TaskStatus,
+} from "../types/api";
+type TagType = "success" | "primary" | "warning" | "info" | "danger";
 
 // 响应式数据
-const tasks = ref([]);
+const tasks = ref<TaskHistoryItem[]>([]);
+interface TaskFilterState {
+  taskName: string;
+  modelType: ModelType | "";
+  problemType: ProblemType | "";
+}
+
 const taskName = ref("");
-const modelType = ref("");
-const problemType = ref("");
+const modelType = ref<ModelType | "">("");
+const problemType = ref<ProblemType | "">("");
 const currentPage = ref(1);
 const pageSize = ref(10);
 const total = ref(0);
 const taskDetailVisible = ref(false);
-const selectedTask = ref(null);
-const taskDetailResults = ref(null);
+const selectedTask = ref<TaskHistoryItem | null>(null);
+const taskDetailResults = ref<TaskResults | null>(null);
 const historyLoading = ref(false);
-const cancelingTaskId = ref(null);
-const appliedTaskFilters = ref({
+const cancelingTaskId = ref<string | null>(null);
+const appliedTaskFilters = ref<TaskFilterState>({
   taskName: "",
   modelType: "",
   problemType: "",
 });
-const modelTypeOptions = ["classic", "sim", "cloud"];
-const quotaSummary = ref(null);
+const modelTypeOptions: ModelType[] = ["classic", "sim", "cloud"];
+const quotaSummary = ref<QuotaSummary | null>(null);
 const quotaLoading = ref(false);
 const quotaError = ref("");
-const quotaLastUpdatedAt = ref(null);
-let quotaRefreshPromise = null;
+const quotaLastUpdatedAt = ref<Date | null>(null);
+let quotaRefreshPromise: Promise<boolean> | null = null;
 let quotaRefreshQueued = false;
 let quotaFeedbackRequested = false;
 const taskHistoryRequestGuard = createLatestRequestGuard();
@@ -462,17 +479,17 @@ const problemTypeOptions = [
   { value: "coloring", label: "图着色问题" },
   { value: "tsp", label: "旅行商问题" },
 ];
-const quotaColorMap = {
-  classic: ["#ff9966", "#60dbe8"],
-  sim: ["#5b6ef6", "#60dbe8"],
-  cloud: ["#ffb85c", "#60dbe8"],
+const quotaColorMap: Record<ModelType, Array<{ color: string; percentage: number }>> = {
+  classic: [{ color: "#ff9966", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
+  sim: [{ color: "#5b6ef6", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
+  cloud: [{ color: "#ffb85c", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
 };
 
 // 方法
-const normalizeTaskFilters = (filters = {}) => ({
+const normalizeTaskFilters = (filters: Partial<TaskFilterState> = {}): TaskFilterState => ({
   taskName: (filters.taskName ?? "").trim(),
-  modelType: (filters.modelType ?? "").trim(),
-  problemType: (filters.problemType ?? "").trim(),
+  modelType: (filters.modelType ?? "") as ModelType | "",
+  problemType: (filters.problemType ?? "") as ProblemType | "",
 });
 
 const compactTaskFilters = (filters = {}) => {
@@ -482,7 +499,7 @@ const compactTaskFilters = (filters = {}) => {
   );
 };
 
-const loadTasks = async (params = {}) => {
+const loadTasks = async (params: TaskHistoryParams = {}) => {
   const requestId = taskHistoryRequestGuard.begin();
   const requestFilters = normalizeTaskFilters({
     taskName: params.taskName ?? appliedTaskFilters.value.taskName,
@@ -515,7 +532,7 @@ const loadTasks = async (params = {}) => {
     console.error("加载任务失败:", error);
     tasks.value = [];
     total.value = 0;
-    ElMessage.error(error.message || "加载任务失败");
+    ElMessage.error(getErrorMessage(error, "加载任务失败"));
   } finally {
     if (taskHistoryRequestGuard.isLatest(requestId)) {
       historyLoading.value = false;
@@ -536,7 +553,7 @@ const requestQuotaSummary = async () => {
     quotaError.value = response.message || "加载额度失败";
   } catch (error) {
     console.error("加载额度失败:", error);
-    quotaError.value = error.message || "加载额度失败";
+    quotaError.value = getErrorMessage(error, "加载额度失败");
   }
   return false;
 };
@@ -575,7 +592,7 @@ const loadQuotaSummary = (showFeedback = false) => {
   return quotaRefreshPromise;
 };
 
-const handlePageSizeChange = (size) => {
+const handlePageSizeChange = (size: number) => {
   pageSize.value = size;
   currentPage.value = 1;
   loadTasks({
@@ -584,7 +601,7 @@ const handlePageSizeChange = (size) => {
   });
 };
 
-const handleCurrentChange = (page) => {
+const handleCurrentChange = (page: number) => {
   currentPage.value = page;
   loadTasks({
     page,
@@ -596,8 +613,8 @@ const handleSearchConfirm = () => {
   loadTasks({
     page: 1,
     taskName: (taskName.value ?? "").trim(),
-    modelType: (modelType.value ?? "").trim(),
-    problemType: (problemType.value ?? "").trim(),
+    modelType: modelType.value,
+    problemType: problemType.value,
   });
 };
 
@@ -614,7 +631,7 @@ const handleResetSearch = () => {
   });
 };
 
-const viewTask = async (task) => {
+const viewTask = async (task: TaskHistoryItem) => {
   const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = task;
@@ -635,7 +652,7 @@ const viewTask = async (task) => {
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
-    ElMessage.error(error.message || "获取任务详情失败");
+    ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
 };
 
@@ -658,7 +675,7 @@ const confirmCancelTask = async (taskName = "") => {
   );
 };
 
-const cancelTask = async (task) => {
+const cancelTask = async (task: TaskHistoryItem) => {
   if (!isTaskCancellable(task.status)) {
     ElMessage.warning("仅支持取消计算中的任务");
     return;
@@ -681,14 +698,14 @@ const cancelTask = async (task) => {
   } catch (error) {
     if (!isDialogDismissed(error)) {
       console.error("取消任务失败:", error);
-      ElMessage.error(error.message || "取消任务失败");
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     cancelingTaskId.value = null;
   }
 };
 
-const deleteTask = async (task) => {
+const deleteTask = async (task: TaskHistoryItem) => {
   if (!isTaskDeletable(task.status)) {
     ElMessage.warning("仅支持删除已完成、失败或已取消的任务");
     return;
@@ -725,7 +742,7 @@ const deleteTask = async (task) => {
         }
       } catch (error) {
         console.error("删除任务失败:", error);
-        ElMessage.error(error.message || "删除任务失败");
+        ElMessage.error(getErrorMessage(error, "删除任务失败"));
       }
     })
     .catch(() => {
@@ -762,7 +779,7 @@ const handleDeleteAllTasks = async () => {
     }
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除全部任务失败");
+      ElMessage.error(getErrorMessage(error, "删除全部任务失败"));
     }
   }
 };
@@ -791,11 +808,11 @@ const statusTextMap = {
 };
 
 // 辅助函数
-const getProblemTypeText = (type) => {
+const getProblemTypeText = (type: ProblemType | "number") => {
   return problemTypeMap[type] ?? type;
 };
 
-const getModelTypeText = (type) => {
+const getModelTypeText = (type: ModelType) => {
   return modelTypeMap[type] ?? type;
 };
 
@@ -823,15 +840,15 @@ const quotaStatusText = computed(() => {
 
 const quotaCards = computed(() =>
   modelTypeOptions.map((type) => {
-    const quotaData = quotaSummary.value?.models?.[type] || {};
-    const total = quotaData.default || quotaSummary.value?.defaultQuota || 50;
-    const hasAvailable = Number.isFinite(Number(quotaData.available));
-    const available = hasAvailable ? Number(quotaData.available) : "--";
-    const pending = quotaData.pending ?? 0;
+    const quotaData = quotaSummary.value?.models?.[type];
+    const total = quotaData?.default || quotaSummary.value?.defaultQuota || 50;
+    const hasAvailable = Number.isFinite(Number(quotaData?.available));
+    const available = hasAvailable ? Number(quotaData?.available) : "--";
+    const pending = quotaData?.pending ?? 0;
 
     return {
       key: type,
-      label: quotaData.label || getModelTypeText(type),
+      label: quotaData?.label || getModelTypeText(type),
       total,
       available,
       pending,
@@ -839,19 +856,19 @@ const quotaCards = computed(() =>
         hasAvailable && total > 0
           ? Math.min(Math.max(Math.round((Number(available) / total) * 100), 0), 100)
           : 0,
-      colors: quotaColorMap[type] || ["#5b6ef6", "#60dbe8"],
-      accentColor: (quotaColorMap[type] || ["#5b6ef6"])[0],
+      colors: quotaColorMap[type],
+      accentColor: quotaColorMap[type][0].color,
     };
   })
 );
 
-const getStatusText = (status) => {
-  if (status == null || status === "") return "未知";
+const getStatusText = (status: TaskStatus) => {
+  if (status == null) return "未知";
   return statusTextMap[status] ?? String(status);
 };
 
-const getStatusType = (status) => {
-  const types = {
+const getStatusType = (status: TaskStatus): TagType => {
+  const types: Record<TaskStatus, TagType> = {
     queued: "warning",
     processing: "warning",
     completed: "success",
@@ -861,7 +878,8 @@ const getStatusType = (status) => {
   return types[status] || "info";
 };
 
-const formatDate = (timestamp) => {
+const formatDate = (timestamp: string | null) => {
+  if (!timestamp) return "--";
   const date = new Date(timestamp);
   return `${date.toLocaleDateString("zh-CN")} ${date.toLocaleTimeString(
     "zh-CN",
@@ -869,7 +887,7 @@ const formatDate = (timestamp) => {
   )}`;
 };
 
-const getProblemTypeSizeUnit = (type) => {
+const getProblemTypeSizeUnit = (type: ProblemType) => {
   const units = {
     maxcut: "个节点",
     coloring: "个节点",
@@ -879,7 +897,7 @@ const getProblemTypeSizeUnit = (type) => {
   return units[type] || "个节点";
 };
 
-const formatSolution = (solution) => {
+const formatSolution = (solution: unknown) => {
   if (Array.isArray(solution)) {
     // 如果解向量太长，只显示前20个元素
     if (solution.length > 20) {

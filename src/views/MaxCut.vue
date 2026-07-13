@@ -404,7 +404,7 @@
               >
                 <div class="candidate-header">
                   <span class="candidate-rank"
-                    >候选解 {{ candidate.rank || index + 1 }}</span
+                    >候选解 {{ candidate.rank || Number(index) + 1 }}</span
                   >
                   <span class="candidate-value"
                     >目标值：{{ formatCandidateValue(candidate.value) }}</span
@@ -461,7 +461,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import {
   submitTask,
@@ -470,34 +470,48 @@ import {
   getTaskHistory,
   deleteTask,
   deleteTasksByFilter,
-} from "../api/index.js";
+} from "../api";
 import { ElMessage, ElMessageBox } from "element-plus";
 import MaxCutGraph from "../components/MaxCutGraph.vue";
-import { useCustomTaskName } from "../stores/customTaskName.js";
+import { useCustomTaskName } from "../stores/customTaskName";
 import {
   formatBestValue,
   formatCandidateValue,
   formatSolveTime,
-} from "../utils/format.js";
+} from "../utils/format";
 import {
   createSolveLogController,
   SOLVE_LOG_IDLE_MESSAGE,
-} from "../utils/solveLog.js";
+} from "../utils/solveLog";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
   isTaskCancellable,
   isTaskDeletable,
-} from "../utils/task.js";
-import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope.js";
+} from "../utils/task";
+import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
+import { getErrorMessage } from "../utils/error";
+import type {
+  CandidateDisplay,
+  ModelType,
+  TaskDeleteFilters,
+  TaskHistoryItem,
+  TaskHistoryParams,
+  TaskResults,
+  TaskStatus,
+  TaskSubmitRequest,
+  WeightedGraphEdge,
+  GraphNode,
+} from "../types/api";
+type TagType = "success" | "primary" | "warning" | "info" | "danger";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
 // 响应式数据
-const solveType = ref("classic");
+const solveType = ref<ModelType>("classic");
 const matrixSize = ref(6);
 const editMode = ref("custom");
-const matrix = ref([]);
+const matrix = ref<number[][]>([]);
 const solving = ref(false);
 const stateClass = ref("state-idle");
 const stateText = ref("等待求解");
@@ -505,16 +519,16 @@ const solveTime = ref("--");
 const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
 const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
-const candidates = ref([]);
-const currentTaskId = ref(null);
+const candidates = ref<CandidateDisplay[]>([]);
+const currentTaskId = ref<string | null>(null);
 const solveScope = createAsyncScope();
 
-const fileInput = ref(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 // 任务历史
-const taskHistory = ref([]);
+const taskHistory = ref<TaskHistoryItem[]>([]);
 const historyLoading = ref(false);
-const historyCancelingTaskId = ref(null);
+const historyCancelingTaskId = ref<string | null>(null);
 const historyTaskName = ref("");
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
@@ -525,14 +539,14 @@ const taskDetailRequestGuard = createLatestRequestGuard();
 
 // 任务详情对话框
 const detailDialogVisible = ref(false);
-const selectedTask = ref(null);
-const taskDetailResults = ref(null);
+const selectedTask = ref<TaskHistoryItem | null>(null);
+const taskDetailResults = ref<TaskResults | null>(null);
 
 // 图形可视化数据
-const nodes = ref([]);
-const edges = ref([]);
-const selectedNodes = ref([]);
-const partition = ref({});
+const nodes = ref<GraphNode[]>([]);
+const edges = ref<WeightedGraphEdge[]>([]);
+const selectedNodes = ref<number[]>([]);
+const partition = ref<Record<number, 0 | 1>>({});
 const MAX_ADJACENCY_WEIGHT = 30;
 
 // 计算属性
@@ -546,7 +560,7 @@ const edgeCount = computed(() => {
   return count;
 });
 
-const parseAdjacencyWeight = (value) => {
+const parseAdjacencyWeight = (value: unknown): number => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_ADJACENCY_WEIGHT) {
     throw new Error(`包含非法数值：${value}（仅允许0到${MAX_ADJACENCY_WEIGHT}，保留一位小数）`);
@@ -557,16 +571,16 @@ const parseAdjacencyWeight = (value) => {
   return normalizeAdjacencyWeight(parsed);
 };
 
-const normalizeAdjacencyWeight = (value) => Number(Number(value).toFixed(1));
+const normalizeAdjacencyWeight = (value: unknown): number => Number(Number(value).toFixed(1));
 
-const formatMatrixCell = (value) => String(normalizeAdjacencyWeight(value));
+const formatMatrixCell = (value: unknown): string => String(normalizeAdjacencyWeight(value));
 
 // 初始化矩阵
 const generateMatrix = () => {
   if (solving.value) return;
   const size = matrixSize.value;
   matrix.value = Array(size)
-    .fill()
+    .fill(null)
     .map(() => Array(size).fill(0));
   generateNodes();
   syncEdgesFromMatrix();
@@ -590,7 +604,7 @@ const generateRandomMatrix = () => {
   if (solving.value) return;
   const size = matrixSize.value;
   const newMatrix = Array(size)
-    .fill()
+    .fill(null)
     .map(() => Array(size).fill(0));
 
   for (let i = 0; i < size; i++) {
@@ -615,7 +629,7 @@ const generateRandomMatrix = () => {
 };
 
 // 设置编辑模式
-const setEditMode = (mode) => {
+const setEditMode = (mode: "custom" | "random") => {
   if (solving.value) return;
   editMode.value = mode;
   // 切换编辑模式时清除分区结果
@@ -624,7 +638,7 @@ const setEditMode = (mode) => {
   addLog("切换编辑模式，清除分区结果");
 };
 
-const setEdgeWeight = (i, j, weight) => {
+const setEdgeWeight = (i: number, j: number, weight: number) => {
   if (solving.value) return;
   if (i === j) return;
   const normalizedWeight = normalizeAdjacencyWeight(weight);
@@ -637,7 +651,7 @@ const setEdgeWeight = (i, j, weight) => {
 };
 
 // 弹窗输入并校验边权重（0~MAX_ADJACENCY_WEIGHT，最多 1 位小数），返回有效数值或 null
-const promptEdgeWeight = async (i, j, title = "编辑矩阵单元") => {
+const promptEdgeWeight = async (i: number, j: number, title = "编辑矩阵单元") => {
   const inputValue = String(formatMatrixCell(matrix.value[i][j]));
   const { value } = await ElMessageBox.prompt(
     `请输入边权重（0-${MAX_ADJACENCY_WEIGHT}，最多 1 位小数）`,
@@ -666,7 +680,7 @@ const promptEdgeWeight = async (i, j, title = "编辑矩阵单元") => {
 };
 
 // 邻接矩阵交互：弹窗编辑边权重
-const toggleCell = async (i, j) => {
+const toggleCell = async (i: number, j: number) => {
   if (solving.value) return;
   if (i === j) return;
   const weight = await promptEdgeWeight(i, j, "编辑矩阵单元");
@@ -678,7 +692,7 @@ const toggleCell = async (i, j) => {
 // 从邻接矩阵同步边
 const syncEdgesFromMatrix = () => {
   const size = matrixSize.value;
-  const newEdges = [];
+  const newEdges: WeightedGraphEdge[] = [];
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
       const weight = Number(matrix.value[i]?.[j]);
@@ -690,7 +704,7 @@ const syncEdgesFromMatrix = () => {
   edges.value = newEdges;
 };
 
-const applyTerminalTaskStatus = (taskStatus) => {
+const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
   if (taskStatus === "completed") {
     stateClass.value = "state-success";
     stateText.value = "求解成功";
@@ -704,7 +718,7 @@ const applyTerminalTaskStatus = (taskStatus) => {
 };
 
 // 节点点击事件处理
-const onGraphNodeClick = (nodeId) => {
+const onGraphNodeClick = (nodeId: number) => {
   if (solving.value) return;
   if (selectedNodes.value.includes(nodeId)) {
     selectedNodes.value = selectedNodes.value.filter((id) => id !== nodeId);
@@ -724,7 +738,7 @@ const onGraphNodeClick = (nodeId) => {
 };
 
 // 弹窗编辑边权重（从图节点点击触发）
-const openEdgeDialog = async (a, b) => {
+const openEdgeDialog = async (a: number, b: number) => {
   if (a === b) return;
   const i = Math.min(a, b);
   const j = Math.max(a, b);
@@ -740,13 +754,14 @@ const openEdgeDialog = async (a, b) => {
 // 触发文件输入
 const triggerFileInput = () => {
   if (solving.value) return;
-  fileInput.value.click();
+  fileInput.value?.click();
 };
 
 // 处理文件导入
-const handleFileImport = (event) => {
+const handleFileImport = (event: Event) => {
   if (solving.value) return;
-  const file = event.target.files[0];
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
   if (!file) return;
 
   const reader = new FileReader();
@@ -756,7 +771,7 @@ const handleFileImport = (event) => {
       return;
     }
     try {
-      const content = e.target.result;
+      const content = String(e.target?.result ?? "");
       const lines = content
         .trim()
         .split("\n")
@@ -846,11 +861,11 @@ const handleFileImport = (event) => {
       addLog(`数据导入成功：${size}×${size}邻接矩阵，${edgeCount.value}条边`);
     } catch (error) {
       console.error("文件解析失败:", error);
-      addLog(`导入失败：${error.message}`);
+      addLog(`导入失败：${getErrorMessage(error, "未知错误")}`);
     }
   };
   reader.onloadend = () => {
-    event.target.value = "";
+    input.value = "";
   };
   reader.readAsText(file);
 };
@@ -873,7 +888,7 @@ const startSolve = async () => {
 
   try {
     // 准备任务数据
-    const taskData = {
+    const taskData: TaskSubmitRequest = {
       taskName: customTaskName.value || `MaxCut_${Date.now()}`,
       modelType: solveType.value,
       problemType: "maxcut",
@@ -902,14 +917,14 @@ const startSolve = async () => {
     clearCustomTaskName();
     stateClass.value = "state-fail";
     stateText.value = "求解失败";
-    addLog("求解失败: " + error.message);
-    ElMessage.error(error.message || "求解失败");
+    addLog("求解失败: " + getErrorMessage(error, "求解失败"));
+    ElMessage.error(getErrorMessage(error, "求解失败"));
     solving.value = false;
   }
 };
 
 // 轮询任务状态
-const pollTaskStatus = async (taskId, startTime, solveToken) => {
+const pollTaskStatus = async (taskId: string, startTime: number, solveToken: number) => {
   const pollInterval = 2000; // 2秒轮询一次
 
   const poll = async () => {
@@ -954,9 +969,9 @@ const pollTaskStatus = async (taskId, startTime, solveToken) => {
           console.log("更新候选结果:", candidates.value);
 
           // 更新图形分区显示 - 将解向量转换为两种颜色的分区
-          if (resultCandidates[0].solution) {
+          if (Array.isArray(resultCandidates[0].solution)) {
             const solution = resultCandidates[0].solution;
-            const newPartition = {};
+            const newPartition: Record<number, 0 | 1> = {};
 
             // 后端可能返回 1/-1 或 0/1，统一转换为 0/1
             solution.forEach((value, index) => {
@@ -1013,7 +1028,7 @@ const pollTaskStatus = async (taskId, startTime, solveToken) => {
       stateClass.value = "state-fail";
       stateText.value = "连接失败";
       solving.value = false;
-      addLog("无法获取任务状态: " + error.message);
+      addLog("无法获取任务状态: " + getErrorMessage(error, "未知错误"));
       loadTaskHistory();
     }
   };
@@ -1060,8 +1075,8 @@ const cancelSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      addLog("取消任务失败: " + error.message);
-      ElMessage.error(error.message || "取消任务失败");
+      addLog("取消任务失败: " + getErrorMessage(error, "取消任务失败"));
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     if (historyCancelingTaskId.value === taskId) {
@@ -1091,15 +1106,15 @@ const exportResults = () => {
 };
 
 // 任务历史相关方法
-const getHistoryDeleteFilters = () => {
+const getHistoryDeleteFilters = (): TaskDeleteFilters => {
   const taskName = appliedHistoryTaskName.value.trim();
   return taskName ? { problemType: "maxcut", taskName } : { problemType: "maxcut" };
 };
 
-const loadTaskHistory = async (params = {}) => {
+const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
   const requestId = taskHistoryRequestGuard.begin();
   const requestTaskName = (params.taskName ?? appliedHistoryTaskName.value).trim();
-  const requestParams = {
+  const requestParams: TaskHistoryParams = {
     problemType: "maxcut",
     page: params.page ?? historyCurrentPage.value,
     pageSize: params.pageSize ?? historyPageSize.value,
@@ -1121,7 +1136,7 @@ const loadTaskHistory = async (params = {}) => {
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     console.error("加载任务历史失败:", error);
-    addLog("加载任务历史失败: " + error.message);
+    addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
@@ -1149,7 +1164,7 @@ const handleHistoryReset = () => {
   });
 };
 
-const handleHistoryPageSizeChange = (size) => {
+const handleHistoryPageSizeChange = (size: number) => {
   historyPageSize.value = size;
   historyCurrentPage.value = 1;
   loadTaskHistory({
@@ -1158,7 +1173,7 @@ const handleHistoryPageSizeChange = (size) => {
   });
 };
 
-const handleHistoryCurrentChange = (page) => {
+const handleHistoryCurrentChange = (page: number) => {
   historyCurrentPage.value = page;
   loadTaskHistory({
     page,
@@ -1166,7 +1181,7 @@ const handleHistoryCurrentChange = (page) => {
 };
 
 // 辅助函数
-const getModelTypeText = (type) => {
+const getModelTypeText = (type: ModelType) => {
   const types = {
     classic: "经典计算",
     sim: "量子芯片模拟计算",
@@ -1175,7 +1190,7 @@ const getModelTypeText = (type) => {
   return types[type] || type;
 };
 
-const getStatusText = (status) => {
+const getStatusText = (status: TaskStatus) => {
   const statuses = {
     queued: "计算中",
     processing: "计算中",
@@ -1186,8 +1201,8 @@ const getStatusText = (status) => {
   return statuses[status] || status;
 };
 
-const getStatusType = (status) => {
-  const types = {
+const getStatusType = (status: TaskStatus): TagType => {
+  const types: Record<TaskStatus, TagType> = {
     queued: "warning",
     processing: "warning",
     completed: "success",
@@ -1210,7 +1225,7 @@ const confirmCancelTask = async (taskName = "") => {
   );
 };
 
-const handleCancelHistoryTask = async (row) => {
+const handleCancelHistoryTask = async (row: TaskHistoryItem) => {
   if (!isTaskCancellable(row.status)) {
     ElMessage.warning("仅支持取消计算中的任务");
     return;
@@ -1236,7 +1251,7 @@ const handleCancelHistoryTask = async (row) => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      ElMessage.error(error.message || "取消任务失败");
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     if (historyCancelingTaskId.value === row.taskId) {
@@ -1245,7 +1260,8 @@ const handleCancelHistoryTask = async (row) => {
   }
 };
 
-const formatDate = (timestamp) => {
+const formatDate = (timestamp: string | null) => {
+  if (!timestamp) return "--";
   const date = new Date(timestamp);
   return `${date.toLocaleDateString("zh-CN")} ${date.toLocaleTimeString(
     "zh-CN",
@@ -1254,7 +1270,7 @@ const formatDate = (timestamp) => {
 };
 
 // 删除任务
-const handleDeleteTask = async (row) => {
+const handleDeleteTask = async (row: TaskHistoryItem) => {
   if (!isTaskDeletable(row.status)) {
     ElMessage.warning("仅支持删除已完成、失败或已取消的任务");
     return;
@@ -1286,8 +1302,8 @@ const handleDeleteTask = async (row) => {
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除任务失败");
-      addLog(`删除任务失败: ${error.message || "未知错误"}`);
+      ElMessage.error(getErrorMessage(error, "删除任务失败"));
+      addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
     }
   }
 };
@@ -1318,13 +1334,13 @@ const handleDeleteAllTasks = async () => {
     }
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除全部任务失败");
+      ElMessage.error(getErrorMessage(error, "删除全部任务失败"));
     }
   }
 };
 
 // 查看任务详情
-const handleViewTaskDetail = async (row) => {
+const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = row;
@@ -1347,8 +1363,8 @@ const handleViewTaskDetail = async (row) => {
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
-    addLog(`获取任务详情失败: ${error.message}`);
-    ElMessage.error(error.message || "获取任务详情失败");
+    addLog(`获取任务详情失败: ${getErrorMessage(error, "未知错误")}`);
+    ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
 };
 

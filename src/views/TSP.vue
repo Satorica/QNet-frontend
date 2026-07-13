@@ -437,7 +437,7 @@
               >
                 <div class="candidate-header">
                   <span class="candidate-rank"
-                    >候选解 {{ candidate.rank || index + 1 }}</span
+                    >候选解 {{ candidate.rank || Number(index) + 1 }}</span
                   >
                   <span class="candidate-value"
                     >路径长度：{{ formatPathLength(candidate.value) }}</span
@@ -494,7 +494,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from "vue";
 import TSPGraph from "../components/TSPGraph.vue";
 import {
@@ -504,22 +504,35 @@ import {
   getTaskHistory,
   deleteTask,
   deleteTasksByFilter,
-} from "../api/index.js";
+} from "../api";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { useCustomTaskName } from "../stores/customTaskName.js";
-import { formatBestValue, formatSolveTime } from "../utils/format.js";
+import { useCustomTaskName } from "../stores/customTaskName";
+import { formatBestValue, formatSolveTime } from "../utils/format";
 import {
   createSolveLogController,
   SOLVE_LOG_IDLE_MESSAGE,
-} from "../utils/solveLog.js";
+} from "../utils/solveLog";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
   isTaskCancellable,
   isTaskDeletable,
-} from "../utils/task.js";
-import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope.js";
-import { parseStrictNonNegativeNumber } from "../utils/validation.js";
+} from "../utils/task";
+import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
+import { parseStrictNonNegativeNumber } from "../utils/validation";
+import { getErrorMessage } from "../utils/error";
+import type {
+  City,
+  ModelType,
+  TaskCandidate,
+  TaskDeleteFilters,
+  TaskHistoryItem,
+  TaskHistoryParams,
+  TaskResults,
+  TaskStatus,
+  TaskSubmitRequest,
+} from "../types/api";
+type TagType = "success" | "primary" | "warning" | "info" | "danger";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -527,7 +540,7 @@ const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 const cityCount = ref(8);
 const algorithm = ref("nearest");
 const temperature = ref(500);
-const solveType = ref("classic");
+const solveType = ref<ModelType>("classic");
 const solving = ref(false);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
@@ -536,8 +549,8 @@ const iterations = ref(0);
 const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
 const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
-const currentTaskId = ref(null);
-const solveCandidates = ref([]);
+const currentTaskId = ref<string | null>(null);
+const solveCandidates = ref<TaskCandidate[]>([]);
 const solveScope = createAsyncScope();
 
 const TSP_LAYOUT_CENTER_X = 380;
@@ -550,9 +563,9 @@ const TSP_LAYOUT_MAX_UPSCALE_X = 1.82;
 const TSP_LAYOUT_MAX_UPSCALE_Y = 1.42;
 
 // 任务历史
-const taskHistory = ref([]);
+const taskHistory = ref<TaskHistoryItem[]>([]);
 const historyLoading = ref(false);
-const historyCancelingTaskId = ref(null);
+const historyCancelingTaskId = ref<string | null>(null);
 const historyTaskName = ref("");
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
@@ -563,20 +576,20 @@ const taskDetailRequestGuard = createLatestRequestGuard();
 
 // 任务详情对话框
 const detailDialogVisible = ref(false);
-const selectedTask = ref(null);
-const taskDetailResults = ref(null);
+const selectedTask = ref<TaskHistoryItem | null>(null);
+const taskDetailResults = ref<TaskResults | null>(null);
 
-const cities = ref([]);
-const currentRoute = ref([]);
-const bestRoute = ref([]);
+const cities = ref<City[]>([]);
+const currentRoute = ref<number[]>([]);
+const bestRoute = ref<number[]>([]);
 
 // 两点选择用于编辑边权
-const selectedNodes = ref([]);
+const selectedNodes = ref<number[]>([]);
 
 // 距离矩阵（允许非负数）
-const distanceMatrix = ref([]);
+const distanceMatrix = ref<number[][]>([]);
 const matrixMode = ref("custom");
-const fileInput = ref(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 // 计算属性
 const currentDistance = computed(() => {
@@ -610,10 +623,10 @@ const positiveEdgeCount = computed(() => {
 
 const firstCandidate = computed(() => solveCandidates.value[0] || null);
 
-const formatPathLength = (value) => {
+const formatPathLength = (value: unknown): string => {
   if (value === null || value === undefined || value === "") return "--";
   const num = Number(value);
-  if (!Number.isFinite(num)) return value;
+  if (!Number.isFinite(num)) return String(value);
   return num.toFixed(2);
 };
 
@@ -623,15 +636,15 @@ const firstCandidatePathLength = computed(() =>
 
 const firstCandidateConflictCount = computed(() => {
   const count = firstCandidate.value?.unsatisfied_count;
-  if (count === null || count === undefined || count === "") return "--";
+  if (count === null || count === undefined) return "--";
   return count;
 });
 
-const isValidTspRoute = (route, n) => {
+const isValidTspRoute = (route: unknown, n: number): route is number[] => {
   if (!Array.isArray(route) || route.length !== n) return false;
-  const seen = new Set();
+  const seen = new Set<number>();
   for (const node of route) {
-    if (!Number.isInteger(node) || node < 0 || node >= n || seen.has(node)) {
+    if (typeof node !== "number" || !Number.isInteger(node) || node < 0 || node >= n || seen.has(node)) {
       return false;
     }
     seen.add(node);
@@ -639,7 +652,7 @@ const isValidTspRoute = (route, n) => {
   return true;
 };
 
-const normalizeTspRouteFromSolution = (solution, n) => {
+const normalizeTspRouteFromSolution = (solution: unknown, n: number): number[] => {
   if (!Array.isArray(solution)) return [];
 
   const flatSolution = solution.flat ? solution.flat() : solution;
@@ -650,7 +663,7 @@ const normalizeTspRouteFromSolution = (solution, n) => {
 
   if (flatSolution.length !== n * n) return [];
 
-  const route = [];
+  const route: number[] = [];
   for (let step = 0; step < n; step++) {
     for (let node = 0; node < n; node++) {
       const index = step * n + node;
@@ -696,13 +709,13 @@ const generateCities = () => {
   addLog(`生成${cityCount.value}个城市，按距离矩阵布局`);
 };
 
-const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
+const layoutCitiesByDistanceMatrix = (matrix: number[][] = distanceMatrix.value) => {
   const n = cityCount.value;
   if (!Array.isArray(matrix) || matrix.length !== n || cities.value.length !== n) {
     return;
   }
 
-  const edges = [];
+  const edges: Array<{ i: number; j: number; weight: number }> = [];
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const weight = Number(matrix[i]?.[j]);
@@ -713,7 +726,7 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
   }
   if (edges.length === 0) return;
 
-  const fitAndApplyCityPoints = (points) => {
+  const fitAndApplyCityPoints = (points: Array<{ x: number; y: number }>) => {
     const minX = Math.min(...points.map((point) => point.x));
     const maxX = Math.max(...points.map((point) => point.x));
     const minY = Math.min(...points.map((point) => point.y));
@@ -784,14 +797,14 @@ const layoutCitiesByDistanceMatrix = (matrix = distanceMatrix.value) => {
   const minTargetDistance = 52;
   const maxTargetDistance = 560;
   const weightSpan = visualMaxWeight - minWeight;
-  const normalizeWeight = (weight) => {
+  const normalizeWeight = (weight: number) => {
     if (weightSpan <= 0) return 0.5;
     const clampedWeight = Math.min(Math.max(weight, minWeight), visualMaxWeight);
     return Math.log1p(clampedWeight - minWeight) / Math.log1p(weightSpan);
   };
-  const targetDistance = (weight) =>
+  const targetDistance = (weight: number) =>
     minTargetDistance + normalizeWeight(weight) * (maxTargetDistance - minTargetDistance);
-  const constraintStrength = (weight) => {
+  const constraintStrength = (weight: number) => {
     const normalized = normalizeWeight(weight);
     return 0.025 + Math.pow(1 - normalized, 1.8) * 0.06;
   };
@@ -882,14 +895,16 @@ const _startSolve = async () => {
   } catch (error) {
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
-    addLog("求解失败：" + error.message);
+    addLog("求解失败：" + getErrorMessage(error, "求解失败"));
   } finally {
     solving.value = false;
   }
 };
 
-const executeTSPAlgorithm = () => {
-  return new Promise((resolve) => {
+type TspAlgorithmResult = { route: number[]; iterations: number };
+
+const executeTSPAlgorithm = (): Promise<TspAlgorithmResult> => {
+  return new Promise<TspAlgorithmResult>((resolve) => {
     let result;
 
     switch (algorithm.value) {
@@ -914,14 +929,14 @@ const nearestNeighborAlgorithm = () => {
   const unvisited = new Set(
     Array.from({ length: cityCount.value }, (_, i) => i)
   );
-  const route = [];
+  const route: number[] = [];
   let current = 0; // 从第一个城市开始
 
   route.push(current);
   unvisited.delete(current);
 
   while (unvisited.size > 0) {
-    let nearest = null;
+    let nearest: number | null = null;
     let nearestDistance = Infinity;
 
     for (const city of unvisited) {
@@ -932,6 +947,7 @@ const nearestNeighborAlgorithm = () => {
       }
     }
 
+    if (nearest === null) break;
     route.push(nearest);
     unvisited.delete(nearest);
     current = nearest;
@@ -945,7 +961,7 @@ const nearestNeighborAlgorithm = () => {
 
 const greedyAlgorithm = () => {
   // 贪心算法：选择最短的边
-  const edges = [];
+  const edges: Array<{ from: number; to: number; distance: number }> = [];
 
   // 生成所有边
   for (let i = 0; i < cityCount.value; i++) {
@@ -971,22 +987,21 @@ const greedyAlgorithm = () => {
 };
 
 const simulatedAnnealingAlgorithm = () => {
-  let currentRoute = [...currentRoute.value];
-  let bestRoute = [...currentRoute];
+  let workingRoute = [...currentRoute.value];
+  let bestRoute = [...workingRoute];
   let currentTemp = temperature.value;
   let iterations = 0;
   const maxIterations = 1000;
 
   while (currentTemp > 1 && iterations < maxIterations) {
-    const newRoute = [...currentRoute];
+    const newRoute = [...workingRoute];
 
     // 随机交换两个城市
     const i = Math.floor(Math.random() * cityCount.value);
-    const j = (Math.floor(Math.random() * cityCount.value)[
-      (newRoute[i], newRoute[j])
-    ] = [newRoute[j], newRoute[i]]);
+    const j = Math.floor(Math.random() * cityCount.value);
+    [newRoute[i], newRoute[j]] = [newRoute[j], newRoute[i]];
 
-    const currentDist = calculateRouteDistance(currentRoute);
+    const currentDist = calculateRouteDistance(workingRoute);
     const newDist = calculateRouteDistance(newRoute);
     const bestDist = calculateRouteDistance(bestRoute);
 
@@ -995,7 +1010,7 @@ const simulatedAnnealingAlgorithm = () => {
       newDist < currentDist ||
       Math.random() < Math.exp(-(newDist - currentDist) / currentTemp)
     ) {
-      currentRoute = newRoute;
+      workingRoute = newRoute;
 
       if (newDist < bestDist) {
         bestRoute = [...newRoute];
@@ -1057,7 +1072,7 @@ const _resetToWorst = () => {
   addLog("重置为随机路径");
 };
 
-const handleCityMove = (cityId, newX, newY) => {
+const handleCityMove = (cityId: number, newX: number, newY: number) => {
   if (cities.value[cityId]) {
     cities.value[cityId].x = newX;
     cities.value[cityId].y = newY;
@@ -1065,12 +1080,12 @@ const handleCityMove = (cityId, newX, newY) => {
   }
 };
 
-const handleRouteChange = (newRoute) => {
+const handleRouteChange = (newRoute: number[]) => {
   currentRoute.value = newRoute;
   addLog("手动修改路径");
 };
 
-const onCityClick = async (cityId) => {
+const onCityClick = async (cityId: number) => {
   if (solving.value) return;
   // 选中两点
   if (selectedNodes.value.includes(cityId)) {
@@ -1104,7 +1119,7 @@ const onCityClick = async (cityId) => {
   }
 };
 
-const setEdgeWeight = (i, j, w) => {
+const setEdgeWeight = (i: number, j: number, w: number) => {
   if (solving.value) return;
   if (i === j) return;
   const a = Math.min(i, j);
@@ -1122,7 +1137,7 @@ const setEdgeWeight = (i, j, w) => {
 };
 
 // 距离矩阵交互：自定义/随机/导入
-const setMatrixMode = (mode) => {
+const setMatrixMode = (mode: "custom" | "random") => {
   if (solving.value) return;
   matrixMode.value = mode;
   // 切换模式时清除路径结果
@@ -1134,7 +1149,7 @@ const setMatrixMode = (mode) => {
 };
 
 const MIN_DISTANCE_WEIGHT = 0.1;
-const normalizeDistanceWeight = (value) => {
+const normalizeDistanceWeight = (value: unknown): number => {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return MIN_DISTANCE_WEIGHT;
   return Number(Math.max(MIN_DISTANCE_WEIGHT, numericValue).toFixed(2));
@@ -1142,9 +1157,9 @@ const normalizeDistanceWeight = (value) => {
 const createRandomEdgeWeight = () =>
   Number((Math.random() * (10 - MIN_DISTANCE_WEIGHT) + MIN_DISTANCE_WEIGHT).toFixed(1));
 
-const createRandomDistanceMatrix = (size) => {
+const createRandomDistanceMatrix = (size: number): number[][] => {
   const matrix = Array(size)
-    .fill()
+    .fill(null)
     .map(() => Array(size).fill(0));
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
@@ -1172,12 +1187,13 @@ const generateRandomMatrix = () => {
 
 const triggerFileInput = () => {
   if (solving.value) return;
-  fileInput.value && fileInput.value.click();
+  fileInput.value?.click();
 };
 
-const handleFileImport = (event) => {
+const handleFileImport = (event: Event) => {
   if (solving.value) return;
-  const file = event.target.files[0];
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -1186,7 +1202,7 @@ const handleFileImport = (event) => {
       return;
     }
     try {
-      const content = e.target.result;
+      const content = String(e.target?.result ?? "");
       const lines = content
         .trim()
         .split("\n")
@@ -1323,16 +1339,16 @@ const handleFileImport = (event) => {
       addLog(`数据导入成功：${size}×${size}距离矩阵，${edgeCount}条非零边`);
     } catch (err) {
       console.error("文件解析失败:", err);
-      addLog(`导入失败：${err.message}`);
+      addLog(`导入失败：${getErrorMessage(err, "未知错误")}`);
     }
   };
   reader.onloadend = () => {
-    event.target.value = "";
+    input.value = "";
   };
   reader.readAsText(file);
 };
 
-const toggleMatrixCell = async (i, j) => {
+const toggleMatrixCell = async (i: number, j: number) => {
   if (solving.value) return;
   if (
     (matrixMode.value !== "custom" && matrixMode.value !== "random") ||
@@ -1356,7 +1372,7 @@ const toggleMatrixCell = async (i, j) => {
   }
 };
 
-const applyTerminalTaskStatus = (taskStatus) => {
+const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
   if (taskStatus === "completed") {
     statusClass.value = "status-success";
     statusText.value = "求解成功";
@@ -1388,7 +1404,7 @@ const submitSolve = async () => {
       `开始求解旅行商问题（求解模型：${getModelTypeText(solveType.value)}，${cityCount.value}个城市）`
     );
 
-    const payload = {
+    const payload: TaskSubmitRequest = {
       taskName: customTaskName.value || `TSP_${Date.now()}`,
       problemType: "tsp",
       modelType: solveType.value, // classic | sim | cloud
@@ -1422,18 +1438,18 @@ const submitSolve = async () => {
     clearCustomTaskName();
     statusClass.value = "status-fail";
     statusText.value = "提交失败";
-    addLog("提交失败：" + e.message);
-    ElMessage.error(e.message || "提交失败");
+    addLog("提交失败：" + getErrorMessage(e, "提交失败"));
+    ElMessage.error(getErrorMessage(e, "提交失败"));
     solving.value = false;
   }
 };
 
 // 轮询任务状态
 const pollTaskStatus = async (
-  taskId,
-  startTime,
-  solveToken,
-  submittedCityCount
+  taskId: string,
+  startTime: number,
+  solveToken: number,
+  submittedCityCount: number
 ) => {
   const pollInterval = 2000; // 2秒轮询一次
 
@@ -1527,7 +1543,7 @@ const pollTaskStatus = async (
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
       solving.value = false;
-      addLog("无法获取任务状态: " + error.message);
+      addLog("无法获取任务状态: " + getErrorMessage(error, "未知错误"));
       loadTaskHistory();
     }
   };
@@ -1573,8 +1589,8 @@ const cancelSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      addLog("取消任务失败: " + error.message);
-      ElMessage.error(error.message || "取消任务失败");
+      addLog("取消任务失败: " + getErrorMessage(error, "取消任务失败"));
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     if (historyCancelingTaskId.value === taskId) {
@@ -1584,7 +1600,7 @@ const cancelSolve = async () => {
 };
 
 // 距离函数优先使用矩阵权重
-const distanceBetween = (a, b) => {
+const distanceBetween = (a: number, b: number) => {
   const w = distanceMatrix.value?.[a]?.[b];
   if (typeof w === "number" && w > 0) return w;
   const ca = cities.value[a];
@@ -1595,7 +1611,7 @@ const distanceBetween = (a, b) => {
 };
 
 // 重写路径距离计算以支持权重矩阵
-const calculateRouteDistance = (route) => {
+const calculateRouteDistance = (route: number[]) => {
   if (route.length < 2) return 0;
   let distance = 0;
   for (let i = 0; i < route.length; i++) {
@@ -1607,18 +1623,18 @@ const calculateRouteDistance = (route) => {
 };
 
 // 兼容原有算法使用的距离接口
-const getDistance = (cityA, cityB) => distanceBetween(cityA, cityB);
+const getDistance = (cityA: number, cityB: number) => distanceBetween(cityA, cityB);
 
 // 任务历史相关方法
-const getHistoryDeleteFilters = () => {
+const getHistoryDeleteFilters = (): TaskDeleteFilters => {
   const taskName = appliedHistoryTaskName.value.trim();
   return taskName ? { problemType: "tsp", taskName } : { problemType: "tsp" };
 };
 
-const loadTaskHistory = async (params = {}) => {
+const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
   const requestId = taskHistoryRequestGuard.begin();
   const requestTaskName = (params.taskName ?? appliedHistoryTaskName.value).trim();
-  const requestParams = {
+  const requestParams: TaskHistoryParams = {
     problemType: "tsp",
     page: params.page ?? historyCurrentPage.value,
     pageSize: params.pageSize ?? historyPageSize.value,
@@ -1640,7 +1656,7 @@ const loadTaskHistory = async (params = {}) => {
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     console.error("加载任务历史失败:", error);
-    addLog("加载任务历史失败: " + error.message);
+    addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
@@ -1668,7 +1684,7 @@ const handleHistoryReset = () => {
   });
 };
 
-const handleHistoryPageSizeChange = (size) => {
+const handleHistoryPageSizeChange = (size: number) => {
   historyPageSize.value = size;
   historyCurrentPage.value = 1;
   loadTaskHistory({
@@ -1677,7 +1693,7 @@ const handleHistoryPageSizeChange = (size) => {
   });
 };
 
-const handleHistoryCurrentChange = (page) => {
+const handleHistoryCurrentChange = (page: number) => {
   historyCurrentPage.value = page;
   loadTaskHistory({
     page,
@@ -1685,7 +1701,7 @@ const handleHistoryCurrentChange = (page) => {
 };
 
 // 辅助函数
-const getModelTypeText = (type) => {
+const getModelTypeText = (type: ModelType) => {
   const types = {
     classic: "经典计算",
     sim: "量子芯片模拟计算",
@@ -1694,7 +1710,7 @@ const getModelTypeText = (type) => {
   return types[type] || type;
 };
 
-const getStatusText = (status) => {
+const getStatusText = (status: TaskStatus) => {
   const statuses = {
     queued: "计算中",
     processing: "计算中",
@@ -1705,8 +1721,8 @@ const getStatusText = (status) => {
   return statuses[status] || status;
 };
 
-const getStatusType = (status) => {
-  const types = {
+const getStatusType = (status: TaskStatus): TagType => {
+  const types: Record<TaskStatus, TagType> = {
     queued: "warning",
     processing: "warning",
     completed: "success",
@@ -1729,7 +1745,7 @@ const confirmCancelTask = async (taskName = "") => {
   );
 };
 
-const handleCancelHistoryTask = async (row) => {
+const handleCancelHistoryTask = async (row: TaskHistoryItem) => {
   if (!isTaskCancellable(row.status)) {
     ElMessage.warning("仅支持取消计算中的任务");
     return;
@@ -1755,7 +1771,7 @@ const handleCancelHistoryTask = async (row) => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      ElMessage.error(error.message || "取消任务失败");
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     if (historyCancelingTaskId.value === row.taskId) {
@@ -1764,7 +1780,8 @@ const handleCancelHistoryTask = async (row) => {
   }
 };
 
-const formatDate = (timestamp) => {
+const formatDate = (timestamp: string | null) => {
+  if (!timestamp) return "--";
   const date = new Date(timestamp);
   return `${date.toLocaleDateString("zh-CN")} ${date.toLocaleTimeString(
     "zh-CN",
@@ -1773,7 +1790,7 @@ const formatDate = (timestamp) => {
 };
 
 // 删除任务
-const handleDeleteTask = async (row) => {
+const handleDeleteTask = async (row: TaskHistoryItem) => {
   if (!isTaskDeletable(row.status)) {
     ElMessage.warning("仅支持删除已完成、失败或已取消的任务");
     return;
@@ -1805,9 +1822,9 @@ const handleDeleteTask = async (row) => {
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除任务失败");
+      ElMessage.error(getErrorMessage(error, "删除任务失败"));
       console.error("删除任务失败:", error);
-      addLog(`删除任务失败: ${error.message || "未知错误"}`);
+      addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
     }
   }
 };
@@ -1838,13 +1855,13 @@ const handleDeleteAllTasks = async () => {
     }
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除全部任务失败");
+      ElMessage.error(getErrorMessage(error, "删除全部任务失败"));
     }
   }
 };
 
 // 查看任务详情
-const handleViewTaskDetail = async (row) => {
+const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = row;
@@ -1867,8 +1884,8 @@ const handleViewTaskDetail = async (row) => {
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
-    addLog("获取任务详情失败: " + error.message);
-    ElMessage.error(error.message || "获取任务详情失败");
+    addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
+    ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
 };
 

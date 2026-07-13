@@ -61,11 +61,11 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { TrendCharts, Odometer, MagicStick, Location, List, SwitchButton } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { userManager } from '../utils/auth.js'
+import { userManager } from '../utils/auth'
 
 const router = useRouter()
 
@@ -160,4 +160,4 @@ const handleLogout = async () => {
 .logout-btn:hover {
   color: #4050F8;
 }
-</style> 
+</style>

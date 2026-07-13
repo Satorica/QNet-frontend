@@ -467,7 +467,7 @@
               >
                 <div class="candidate-header">
                   <span class="candidate-rank"
-                    >候选解 {{ candidate.rank || index + 1 }}</span
+                    >候选解 {{ candidate.rank || Number(index) + 1 }}</span
                   >
                   <span class="candidate-value"
                     >目标值：{{ formatCandidateValue(candidate.value) }}</span
@@ -524,7 +524,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from "vue";
 import {
   submitTask,
@@ -533,22 +533,36 @@ import {
   getTaskHistory,
   deleteTask,
   deleteTasksByFilter,
-} from "../api/index.js";
+} from "../api";
 import { ElMessage, ElMessageBox } from "element-plus";
 import ColoringGraph from "../components/ColoringGraph.vue";
-import { useCustomTaskName } from "../stores/customTaskName.js";
-import { formatCandidateValue, formatSolveTime } from "../utils/format.js";
+import { useCustomTaskName } from "../stores/customTaskName";
+import { formatCandidateValue, formatSolveTime } from "../utils/format";
 import {
   createSolveLogController,
   SOLVE_LOG_IDLE_MESSAGE,
-} from "../utils/solveLog.js";
+} from "../utils/solveLog";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
   isTaskCancellable,
   isTaskDeletable,
-} from "../utils/task.js";
-import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope.js";
+} from "../utils/task";
+import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
+import { getErrorMessage } from "../utils/error";
+import type {
+  GraphEdge,
+  GraphNode,
+  ModelType,
+  TaskCandidate,
+  TaskDeleteFilters,
+  TaskHistoryItem,
+  TaskHistoryParams,
+  TaskResults,
+  TaskStatus,
+  TaskSubmitRequest,
+} from "../types/api";
+type TagType = "success" | "primary" | "warning" | "info" | "danger";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -563,14 +577,14 @@ const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
 const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
 
-const nodes = ref([]);
-const edges = ref([]);
-const coloring = ref({});
+const nodes = ref<GraphNode[]>([]);
+const edges = ref<GraphEdge[]>([]);
+const coloring = ref<Record<number, number>>({});
 
 // 邻接矩阵数据与模式
 const matrixMode = ref("custom");
-const adjacencyMatrix = ref([]);
-const fileInput = ref(null);
+const adjacencyMatrix = ref<number[][]>([]);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 // 颜色定义
 const availableColors = [
@@ -601,20 +615,20 @@ const availableColors = [
 ];
 
 // 两点选中以建边/取消边
-const selectedNodes = ref([]);
+const selectedNodes = ref<number[]>([]);
 
 // 求解相关
-const solveType = ref("classic");
+const solveType = ref<ModelType>("classic");
 const solving = ref(false);
 const solveTime = ref("--");
-const currentTaskId = ref(null);
-const solveCandidates = ref([]);
+const currentTaskId = ref<string | null>(null);
+const solveCandidates = ref<TaskCandidate[]>([]);
 const solveScope = createAsyncScope();
 
 // 任务历史
-const taskHistory = ref([]);
+const taskHistory = ref<TaskHistoryItem[]>([]);
 const historyLoading = ref(false);
-const historyCancelingTaskId = ref(null);
+const historyCancelingTaskId = ref<string | null>(null);
 const historyTaskName = ref("");
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
@@ -625,13 +639,13 @@ const taskDetailRequestGuard = createLatestRequestGuard();
 
 // 任务详情对话框
 const detailDialogVisible = ref(false);
-const selectedTask = ref(null);
-const taskDetailResults = ref(null);
+const selectedTask = ref<TaskHistoryItem | null>(null);
+const taskDetailResults = ref<TaskResults | null>(null);
 
 // 计算属性
 const usedColors = computed(() => {
-  const colors = new Set(Object.values(coloring.value));
-  return colors.size;
+  const colorValues = Object.values(coloring.value);
+  return colorValues.length > 0 ? new Set(colorValues).size : "--";
 });
 
 const maxDegree = computed(() => {
@@ -644,12 +658,15 @@ const maxDegree = computed(() => {
   return Math.max(...degrees);
 });
 
-const normalizeColoringSolution = (solution, size) => {
+const normalizeColoringSolution = (
+  solution: unknown,
+  size: number,
+): { coloringMap: Record<number, number>; usedColorsCount: number } => {
   if (!Array.isArray(solution)) {
     return { coloringMap: {}, usedColorsCount: 0 };
   }
 
-  const vector = isColorVector(solution, size)
+  const vector: number[] = isColorVector(solution, size)
     ? solution.map(Number)
     : extractVectorFromOneHotSolution(solution, size);
 
@@ -660,11 +677,11 @@ const normalizeColoringSolution = (solution, size) => {
   const colorToPaletteIndex = new Map(
     uniqueColors.map((colorValue, index) => [colorValue, index])
   );
-  const coloringMap = {};
+  const coloringMap: Record<number, number> = {};
 
   colorValues.forEach((colorValue, index) => {
     if (Number.isFinite(colorValue)) {
-      coloringMap[index] = colorToPaletteIndex.get(colorValue);
+      coloringMap[index] = colorToPaletteIndex.get(colorValue) ?? 0;
     }
   });
 
@@ -674,11 +691,11 @@ const normalizeColoringSolution = (solution, size) => {
   };
 };
 
-const isColorVector = (solution, size) =>
+const isColorVector = (solution: unknown[], size: number): boolean =>
   solution.length === size &&
   solution.every((value) => !Array.isArray(value) && Number.isFinite(Number(value)));
 
-const extractVectorFromOneHotSolution = (solution, size) => {
+const extractVectorFromOneHotSolution = (solution: unknown[], size: number): number[] => {
   if (
     solution.length === size &&
     solution.every((row) => Array.isArray(row))
@@ -701,7 +718,7 @@ const extractVectorFromOneHotSolution = (solution, size) => {
   return solution.map(Number);
 };
 
-const applyTerminalTaskStatus = (taskStatus) => {
+const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
   if (taskStatus === "completed") {
     statusClass.value = "status-success";
     statusText.value = "求解成功";
@@ -852,7 +869,7 @@ const generateGridGraph = () => {
 };
 
 // 两点点击建边/取消边
-const onGraphNodeClick = (nodeId) => {
+const onGraphNodeClick = (nodeId: number) => {
   if (solving.value) return;
   // 选中逻辑：切换选中
   if (selectedNodes.value.includes(nodeId)) {
@@ -874,7 +891,7 @@ const onGraphNodeClick = (nodeId) => {
   }
 };
 
-const toggleEdge = (a, b) => {
+const toggleEdge = (a: number, b: number) => {
   if (solving.value) return;
   if (a === b) return;
   const i = Math.min(a, b);
@@ -911,7 +928,7 @@ const _clearEdges = () => {
 const syncMatrixFromEdges = () => {
   const size = nodeCount.value;
   const m = Array(size)
-    .fill()
+    .fill(null)
     .map(() => Array(size).fill(0));
   for (const e of edges.value) {
     m[e.source][e.target] = 1;
@@ -922,7 +939,7 @@ const syncMatrixFromEdges = () => {
 
 const syncEdgesFromMatrix = () => {
   const size = adjacencyMatrix.value.length;
-  const newEdges = [];
+  const newEdges: GraphEdge[] = [];
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
       if (adjacencyMatrix.value[i][j] === 1)
@@ -933,7 +950,7 @@ const syncEdgesFromMatrix = () => {
 };
 
 // 邻接矩阵交互
-const setMatrixMode = (mode) => {
+const setMatrixMode = (mode: "custom" | "random") => {
   if (solving.value) return;
   matrixMode.value = mode;
   // 切换模式时清除颜色结果
@@ -945,7 +962,7 @@ const generateRandomMatrix = () => {
   if (solving.value) return;
   const size = nodeCount.value;
   const newMatrix = Array(size)
-    .fill()
+    .fill(null)
     .map(() => Array(size).fill(0));
   for (let i = 0; i < size; i++) {
     for (let j = i + 1; j < size; j++) {
@@ -967,12 +984,13 @@ const generateRandomMatrix = () => {
 
 const triggerFileInput = () => {
   if (solving.value) return;
-  fileInput.value && fileInput.value.click();
+  fileInput.value?.click();
 };
 
-const handleFileImport = (event) => {
+const handleFileImport = (event: Event) => {
   if (solving.value) return;
-  const file = event.target.files[0];
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
@@ -981,7 +999,7 @@ const handleFileImport = (event) => {
       return;
     }
     try {
-      const content = e.target.result;
+      const content = String(e.target?.result ?? "");
       const lines = content
         .trim()
         .split("\n")
@@ -1080,16 +1098,16 @@ const handleFileImport = (event) => {
       addLog(`数据导入成功：${size}×${size}邻接矩阵，${edgeCount}条边`);
     } catch (error) {
       console.error("文件解析失败:", error);
-      addLog(`导入失败：${error.message}`);
+      addLog(`导入失败：${getErrorMessage(error, "未知错误")}`);
     }
   };
   reader.onloadend = () => {
-    event.target.value = "";
+    input.value = "";
   };
   reader.readAsText(file);
 };
 
-const toggleMatrixCell = (i, j) => {
+const toggleMatrixCell = (i: number, j: number) => {
   if (solving.value) return;
   if (
     (matrixMode.value !== "custom" && matrixMode.value !== "random") ||
@@ -1109,7 +1127,7 @@ const rebuildNodesLayout = () => {
     graphType.value === "random" ? createRandomLayout() : createCircleLayout();
 };
 
-const handleDeleteTask = async (row) => {
+const handleDeleteTask = async (row: TaskHistoryItem) => {
   if (!isTaskDeletable(row.status)) {
     ElMessage.warning("仅支持删除已完成、失败或已取消的任务");
     return;
@@ -1141,8 +1159,8 @@ const handleDeleteTask = async (row) => {
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除任务失败");
-      addLog(`删除任务失败: ${error.message || "未知错误"}`);
+      ElMessage.error(getErrorMessage(error, "删除任务失败"));
+      addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
     }
   }
 };
@@ -1173,13 +1191,13 @@ const handleDeleteAllTasks = async () => {
     }
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除全部任务失败");
+      ElMessage.error(getErrorMessage(error, "删除全部任务失败"));
     }
   }
 };
 
 // 查看任务详情
-const handleViewTaskDetail = async (row) => {
+const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = row;
@@ -1202,8 +1220,8 @@ const handleViewTaskDetail = async (row) => {
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
-    addLog("获取任务详情失败: " + error.message);
-    ElMessage.error(error.message || "获取任务详情失败");
+    addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
+    ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
 };
 
@@ -1236,7 +1254,7 @@ const exportTaskDetail = () => {
 };
 
 // 颜色交互（保留以便候选结果展示）
-const handleNodeColor = (nodeId, colorIndex) => {
+const handleNodeColor = (nodeId: number, colorIndex: number) => {
   coloring.value = { ...coloring.value, [nodeId]: colorIndex };
   // validateColoring() // 移除前端冲突检测
 };
@@ -1266,7 +1284,7 @@ const submitSolve = async () => {
 
   try {
     // 准备任务数据
-    const taskData = {
+    const taskData: TaskSubmitRequest = {
       taskName: customTaskName.value || `Coloring_${Date.now()}`,
       modelType: solveType.value,
       problemType: "coloring",
@@ -1300,8 +1318,8 @@ const submitSolve = async () => {
     if (!solveScope.isCurrent(solveToken)) return;
     clearCustomTaskName();
     console.error("求解失败:", error);
-    addLog(`求解失败: ${error.message}`);
-    ElMessage.error(error.message || "求解失败");
+    addLog(`求解失败: ${getErrorMessage(error, "求解失败")}`);
+    ElMessage.error(getErrorMessage(error, "求解失败"));
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
     solving.value = false;
@@ -1310,10 +1328,10 @@ const submitSolve = async () => {
 
 // 轮询任务状态
 const pollTaskStatus = async (
-  taskId,
-  startTime,
-  solveToken,
-  submittedNodeCount
+  taskId: string,
+  startTime: number,
+  solveToken: number,
+  submittedNodeCount: number
 ) => {
   const pollInterval = 2000; // 2秒轮询一次
 
@@ -1362,7 +1380,7 @@ const pollTaskStatus = async (
 
           // 更新图着色
           coloring.value = coloringMap;
-          conflicts.value = conflictCount;
+          conflicts.value = String(conflictCount);
 
           statusClass.value = "status-success";
           statusText.value = "求解成功";
@@ -1411,7 +1429,7 @@ const pollTaskStatus = async (
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
       solving.value = false;
-      addLog("无法获取任务状态: " + error.message);
+      addLog("无法获取任务状态: " + getErrorMessage(error, "未知错误"));
       loadTaskHistory();
     }
   };
@@ -1457,8 +1475,8 @@ const cancelSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      addLog("取消任务失败: " + error.message);
-      ElMessage.error(error.message || "取消任务失败");
+      addLog("取消任务失败: " + getErrorMessage(error, "取消任务失败"));
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     if (historyCancelingTaskId.value === taskId) {
@@ -1474,12 +1492,12 @@ const handleTaskDetailClosed = () => {
 };
 
 // 经典算法求解 (示例)
-const _solveClassic = async (graph) => {
+const _solveClassic = async (graph: { nodes: GraphNode[]; edges: GraphEdge[] }) => {
   const n = graph.nodes.length;
   const m = graph.edges.length;
   const d = Array(n).fill(0);
   const adj = Array(n)
-    .fill()
+    .fill(null)
     .map(() => Array(n).fill(0));
 
   // 构建邻接矩阵
@@ -1494,11 +1512,11 @@ const _solveClassic = async (graph) => {
 
   // 尝试所有可能的颜色组合
   const totalCombinations = Math.pow(availableColors.length, n);
-  let bestSolution = {};
+  let bestSolution: Record<number, number> = {};
   let bestConflicts = Infinity;
 
   for (let i = 0; i < totalCombinations; i++) {
-    const currentSolution = {};
+    const currentSolution: Record<number, number> = {};
     let currentConflicts = 0;
     for (let j = 0; j < n; j++) {
       const colorIndex =
@@ -1552,23 +1570,23 @@ const _clearColoring = () => {
 watch(nodeCount, () => {
   const size = nodeCount.value;
   adjacencyMatrix.value = Array(size)
-    .fill()
+    .fill(null)
     .map(() => Array(size).fill(0));
   generateGraph();
 });
 
 // 任务历史相关方法
-const getHistoryDeleteFilters = () => {
+const getHistoryDeleteFilters = (): TaskDeleteFilters => {
   const taskName = appliedHistoryTaskName.value.trim();
   return taskName
     ? { problemType: "coloring", taskName }
     : { problemType: "coloring" };
 };
 
-const loadTaskHistory = async (params = {}) => {
+const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
   const requestId = taskHistoryRequestGuard.begin();
   const requestTaskName = (params.taskName ?? appliedHistoryTaskName.value).trim();
-  const requestParams = {
+  const requestParams: TaskHistoryParams = {
     problemType: "coloring",
     page: params.page ?? historyCurrentPage.value,
     pageSize: params.pageSize ?? historyPageSize.value,
@@ -1590,7 +1608,7 @@ const loadTaskHistory = async (params = {}) => {
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     console.error("加载任务历史失败:", error);
-    addLog("加载任务历史失败: " + error.message);
+    addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
@@ -1618,7 +1636,7 @@ const handleHistoryReset = () => {
   });
 };
 
-const handleHistoryPageSizeChange = (size) => {
+const handleHistoryPageSizeChange = (size: number) => {
   historyPageSize.value = size;
   historyCurrentPage.value = 1;
   loadTaskHistory({
@@ -1627,7 +1645,7 @@ const handleHistoryPageSizeChange = (size) => {
   });
 };
 
-const handleHistoryCurrentChange = (page) => {
+const handleHistoryCurrentChange = (page: number) => {
   historyCurrentPage.value = page;
   loadTaskHistory({
     page,
@@ -1635,7 +1653,7 @@ const handleHistoryCurrentChange = (page) => {
 };
 
 // 辅助函数
-const getModelTypeText = (type) => {
+const getModelTypeText = (type: ModelType) => {
   const types = {
     classic: "经典计算",
     sim: "量子芯片模拟计算",
@@ -1644,7 +1662,7 @@ const getModelTypeText = (type) => {
   return types[type] || type;
 };
 
-const getStatusText = (status) => {
+const getStatusText = (status: TaskStatus) => {
   const statuses = {
     queued: "计算中",
     processing: "计算中",
@@ -1655,8 +1673,8 @@ const getStatusText = (status) => {
   return statuses[status] || status;
 };
 
-const getStatusType = (status) => {
-  const types = {
+const getStatusType = (status: TaskStatus): TagType => {
+  const types: Record<TaskStatus, TagType> = {
     queued: "warning",
     processing: "warning",
     completed: "success",
@@ -1679,7 +1697,7 @@ const confirmCancelTask = async (taskName = "") => {
   );
 };
 
-const handleCancelHistoryTask = async (row) => {
+const handleCancelHistoryTask = async (row: TaskHistoryItem) => {
   if (!isTaskCancellable(row.status)) {
     ElMessage.warning("仅支持取消计算中的任务");
     return;
@@ -1705,7 +1723,7 @@ const handleCancelHistoryTask = async (row) => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      ElMessage.error(error.message || "取消任务失败");
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     if (historyCancelingTaskId.value === row.taskId) {
@@ -1714,7 +1732,8 @@ const handleCancelHistoryTask = async (row) => {
   }
 };
 
-const formatDate = (timestamp) => {
+const formatDate = (timestamp: string | null) => {
+  if (!timestamp) return "--";
   const date = new Date(timestamp);
   return `${date.toLocaleDateString("zh-CN")} ${date.toLocaleTimeString(
     "zh-CN",

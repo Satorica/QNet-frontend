@@ -67,14 +67,15 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
+import axios from "axios";
 import { SwitchButton } from "@element-plus/icons-vue";
-import { userManager } from "../utils/auth.js";
-import { checkTaskName } from "../api/index.js";
-import { useCustomTaskName } from "../stores/customTaskName.js";
+import { userManager } from "../utils/auth";
+import { checkTaskName } from "../api";
+import { useCustomTaskName } from "../stores/customTaskName";
 
 const router = useRouter();
 const route = useRoute();
@@ -83,7 +84,7 @@ const taskName = ref("");
 const currentTime = ref("");
 const currentWeekday = ref("");
 const currentDateOnly = ref("");
-let timer = null;
+let timer: ReturnType<typeof setInterval> | null = null;
 
 const { setCustomTaskName, customTaskName, clearCustomTaskName } =
   useCustomTaskName();
@@ -94,7 +95,7 @@ const isLoggedIn = computed(() => userManager.isLoggedIn());
 
 const updateClock = () => {
   const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
+  const pad = (n: number) => String(n).padStart(2, "0");
 
   currentTime.value = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(
     now.getSeconds()
@@ -118,8 +119,10 @@ const handleOk = async () => {
       taskName.value = name;
       ElMessage.success("任务名称已保存");
     } catch (error) {
-      const status = error.response?.status;
-      const message = error.response?.data?.message || "检查任务名称失败";
+      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.message || "检查任务名称失败"
+        : "检查任务名称失败";
 
       if (status === 400) {
         ElMessage.error(message); // 任务名称已存在 / 名称为空
@@ -152,7 +155,7 @@ watch(
 );
 
 // 处理下拉菜单命令
-const handleCommand = async (command) => {
+const handleCommand = async (command: string) => {
   if (command === "logout") {
     try {
       await ElMessageBox.confirm(
@@ -192,6 +195,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (timer) {
     clearInterval(timer);
+    timer = null;
   }
 });
 </script>

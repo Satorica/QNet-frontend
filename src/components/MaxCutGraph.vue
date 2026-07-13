@@ -60,41 +60,46 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 
-const props = defineProps({
-  nodes: {
-    type: Array,
-    default: () => [],
-  },
-  edges: {
-    type: Array,
-    default: () => [],
-  },
-  partition: {
-    type: Object,
-    default: () => ({}),
-  },
-  editable: {
-    type: Boolean,
-    default: false,
-  },
-  selectedNodes: {
-    type: Array,
-    default: () => [],
-  },
-});
+interface GraphNode {
+  id: number;
+  x: number;
+  y: number;
+}
 
-const emit = defineEmits(["node-click"]);
+interface GraphEdge {
+  source: number;
+  target: number;
+}
 
-const graphContainer = ref(null);
+const props = withDefaults(
+  defineProps<{
+    nodes?: GraphNode[];
+    edges?: GraphEdge[];
+    partition?: Record<number, number>;
+    editable?: boolean;
+    selectedNodes?: number[];
+  }>(),
+  {
+    nodes: () => [],
+    edges: () => [],
+    partition: () => ({}),
+    editable: false,
+    selectedNodes: () => [],
+  },
+);
+
+const emit = defineEmits<{ "node-click": [nodeId: number] }>();
+
+const graphContainer = ref<HTMLDivElement | null>(null);
 const width = 400;
 const height = 360;
 const nodeRadius = 12;
 
 // 根据分区着色 - 使用更鲜明的颜色
-const getNodeColor = (nodeId) => {
+const getNodeColor = (nodeId: number) => {
   const partition = props.partition[nodeId];
   if (partition === 0) return "#FF6B6B"; // 分区A - 鲜艳红色
   if (partition === 1) return "#4ECDC4"; // 分区B - 青绿色
@@ -102,7 +107,7 @@ const getNodeColor = (nodeId) => {
 };
 
 // 节点边框颜色
-const getNodeStrokeColor = (nodeId) => {
+const getNodeStrokeColor = (nodeId: number) => {
   const partition = props.partition[nodeId];
   if (partition === 0) return "#E85454"; // 深红色边框
   if (partition === 1) return "#3DBDB4"; // 深青色边框
@@ -110,18 +115,18 @@ const getNodeStrokeColor = (nodeId) => {
 };
 
 // 检查节点是否已分区
-const hasPartition = (nodeId) => {
+const hasPartition = (nodeId: number) => {
   return props.partition[nodeId] !== undefined;
 };
 
 
-const isSelected = (nodeId) => {
+const isSelected = (nodeId: number) => {
   return (
     Array.isArray(props.selectedNodes) && props.selectedNodes.includes(nodeId)
   );
 };
 
-const handleNodeClick = (nodeId) => {
+const handleNodeClick = (nodeId: number) => {
   if (props.editable) {
     emit("node-click", nodeId);
   }

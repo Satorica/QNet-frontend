@@ -93,49 +93,68 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 
-const props = defineProps({
-  cities: {
-    type: Array,
-    default: () => [],
-  },
-  route: {
-    type: Array,
-    default: () => [],
-  },
-  bestRoute: {
-    type: Array,
-    default: () => [],
-  },
-  editable: {
-    type: Boolean,
-    default: false,
-  },
-  selectedNodes: {
-    type: Array,
-    default: () => [],
-  },
-  distanceMatrix: {
-    type: Array,
-    default: () => [],
-  },
-});
+interface City {
+  id: number;
+  x: number;
+  y: number;
+  name?: string;
+}
 
-const emit = defineEmits(["city-move", "route-change", "city-click"]);
+interface RenderedEdge {
+  i: number;
+  j: number;
+  w: number;
+}
+
+interface RouteSegment {
+  from: number;
+  to: number;
+  index: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+const props = withDefaults(
+  defineProps<{
+    cities?: City[];
+    route?: number[];
+    bestRoute?: number[];
+    editable?: boolean;
+    selectedNodes?: number[];
+    distanceMatrix?: number[][];
+  }>(),
+  {
+    cities: () => [],
+    route: () => [],
+    bestRoute: () => [],
+    editable: false,
+    selectedNodes: () => [],
+    distanceMatrix: () => [],
+  },
+);
+
+const emit = defineEmits<{
+  "city-move": [cityId: number, x: number, y: number];
+  "route-change": [route: number[]];
+  "city-click": [cityId: number];
+}>();
 
 const width = 760;
 const height = 380;
 const cityRadius = 12;
 const routeEndpointGap = cityRadius + 5;
 
-const getCityById = (cityId) => {
+const getCityById = (cityId: number) => {
   return props.cities.find((city) => city?.id === cityId) || props.cities[cityId];
 };
 
 const renderedEdges = computed(() => {
-  const result = [];
+  const result: RenderedEdge[] = [];
   const m = props.distanceMatrix || [];
   const n = m.length;
   for (let i = 0; i < n; i++) {
@@ -151,7 +170,7 @@ const renderedEdges = computed(() => {
 
 const routeSegments = computed(() => {
   const route = Array.isArray(props.bestRoute) ? props.bestRoute : [];
-  const result = [];
+  const result: RouteSegment[] = [];
 
   for (let index = 0; index < route.length; index++) {
     const from = route[index];
@@ -184,20 +203,20 @@ const routeSegments = computed(() => {
   return result;
 });
 
-const isSelected = (cityId) => {
+const isSelected = (cityId: number) => {
   return (
     Array.isArray(props.selectedNodes) && props.selectedNodes.includes(cityId)
   );
 };
 
-const startDrag = (city) => {
+const startDrag = (city: City) => {
   if (props.editable) {
     // 简化的拖拽实现
     console.log("开始拖拽城市:", city.id);
   }
 };
 
-const handleCityClick = (cityId) => {
+const handleCityClick = (cityId: number) => {
   if (props.editable) {
     emit("city-click", cityId);
   }

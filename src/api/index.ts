@@ -1,4 +1,28 @@
-import axios from "axios";
+import axios, {
+  type AxiosError,
+  type InternalAxiosRequestConfig,
+} from "axios";
+import type {
+  ApiResponse,
+  CancelTaskResponse,
+  DeleteTaskResponse,
+  QuotaData,
+  TaskDeleteFilters,
+  TaskHistoryData,
+  TaskHistoryParams,
+  TaskStatusResponse,
+  TaskSubmitRequest,
+  TaskSubmitResponse,
+} from "../types/api";
+
+interface RetriableRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+}
+
+interface RefreshSubscriber {
+  resolve: () => void;
+  reject: (reason?: unknown) => void;
+}
 
 const isDev = import.meta.env.DEV;
 const prodApiBaseURL = (import.meta.env.VITE_API_BASE_URL || "").replace(
@@ -41,15 +65,18 @@ const handleTokenExpired = (redirectToLogin = true) => {
 
 // ---- Token 自动刷新队列机制 ----
 let isRefreshing = false;
-let refreshSubscribers = [];
+let refreshSubscribers: RefreshSubscriber[] = [];
 
-const subscribeTokenRefresh = (resolve, reject) =>
+const subscribeTokenRefresh = (
+  resolve: RefreshSubscriber["resolve"],
+  reject: RefreshSubscriber["reject"],
+) =>
   refreshSubscribers.push({ resolve, reject });
 const onTokenRefreshed = () => {
   refreshSubscribers.forEach(({ resolve }) => resolve());
   refreshSubscribers = [];
 };
-const onRefreshFailed = (err) => {
+const onRefreshFailed = (err: unknown) => {
   refreshSubscribers.forEach(({ reject }) => reject(err));
   refreshSubscribers = [];
 };
@@ -63,7 +90,7 @@ cloudApi.interceptors.request.use(
 // 响应拦截器
 cloudApi.interceptors.response.use(
   (response) => response,
-  async (error) => {
+  async (error: AxiosError<ApiResponse>) => {
     const message = error.response?.data?.message || error.message;
     error.message = message;
 
@@ -71,7 +98,8 @@ cloudApi.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const originalRequest = error.config;
+    const originalRequest = error.config as RetriableRequestConfig | undefined;
+    if (!originalRequest) return Promise.reject(error);
 
     // 认证类接口本身 401 不走刷新（避免死循环）
     if (originalRequest.url?.startsWith("/auth/")) {
@@ -101,7 +129,7 @@ cloudApi.interceptors.response.use(
     try {
       // 直接使用原生 axios 发请求，绕过本实例拦截器；
       // Cookie 由浏览器自动携带，无需在请求体中传递 token。
-      const refreshResponse = await axios.post(
+      const refreshResponse = await axios.post<ApiResponse>(
         `${runtimeBaseURL}/auth/refresh`,
         {},
         {
@@ -141,14 +169,19 @@ export const checkServerStatus = async () => {
 };
 
 // 提交任务
-export const submitTask = async (taskData) => {
-  const response = await cloudApi.post("/api/submit-task", taskData);
+export const submitTask = async (
+  taskData: TaskSubmitRequest,
+): Promise<TaskSubmitResponse> => {
+  const response = await cloudApi.post<Omit<TaskSubmitResponse, "serverType" | "usePolling">>(
+    "/api/submit-task",
+    taskData,
+  );
   return { ...response.data, serverType: "cloud", usePolling: true };
 };
 
 // 获取任务状态
-export const getTaskStatus = async (taskId) => {
-  const response = await cloudApi.get(`/api/task-status/${taskId}`);
+export const getTaskStatus = async (taskId: string): Promise<TaskStatusResponse> => {
+  const response = await cloudApi.get<TaskStatusResponse>(`/api/task-status/${taskId}`);
   return response.data;
 };
 
@@ -156,33 +189,38 @@ export const getTaskStatus = async (taskId) => {
 // 任务已是终态（completed/failed/cancelled）时后端返回 400，
 // 此处捕获 4xx 业务拒绝并返回响应体，由调用方根据 success/taskStatus 统一处理；
 // 5xx 服务器错误仍然 throw，让调用方以 error 级别提示。
-export const cancelTask = async (taskId) => {
+export const cancelTask = async (taskId: string): Promise<CancelTaskResponse> => {
   try {
-    const response = await cloudApi.post(`/api/cancel-task/${taskId}`);
+    const response = await cloudApi.post<CancelTaskResponse>(`/api/cancel-task/${taskId}`);
     return response.data;
-  } catch (error) {
-    const status = error.response?.status;
-    if (status >= 400 && status < 500 && error.response?.data) {
-      return error.response.data;
+  } catch (error: unknown) {
+    if (!axios.isAxiosError<CancelTaskResponse>(error)) throw error;
+    const status = error.response?.status ?? 0;
+    const responseData = error.response?.data;
+    if (status === 400 && responseData?.taskStatus) {
+      return responseData;
     }
     throw error;
   }
 };
 
 // 查询任务名称是否重复
-export const checkTaskName = async (taskName) => {
-  const response = await cloudApi.post("/api/tasks/check-name", { taskName });
+export const checkTaskName = async (taskName: string): Promise<ApiResponse> => {
+  const response = await cloudApi.post<ApiResponse>("/api/tasks/check-name", { taskName });
   return response.data;
 };
 
 // 获取任务历史
-export const getTaskHistory = async (params = {}) => {
+export const getTaskHistory = async (
+  params: TaskHistoryParams = {},
+): Promise<ApiResponse<TaskHistoryData>> => {
   const {
     page = 1,
     pageSize = 10,
     taskName = "",
     modelType = null,
     problemType = null,
+    status = null,
   } = params;
 
   const payload = {
@@ -191,29 +229,30 @@ export const getTaskHistory = async (params = {}) => {
     ...(problemType ? { problemType } : {}),
     ...(taskName ? { taskName } : {}),
     ...(modelType ? { modelType } : {}),
+    ...(status ? { status } : {}),
   };
 
-  const response = await cloudApi.post("/api/tasks/history", payload);
+  const response = await cloudApi.post<ApiResponse<TaskHistoryData>>("/api/tasks/history", payload);
   return response.data;
 };
 
-export const getTaskQuota = async () => {
-  const response = await cloudApi.get("/api/tasks/quota");
+export const getTaskQuota = async (): Promise<ApiResponse<QuotaData>> => {
+  const response = await cloudApi.get<ApiResponse<QuotaData>>("/api/tasks/quota");
   return response.data;
 };
 
 // 清理任务（管理员功能）
-export const cleanupTasks = async (retentionDays = 30) => {
-  const response = await cloudApi.post("/api/tasks/cleanup", { retentionDays });
+export const cleanupTasks = async (retentionDays = 30): Promise<ApiResponse> => {
+  const response = await cloudApi.post<ApiResponse>("/api/tasks/cleanup", { retentionDays });
   return response.data;
 };
 
-export const deleteTask = async (taskId) => {
-  const response = await cloudApi.post("/api/tasks/delete", { taskId });
+export const deleteTask = async (taskId: string): Promise<DeleteTaskResponse> => {
+  const response = await cloudApi.post<DeleteTaskResponse>("/api/tasks/delete", { taskId });
   return response.data;
 };
 
-const compactTaskFilterPayload = (params = {}) =>
+const compactTaskFilterPayload = (params: TaskDeleteFilters = {}): TaskDeleteFilters =>
   Object.fromEntries(
     Object.entries(params)
       .map(([key, value]) => [
@@ -221,10 +260,12 @@ const compactTaskFilterPayload = (params = {}) =>
         typeof value === "string" ? value.trim() : value,
       ])
       .filter(([, value]) => value !== "" && value !== null && value !== undefined)
-  );
+  ) as TaskDeleteFilters;
 
-export const deleteTasksByFilter = async (params = {}) => {
-  const response = await cloudApi.post(
+export const deleteTasksByFilter = async (
+  params: TaskDeleteFilters = {},
+): Promise<DeleteTaskResponse> => {
+  const response = await cloudApi.post<DeleteTaskResponse>(
     "/api/tasks/delete-by-filter",
     compactTaskFilterPayload(params)
   );

@@ -47,59 +47,62 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 
-const props = defineProps({
-  nodes: {
-    type: Array,
-    default: () => []
-  },
-  edges: {
-    type: Array,
-    default: () => []
-  },
-  coloring: {
-    type: Object,
-    default: () => ({})
-  },
-  colors: {
-    type: Array,
-    default: () => ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
-  },
-  editable: {
-    type: Boolean,
-    default: false
-  },
-  selectedNodes: {
-    type: Array,
-    default: () => []
-  }
+interface GraphNode {
+  id: number
+  x: number
+  y: number
+}
+
+interface GraphEdge {
+  source: number
+  target: number
+}
+
+const props = withDefaults(defineProps<{
+  nodes?: GraphNode[]
+  edges?: GraphEdge[]
+  coloring?: Record<number, number>
+  colors?: string[]
+  editable?: boolean
+  selectedNodes?: number[]
+}>(), {
+  nodes: () => [],
+  edges: () => [],
+  coloring: () => ({}),
+  colors: () => ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4'],
+  editable: false,
+  selectedNodes: () => [],
 })
 
-const emit = defineEmits(['node-click', 'node-color'])
+const emit = defineEmits<{
+  'node-click': [nodeId: number]
+  'node-color': [nodeId: number, colorIndex: number]
+}>()
 
-const graphContainer = ref(null)
+const graphContainer = ref<HTMLDivElement | null>(null)
 const width = 400
 const height = 360
 const nodeRadius = 12
 
-const getNodeColor = (nodeId) => {
+const getNodeColor = (nodeId: number) => {
   const colorIndex = props.coloring[nodeId]
   return colorIndex !== undefined ? props.colors[colorIndex] || '#E0E0E0' : '#B0B0B0'
 }
 
-const hasColor = (nodeId) => props.coloring[nodeId] !== undefined
+const hasColor = (nodeId: number) => props.coloring[nodeId] !== undefined
 
-const getNodeStrokeColor = (nodeId) => {
+const getNodeStrokeColor = (nodeId: number) => {
   return hasColor(nodeId) ? '#FFFFFF' : '#909090'
 }
 
-const isSelected = (nodeId) => {
+const isSelected = (nodeId: number) => {
   return Array.isArray(props.selectedNodes) && props.selectedNodes.includes(nodeId)
 }
 
-const handleNodeClick = (nodeId) => {
+const handleNodeClick = (nodeId: number) => {
   if (props.editable) {
     emit('node-click', nodeId)
   }

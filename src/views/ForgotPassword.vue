@@ -210,10 +210,10 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ElMessage } from "element-plus";
+import { ElMessage, type FormInstance } from "element-plus";
 import {
   ArrowLeft,
   CircleCheckFilled,
@@ -221,18 +221,20 @@ import {
   Lock,
   Message,
 } from "@element-plus/icons-vue";
-import { authApi } from "../api/auth.js";
-import { EMAIL_REGEX } from "../utils/validation.js";
+import { authApi } from "../api/auth";
+import { getErrorCode, getErrorMessage } from "../utils/error";
+import { EMAIL_REGEX } from "../utils/validation";
 
 const CODE_REGEX = /^\d{6}$/;
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,16}$/;
+type ValidatorCallback = (error?: Error) => void;
 
 const router = useRouter();
 
-const verifyFormRef = ref(null);
-const resetFormRef = ref(null);
+const verifyFormRef = ref<FormInstance>();
+const resetFormRef = ref<FormInstance>();
 
-const step = ref("verify");
+const step = ref<"verify" | "reset" | "success">("verify");
 const verifyLoading = ref(false);
 const sendCodeLoading = ref(false);
 const resetLoading = ref(false);
@@ -250,7 +252,7 @@ const resetForm = reactive({
   confirmPassword: "",
 });
 
-let sendCodeTimer = null;
+let sendCodeTimer: ReturnType<typeof setInterval> | null = null;
 
 const activeStepIndex = computed(() => {
   const stepMap = { verify: 0, reset: 1, success: 2 };
@@ -323,7 +325,7 @@ const canSubmitReset = computed(() => {
   );
 });
 
-const validateEmail = (rule, value, callback) => {
+const validateEmail = (_rule: unknown, value: string, callback: ValidatorCallback) => {
   if (!value) {
     callback(new Error("请输入邮箱地址"));
   } else if (!EMAIL_REGEX.test(value)) {
@@ -333,7 +335,7 @@ const validateEmail = (rule, value, callback) => {
   }
 };
 
-const validateCode = (rule, value, callback) => {
+const validateCode = (_rule: unknown, value: string, callback: ValidatorCallback) => {
   if (!value) {
     callback(new Error("请输入验证码"));
   } else if (!CODE_REGEX.test(value)) {
@@ -343,7 +345,7 @@ const validateCode = (rule, value, callback) => {
   }
 };
 
-const validateNewPassword = (rule, value, callback) => {
+const validateNewPassword = (_rule: unknown, value: string, callback: ValidatorCallback) => {
   if (!value) {
     callback(new Error("请输入新密码"));
   } else if (!PASSWORD_REGEX.test(value)) {
@@ -353,7 +355,7 @@ const validateNewPassword = (rule, value, callback) => {
   }
 };
 
-const validateConfirmPassword = (rule, value, callback) => {
+const validateConfirmPassword = (_rule: unknown, value: string, callback: ValidatorCallback) => {
   if (!value) {
     callback(new Error("请再次输入新密码"));
   } else if (value !== resetForm.newPassword) {
@@ -373,20 +375,13 @@ const resetRules = computed(() => ({
   confirmPassword: [{ validator: validateConfirmPassword, trigger: "blur" }],
 }));
 
-const getErrorMessage = (error, fallbackMessage) => {
-  if (!error.response) {
-    return "网络连接异常，请检查网络后重试";
-  }
-  return error.response?.data?.message || fallbackMessage;
-};
-
 const startSendCodeCountdown = () => {
-  clearInterval(sendCodeTimer);
+  if (sendCodeTimer) clearInterval(sendCodeTimer);
   sendCodeCountdown.value = 60;
   sendCodeTimer = setInterval(() => {
     sendCodeCountdown.value -= 1;
     if (sendCodeCountdown.value <= 0) {
-      clearInterval(sendCodeTimer);
+      if (sendCodeTimer) clearInterval(sendCodeTimer);
       sendCodeTimer = null;
     }
   }, 1000);
@@ -433,7 +428,7 @@ const handleVerify = async () => {
   await verifyFormRef.value.validate(async (valid) => {
     if (!valid) {
       ElMessage.error("请正确填写表单");
-      return false;
+      return;
     }
 
     verifyLoading.value = true;
@@ -443,7 +438,7 @@ const handleVerify = async () => {
         verifyForm.code
       );
 
-      if (response.success) {
+      if (response.success && response.data?.resetToken) {
         resetToken.value = response.data.resetToken;
         maskedEmail.value = response.data.maskedEmail || verifyForm.email;
         step.value = "reset";
@@ -485,7 +480,7 @@ const handleResetPassword = async () => {
   await resetFormRef.value.validate(async (valid) => {
     if (!valid) {
       ElMessage.error("请正确填写表单");
-      return false;
+      return;
     }
 
     resetLoading.value = true;
@@ -511,7 +506,7 @@ const handleResetPassword = async () => {
         "密码重置失败"
       );
       ElMessage.error(message);
-      if (error.response?.data?.code === 4001) {
+      if (getErrorCode(error) === 4001) {
         backToVerify();
       }
     } finally {
@@ -525,7 +520,7 @@ const goToLogin = () => {
 };
 
 onBeforeUnmount(() => {
-  clearInterval(sendCodeTimer);
+  if (sendCodeTimer) clearInterval(sendCodeTimer);
 });
 </script>
 

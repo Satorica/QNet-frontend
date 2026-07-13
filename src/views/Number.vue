@@ -174,14 +174,14 @@
 
               <div class="result-stats">
                 <div class="stat-item">
-                  <span class="label">差值：</span>
+                  <span class="label">目标值：</span>
                   <span
                     class="value"
                     :class="{
                       optimal: result.difference === Math.abs(totalSum % 2),
                     }"
                   >
-                    {{ result.difference }}
+                    {{ formatCandidateValue(result.difference) }}
                     <el-tag
                       v-if="result.difference === Math.abs(totalSum % 2)"
                       type="success"
@@ -192,7 +192,9 @@
                 </div>
                 <div class="stat-item">
                   <span class="label">平衡度：</span>
-                  <span class="value">{{ result.balance }}%</span>
+                  <span class="value"
+                    >{{ formatCandidateValue(result.balance) }}%</span
+                  >
                 </div>
               </div>
             </div>
@@ -441,7 +443,7 @@
               >
                 <div class="candidate-header">
                   <span class="candidate-rank"
-                    >候选解 {{ candidate.rank || index + 1 }}</span
+                    >候选解 {{ candidate.rank || Number(index) + 1 }}</span
                   >
                   <span class="candidate-value"
                     >目标值：{{ formatCandidateValue(candidate.value) }}</span
@@ -498,7 +500,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, onBeforeUnmount } from "vue";
 import {
   submitTask,
@@ -507,29 +509,42 @@ import {
   getTaskHistory,
   deleteTask,
   deleteTasksByFilter,
-} from "../api/index.js";
+} from "../api";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { useCustomTaskName } from "../stores/customTaskName.js";
+import { useCustomTaskName } from "../stores/customTaskName";
 import {
   formatBestValue,
   formatCandidateValue,
   formatSolveTime,
-} from "../utils/format.js";
+} from "../utils/format";
 import {
   createSolveLogController,
   SOLVE_LOG_IDLE_MESSAGE,
-} from "../utils/solveLog.js";
+} from "../utils/solveLog";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
   isTaskCancellable,
   isTaskDeletable,
-} from "../utils/task.js";
-import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope.js";
+} from "../utils/task";
+import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
+import { getErrorMessage } from "../utils/error";
 import {
   assertSafeIntegerSum,
   parsePositiveSafeInteger,
-} from "../utils/validation.js";
+} from "../utils/validation";
+import type {
+  CandidateDisplay,
+  ModelType,
+  NumberPartitionResult,
+  TaskDeleteFilters,
+  TaskHistoryItem,
+  TaskHistoryParams,
+  TaskResults,
+  TaskStatus,
+  TaskSubmitRequest,
+} from "../types/api";
+type TagType = "success" | "primary" | "warning" | "info" | "danger";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -539,25 +554,25 @@ const NUMBER_DEFAULT_SIZE = 8;
 
 // 响应式数据
 const numberInput = ref("");
-const numbers = ref([]);
+const numbers = ref<number[]>([]);
 const numberSize = ref(NUMBER_DEFAULT_SIZE);
-const solveType = ref("classic");
+const solveType = ref<ModelType>("classic");
 const solving = ref(false);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const solveTime = ref("--");
-const result = ref(null);
+const result = ref<NumberPartitionResult | null>(null);
 const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
 const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
-const currentTaskId = ref(null);
-const candidates = ref([]);
+const currentTaskId = ref<string | null>(null);
+const candidates = ref<CandidateDisplay[]>([]);
 const solveScope = createAsyncScope();
 
 // 任务历史
-const taskHistory = ref([]);
+const taskHistory = ref<TaskHistoryItem[]>([]);
 const historyLoading = ref(false);
-const historyCancelingTaskId = ref(null);
+const historyCancelingTaskId = ref<string | null>(null);
 const historyTaskName = ref("");
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
@@ -568,8 +583,8 @@ const taskDetailRequestGuard = createLatestRequestGuard();
 
 // 任务详情对话框
 const detailDialogVisible = ref(false);
-const selectedTask = ref(null);
-const taskDetailResults = ref(null);
+const selectedTask = ref<TaskHistoryItem | null>(null);
+const taskDetailResults = ref<TaskResults | null>(null);
 
 // 计算属性
 const totalSum = computed(() =>
@@ -594,13 +609,13 @@ const parseNumberInput = () => {
   return parsedNumbers;
 };
 
-const assertWithinNumberSize = (values) => {
+const assertWithinNumberSize = (values: number[]) => {
   if (values.length > numberSize.value) {
     throw new Error(`数字数量不能超过当前规模 ${numberSize.value}`);
   }
 };
 
-const assertMatchedNumberSize = (values) => {
+const assertMatchedNumberSize = (values: number[]) => {
   if (values.length !== numberSize.value) {
     throw new Error(
       `数字数量需与当前规模一致：当前 ${values.length} 个，规模 ${numberSize.value}`
@@ -654,7 +669,7 @@ const parseNumbers = () => {
 const generateRandomNumbers = () => {
   if (solving.value) return;
   const count = numberSize.value;
-  const newNumbers = [];
+  const newNumbers: number[] = [];
 
   for (let i = 0; i < count; i++) {
     newNumbers.push(Math.floor(Math.random() * 50) + 1); // 1-50的随机数
@@ -675,7 +690,7 @@ const clearNumbers = () => {
   addLog("已清空数字列表");
 };
 
-const removeNumber = (index) => {
+const removeNumber = (index: number) => {
   if (solving.value) return;
   const removed = numbers.value[index];
   numbers.value.splice(index, 1);
@@ -683,14 +698,14 @@ const removeNumber = (index) => {
   addLog(`移除数字：${removed}`);
 };
 
-const getNumberTagType = (num) => {
+const getNumberTagType = (num: number): TagType => {
   if (num <= 10) return "primary";
   if (num <= 30) return "success";
   if (num <= 50) return "warning";
   return "danger";
 };
 
-const applyTerminalTaskStatus = (taskStatus) => {
+const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
   if (taskStatus === "completed") {
     statusClass.value = "status-success";
     statusText.value = "求解成功";
@@ -732,7 +747,7 @@ const startSolve = async () => {
 
   try {
     // 准备任务数据
-    const taskData = {
+    const taskData: TaskSubmitRequest = {
       taskName: customTaskName.value || `NumberPartition_${Date.now()}`,
       problemType: "number_partition",
       modelType: solveType.value, // classic | sim | cloud
@@ -766,18 +781,18 @@ const startSolve = async () => {
     clearCustomTaskName();
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
-    addLog("求解失败：" + error.message);
-    ElMessage.error(error.message || "求解失败");
+    addLog("求解失败：" + getErrorMessage(error, "求解失败"));
+    ElMessage.error(getErrorMessage(error, "求解失败"));
     solving.value = false;
   }
 };
 
 // 轮询任务状态
 const pollTaskStatus = async (
-  taskId,
-  startTime,
-  solveToken,
-  submittedNumbers
+  taskId: string,
+  startTime: number,
+  solveToken: number,
+  submittedNumbers: number[]
 ) => {
   const pollInterval = 2000; // 2秒轮询一次
 
@@ -822,8 +837,8 @@ const pollTaskStatus = async (
 
           // 将解向量转换为两个子集
           // 1表示子集A，-1表示子集B
-          const subsetA = [];
-          const subsetB = [];
+          const subsetA: number[] = [];
+          const subsetB: number[] = [];
 
           if (Array.isArray(solutionVector)) {
             solutionVector.forEach((value, index) => {
@@ -842,7 +857,7 @@ const pollTaskStatus = async (
           const difference = Math.abs(sumA - sumB);
           const balance =
             sumA + sumB > 0
-              ? ((Math.min(sumA, sumB) / Math.max(sumA, sumB)) * 100).toFixed(1)
+              ? ((Math.min(sumA, sumB) / Math.max(sumA, sumB)) * 100).toFixed(2)
               : "0.0";
 
           result.value = {
@@ -901,7 +916,7 @@ const pollTaskStatus = async (
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
       solving.value = false;
-      addLog("无法获取任务状态: " + error.message);
+      addLog("无法获取任务状态: " + getErrorMessage(error, "未知错误"));
       loadTaskHistory();
     }
   };
@@ -947,8 +962,8 @@ const cancelSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      addLog("取消任务失败: " + error.message);
-      ElMessage.error(error.message || "取消任务失败");
+      addLog("取消任务失败: " + getErrorMessage(error, "取消任务失败"));
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     if (historyCancelingTaskId.value === taskId) {
@@ -997,17 +1012,17 @@ const exportResult = () => {
 };
 
 // 任务历史相关方法
-const getHistoryDeleteFilters = () => {
+const getHistoryDeleteFilters = (): TaskDeleteFilters => {
   const taskName = appliedHistoryTaskName.value.trim();
   return taskName
     ? { problemType: "number_partition", taskName }
     : { problemType: "number_partition" };
 };
 
-const loadTaskHistory = async (params = {}) => {
+const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
   const requestId = taskHistoryRequestGuard.begin();
   const requestTaskName = (params.taskName ?? appliedHistoryTaskName.value).trim();
-  const requestParams = {
+  const requestParams: TaskHistoryParams = {
     problemType: "number_partition",
     page: params.page ?? historyCurrentPage.value,
     pageSize: params.pageSize ?? historyPageSize.value,
@@ -1029,7 +1044,7 @@ const loadTaskHistory = async (params = {}) => {
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     console.error("加载任务历史失败:", error);
-    addLog("加载任务历史失败: " + error.message);
+    addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
@@ -1057,7 +1072,7 @@ const handleHistoryReset = () => {
   });
 };
 
-const handleHistoryPageSizeChange = (size) => {
+const handleHistoryPageSizeChange = (size: number) => {
   historyPageSize.value = size;
   historyCurrentPage.value = 1;
   loadTaskHistory({
@@ -1066,7 +1081,7 @@ const handleHistoryPageSizeChange = (size) => {
   });
 };
 
-const handleHistoryCurrentChange = (page) => {
+const handleHistoryCurrentChange = (page: number) => {
   historyCurrentPage.value = page;
   loadTaskHistory({
     page,
@@ -1074,7 +1089,7 @@ const handleHistoryCurrentChange = (page) => {
 };
 
 // 辅助函数
-const getModelTypeText = (type) => {
+const getModelTypeText = (type: ModelType) => {
   const types = {
     classic: "经典计算",
     sim: "量子芯片模拟计算",
@@ -1083,7 +1098,7 @@ const getModelTypeText = (type) => {
   return types[type] || type;
 };
 
-const getStatusText = (status) => {
+const getStatusText = (status: TaskStatus) => {
   const statuses = {
     queued: "计算中",
     processing: "计算中",
@@ -1094,8 +1109,8 @@ const getStatusText = (status) => {
   return statuses[status] || status;
 };
 
-const getStatusType = (status) => {
-  const types = {
+const getStatusType = (status: TaskStatus): TagType => {
+  const types: Record<TaskStatus, TagType> = {
     queued: "warning",
     processing: "warning",
     completed: "success",
@@ -1118,7 +1133,7 @@ const confirmCancelTask = async (taskName = "") => {
   );
 };
 
-const handleCancelHistoryTask = async (row) => {
+const handleCancelHistoryTask = async (row: TaskHistoryItem) => {
   if (!isTaskCancellable(row.status)) {
     ElMessage.warning("仅支持取消计算中的任务");
     return;
@@ -1144,7 +1159,7 @@ const handleCancelHistoryTask = async (row) => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      ElMessage.error(error.message || "取消任务失败");
+      ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
     if (historyCancelingTaskId.value === row.taskId) {
@@ -1153,7 +1168,8 @@ const handleCancelHistoryTask = async (row) => {
   }
 };
 
-const formatDate = (timestamp) => {
+const formatDate = (timestamp: string | null) => {
+  if (!timestamp) return "--";
   const date = new Date(timestamp);
   return `${date.toLocaleDateString("zh-CN")} ${date.toLocaleTimeString(
     "zh-CN",
@@ -1162,7 +1178,7 @@ const formatDate = (timestamp) => {
 };
 
 // 删除任务
-const handleDeleteTask = async (row) => {
+const handleDeleteTask = async (row: TaskHistoryItem) => {
   if (!isTaskDeletable(row.status)) {
     ElMessage.warning("仅支持删除已完成、失败或已取消的任务");
     return;
@@ -1194,8 +1210,8 @@ const handleDeleteTask = async (row) => {
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除任务失败");
-      addLog(`删除任务失败: ${error.message || "未知错误"}`);
+      ElMessage.error(getErrorMessage(error, "删除任务失败"));
+      addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
     }
   }
 };
@@ -1226,13 +1242,13 @@ const handleDeleteAllTasks = async () => {
     }
   } catch (error) {
     if (error !== "cancel") {
-      ElMessage.error(error.message || "删除全部任务失败");
+      ElMessage.error(getErrorMessage(error, "删除全部任务失败"));
     }
   }
 };
 
 // 查看任务详情
-const handleViewTaskDetail = async (row) => {
+const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = row;
@@ -1255,8 +1271,8 @@ const handleViewTaskDetail = async (row) => {
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
-    addLog("获取任务详情失败: " + error.message);
-    ElMessage.error(error.message || "获取任务详情失败");
+    addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
+    ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
 };
 

@@ -1,6 +1,6 @@
 export const createAsyncScope = () => {
   let version = 0;
-  let timerId = null;
+  let timerId: ReturnType<typeof setTimeout> | null = null;
 
   const clearTimer = () => {
     if (timerId !== null) {
@@ -16,9 +16,9 @@ export const createAsyncScope = () => {
       return version;
     },
 
-    isCurrent: (token) => token === version,
+    isCurrent: (token: number) => token === version,
 
-    schedule: (token, callback, delay) => {
+    schedule: (token: number, callback: () => void | Promise<void>, delay: number) => {
       if (token !== version) return;
       clearTimer();
       timerId = setTimeout(() => {
@@ -42,7 +42,7 @@ export const createLatestRequestGuard = () => {
       latestRequestId += 1;
       return latestRequestId;
     },
-    isLatest: (requestId) => requestId === latestRequestId,
+    isLatest: (requestId: number) => requestId === latestRequestId,
     invalidate: () => {
       latestRequestId += 1;
     },
