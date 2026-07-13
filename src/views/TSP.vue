@@ -7,7 +7,7 @@
           <!-- 求解模型选择 -->
           <div class="controls-top">
             <span class="label">求解模型选择：</span>
-            <el-radio-group v-model="solveType" class="solve-type-group">
+            <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
               <el-radio-button label="classic">经典计算</el-radio-button>
               <el-radio-button label="sim">量子芯片模拟计算</el-radio-button>
               <el-radio-button label="cloud">量子云服务计算</el-radio-button>
@@ -21,6 +21,7 @@
                 v-model="cityCount"
                 :min="3"
                 :max="24"
+                :disabled="solving"
                 style="width: 130px"
                 @change="generateCitiesAndMatrix"
               />
@@ -35,18 +36,20 @@
                 <div class="matrix-actions">
                   <el-button
                     :type="matrixMode === 'custom' ? 'primary' : ''"
+                    :disabled="solving"
                     @click="setMatrixMode('custom')"
                     >自定义</el-button
                   >
                   <el-button
                     :type="matrixMode === 'random' ? 'primary' : ''"
+                    :disabled="solving"
                     @click="
                       setMatrixMode('random');
                       generateRandomMatrix();
                     "
                     >随机生成</el-button
                   >
-                  <el-button @click="triggerFileInput"
+                  <el-button :disabled="solving" @click="triggerFileInput"
                     >数据导入(txt/csv)</el-button
                   >
                   <input
@@ -72,6 +75,7 @@
                   class="matrix-cell"
                   :class="{
                     editable:
+                      !solving &&
                       (matrixMode === 'custom' || matrixMode === 'random') &&
                       i !== j,
                   }"
@@ -90,7 +94,7 @@
               :cities="cities"
               :route="currentRoute"
               :bestRoute="bestRoute"
-              :editable="true"
+              :editable="!solving"
               :selected-nodes="selectedNodes"
               :distance-matrix="distanceMatrix"
               @city-click="onCityClick"
@@ -332,6 +336,7 @@
       title="任务详细信息"
       width="800px"
       :close-on-click-modal="false"
+      @closed="handleTaskDetailClosed"
     >
       <div v-if="selectedTask" class="task-detail">
         <!-- 基本信息卡片 -->
@@ -490,7 +495,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onBeforeUnmount } from "vue";
 import TSPGraph from "../components/TSPGraph.vue";
 import {
   submitTask,
@@ -513,6 +518,8 @@ import {
   isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task.js";
+import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope.js";
+import { parseStrictNonNegativeNumber } from "../utils/validation.js";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -531,6 +538,7 @@ const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
 const currentTaskId = ref(null);
 const solveCandidates = ref([]);
+const solveScope = createAsyncScope();
 
 const TSP_LAYOUT_CENTER_X = 380;
 const TSP_LAYOUT_CENTER_Y = 190;
@@ -550,6 +558,8 @@ const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
 const historyTotal = ref(0);
 const appliedHistoryTaskName = ref("");
+const taskHistoryRequestGuard = createLatestRequestGuard();
+const taskDetailRequestGuard = createLatestRequestGuard();
 
 // 任务详情对话框
 const detailDialogVisible = ref(false);
@@ -656,6 +666,7 @@ const normalizeTspRouteFromSolution = (solution, n) => {
 
 // 方法
 const generateCitiesAndMatrix = () => {
+  if (solving.value) return;
   const size = cityCount.value;
   distanceMatrix.value = createRandomDistanceMatrix(size);
   generateCities();
@@ -1060,6 +1071,7 @@ const handleRouteChange = (newRoute) => {
 };
 
 const onCityClick = async (cityId) => {
+  if (solving.value) return;
   // 选中两点
   if (selectedNodes.value.includes(cityId)) {
     selectedNodes.value = selectedNodes.value.filter((id) => id !== cityId);
@@ -1093,6 +1105,7 @@ const onCityClick = async (cityId) => {
 };
 
 const setEdgeWeight = (i, j, w) => {
+  if (solving.value) return;
   if (i === j) return;
   const a = Math.min(i, j);
   const b = Math.max(i, j);
@@ -1110,6 +1123,7 @@ const setEdgeWeight = (i, j, w) => {
 
 // 距离矩阵交互：自定义/随机/导入
 const setMatrixMode = (mode) => {
+  if (solving.value) return;
   matrixMode.value = mode;
   // 切换模式时清除路径结果
   currentRoute.value = [];
@@ -1143,6 +1157,7 @@ const createRandomDistanceMatrix = (size) => {
 };
 
 const generateRandomMatrix = () => {
+  if (solving.value) return;
   const size = cityCount.value;
   const m = createRandomDistanceMatrix(size);
   distanceMatrix.value = m;
@@ -1156,14 +1171,20 @@ const generateRandomMatrix = () => {
 };
 
 const triggerFileInput = () => {
+  if (solving.value) return;
   fileInput.value && fileInput.value.click();
 };
 
 const handleFileImport = (event) => {
+  if (solving.value) return;
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
+    if (solving.value) {
+      addLog("导入已取消：任务正在求解");
+      return;
+    }
     try {
       const content = e.target.result;
       const lines = content
@@ -1182,7 +1203,7 @@ const handleFileImport = (event) => {
           .filter((cell) => cell.trim())
           .map((cell, colIdx) => {
             const val = cell.trim();
-            const num = parseFloat(val);
+            const num = parseStrictNonNegativeNumber(val);
 
             // 检查是否为有效数字
             if (isNaN(num)) {
@@ -1305,10 +1326,14 @@ const handleFileImport = (event) => {
       addLog(`导入失败：${err.message}`);
     }
   };
+  reader.onloadend = () => {
+    event.target.value = "";
+  };
   reader.readAsText(file);
 };
 
 const toggleMatrixCell = async (i, j) => {
+  if (solving.value) return;
   if (
     (matrixMode.value !== "custom" && matrixMode.value !== "random") ||
     i === j
@@ -1346,6 +1371,8 @@ const applyTerminalTaskStatus = (taskStatus) => {
 
 // 求解提交（统一POST参数）
 const submitSolve = async () => {
+  const submittedCityCount = cityCount.value;
+  const solveToken = solveScope.begin();
   try {
     solving.value = true;
     statusClass.value = "status-running";
@@ -1373,6 +1400,7 @@ const submitSolve = async () => {
 
     addLog("提交任务中");
     const res = await submitTask(payload);
+    if (!solveScope.isCurrent(solveToken)) return;
     if (res?.success) {
       clearCustomTaskName();
       currentTaskId.value = res.taskId;
@@ -1380,11 +1408,17 @@ const submitSolve = async () => {
       loadTaskHistory();
 
       // 开始轮询任务状态
-      await pollTaskStatus(res.taskId, start);
+      await pollTaskStatus(
+        res.taskId,
+        start,
+        solveToken,
+        submittedCityCount
+      );
     } else {
       throw new Error(res?.message || "提交失败");
     }
   } catch (e) {
+    if (!solveScope.isCurrent(solveToken)) return;
     clearCustomTaskName();
     statusClass.value = "status-fail";
     statusText.value = "提交失败";
@@ -1395,14 +1429,27 @@ const submitSolve = async () => {
 };
 
 // 轮询任务状态
-const pollTaskStatus = async (taskId, startTime) => {
+const pollTaskStatus = async (
+  taskId,
+  startTime,
+  solveToken,
+  submittedCityCount
+) => {
   const pollInterval = 2000; // 2秒轮询一次
 
   const poll = async () => {
-    if (!solving.value) return;
+    if (
+      !solveScope.isCurrent(solveToken) ||
+      currentTaskId.value !== taskId ||
+      !solving.value
+    ) return;
     try {
       const statusResponse = await getTaskStatus(taskId);
-      if (!solving.value) return;
+      if (
+        !solveScope.isCurrent(solveToken) ||
+        currentTaskId.value !== taskId ||
+        !solving.value
+      ) return;
 
       if (statusResponse.state === "completed") {
         // 任务完成
@@ -1432,7 +1479,7 @@ const pollTaskStatus = async (taskId, startTime) => {
 
           const route = normalizeTspRouteFromSolution(
             bestResult.solution,
-            cityCount.value
+            submittedCityCount
           );
 
           console.log("解析的路径:", route);
@@ -1465,7 +1512,7 @@ const pollTaskStatus = async (taskId, startTime) => {
         // 任务处理中
         statusText.value = "计算中...";
         addTaskProgressLog("processing");
-        setTimeout(poll, pollInterval);
+        solveScope.schedule(solveToken, poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
           statusResponse.queuePosition
@@ -1473,9 +1520,10 @@ const pollTaskStatus = async (taskId, startTime) => {
             : ""
         }`;
         addTaskProgressLog("queued", statusResponse.queuePosition);
-        setTimeout(poll, pollInterval);
+        solveScope.schedule(solveToken, poll, pollInterval);
       }
     } catch (error) {
+      if (!solveScope.isCurrent(solveToken)) return;
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
       solving.value = false;
@@ -1485,7 +1533,7 @@ const pollTaskStatus = async (taskId, startTime) => {
   };
 
   // 开始轮询
-  setTimeout(poll, pollInterval);
+  solveScope.schedule(solveToken, poll, pollInterval);
 };
 
 const cancelSolve = async () => {
@@ -1509,6 +1557,7 @@ const cancelSolve = async () => {
         }
         solving.value = false;
         currentTaskId.value = null;
+        solveScope.invalidate();
         loadTaskHistory();
       }
       return;
@@ -1517,6 +1566,7 @@ const cancelSolve = async () => {
     ElMessage.success(res?.message || "任务已取消");
     addLog("任务已取消");
     solving.value = false;
+    solveScope.invalidate();
     statusClass.value = "status-fail";
     statusText.value = "已取消";
     currentTaskId.value = null;
@@ -1566,6 +1616,7 @@ const getHistoryDeleteFilters = () => {
 };
 
 const loadTaskHistory = async (params = {}) => {
+  const requestId = taskHistoryRequestGuard.begin();
   const requestTaskName = (params.taskName ?? appliedHistoryTaskName.value).trim();
   const requestParams = {
     problemType: "tsp",
@@ -1577,6 +1628,7 @@ const loadTaskHistory = async (params = {}) => {
   try {
     historyLoading.value = true;
     const response = await getTaskHistory(requestParams);
+    if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     if (response.success && response.data) {
       taskHistory.value = response.data.tasks || [];
       historyTotal.value = response.data.total || 0;
@@ -1586,12 +1638,15 @@ const loadTaskHistory = async (params = {}) => {
       historyTotal.value = 0;
     }
   } catch (error) {
+    if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     console.error("加载任务历史失败:", error);
     addLog("加载任务历史失败: " + error.message);
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
-    historyLoading.value = false;
+    if (taskHistoryRequestGuard.isLatest(requestId)) {
+      historyLoading.value = false;
+    }
   }
 };
 
@@ -1790,13 +1845,19 @@ const handleDeleteAllTasks = async () => {
 
 // 查看任务详情
 const handleViewTaskDetail = async (row) => {
+  const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = row;
+    taskDetailResults.value = null;
     detailDialogVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (row.status === "completed") {
       const statusResponse = await getTaskStatus(row.taskId);
+      if (
+        !taskDetailRequestGuard.isLatest(requestId) ||
+        selectedTask.value?.taskId !== row.taskId
+      ) return;
       if (statusResponse.results) {
         taskDetailResults.value = statusResponse.results;
       }
@@ -1804,10 +1865,17 @@ const handleViewTaskDetail = async (row) => {
       taskDetailResults.value = null;
     }
   } catch (error) {
+    if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
     addLog("获取任务详情失败: " + error.message);
     ElMessage.error(error.message || "获取任务详情失败");
   }
+};
+
+const handleTaskDetailClosed = () => {
+  taskDetailRequestGuard.invalidate();
+  selectedTask.value = null;
+  taskDetailResults.value = null;
 };
 
 // 导出任务详情
@@ -1842,6 +1910,12 @@ const exportTaskDetail = () => {
 generateCitiesAndMatrix();
 // 异步加载任务历史
 loadTaskHistory();
+
+onBeforeUnmount(() => {
+  solveScope.invalidate();
+  taskHistoryRequestGuard.invalidate();
+  taskDetailRequestGuard.invalidate();
+});
 </script>
 
 <style scoped>

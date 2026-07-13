@@ -38,10 +38,16 @@ export const tokenManager = {
             if (response.success && response.data?.user) {
                 const remember = localStorage.getItem(REMEMBER_ME_STORAGE_KEY) === 'true'
                 userManager.setUserInfo(response.data.user, remember)
+                return true
             }
-            return response.success
+            tokenManager.clearTokens()
+            return false
         } catch (error) {
-            console.error('Token verification failed:', error)
+            if ([401, 403].includes(error.response?.status)) {
+                tokenManager.clearTokens()
+            } else {
+                console.error('Token verification failed:', error)
+            }
             return false
         }
     },

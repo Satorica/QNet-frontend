@@ -6,7 +6,7 @@
           <!-- 求解模型选择 -->
           <div class="controls-top">
             <span class="label">求解模型选择：</span>
-            <el-radio-group v-model="solveType" class="solve-type-group">
+            <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
               <el-radio-button label="classic">经典计算</el-radio-button>
               <el-radio-button label="sim">量子芯片模拟计算</el-radio-button>
               <el-radio-button label="cloud">量子云服务计算</el-radio-button>
@@ -21,6 +21,7 @@
                 v-model="numberSize"
                 :min="NUMBER_MIN_SIZE"
                 :max="NUMBER_MAX_SIZE"
+                :disabled="solving"
                 style="width: 130px"
                 @change="handleNumberSizeChange"
               />
@@ -38,12 +39,13 @@
                 v-model="numberInput"
                 type="textarea"
                 :rows="4"
+                :disabled="solving"
                 placeholder="请输入数字，用逗号或空格分隔，例如：1,2,3,4,5"
               />
               <div class="input-buttons">
-                <el-button @click="parseNumbers">解析数字</el-button>
-                <el-button @click="generateRandomNumbers">随机生成</el-button>
-                <el-button @click="clearNumbers">清空</el-button>
+                <el-button :disabled="solving" @click="parseNumbers">解析数字</el-button>
+                <el-button :disabled="solving" @click="generateRandomNumbers">随机生成</el-button>
+                <el-button :disabled="solving" @click="clearNumbers">清空</el-button>
               </div>
             </div>
 
@@ -53,7 +55,7 @@
                 <el-tag
                   v-for="(num, index) in numbers"
                   :key="index"
-                  closable
+                  :closable="!solving"
                   @close="removeNumber(index)"
                   :type="getNumberTagType(num)"
                 >
@@ -338,6 +340,7 @@
       title="任务详细信息"
       width="800px"
       :close-on-click-modal="false"
+      @closed="handleTaskDetailClosed"
     >
       <div v-if="selectedTask" class="task-detail">
         <!-- 基本信息卡片 -->
@@ -496,7 +499,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onBeforeUnmount } from "vue";
 import {
   submitTask,
   getTaskStatus,
@@ -522,6 +525,11 @@ import {
   isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task.js";
+import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope.js";
+import {
+  assertSafeIntegerSum,
+  parsePositiveSafeInteger,
+} from "../utils/validation.js";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -544,6 +552,7 @@ const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
 const currentTaskId = ref(null);
 const candidates = ref([]);
+const solveScope = createAsyncScope();
 
 // 任务历史
 const taskHistory = ref([]);
@@ -554,6 +563,8 @@ const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
 const historyTotal = ref(0);
 const appliedHistoryTaskName = ref("");
+const taskHistoryRequestGuard = createLatestRequestGuard();
+const taskDetailRequestGuard = createLatestRequestGuard();
 
 // 任务详情对话框
 const detailDialogVisible = ref(false);
@@ -578,10 +589,9 @@ const parseNumberInput = () => {
   if (tokens.length === 0) {
     throw new Error("请输入有效的正整数");
   }
-  if (tokens.some((s) => !/^[1-9]\d*$/.test(s))) {
-    throw new Error("请输入有效的正整数，非法内容请先删除");
-  }
-  return tokens.map((s) => Number(s));
+  const parsedNumbers = tokens.map(parsePositiveSafeInteger);
+  assertSafeIntegerSum(parsedNumbers);
+  return parsedNumbers;
 };
 
 const assertWithinNumberSize = (values) => {
@@ -599,6 +609,7 @@ const assertMatchedNumberSize = (values) => {
 };
 
 const handleNumberSizeChange = () => {
+  if (solving.value) return;
   let nextNumbers;
   let nextInput;
 
@@ -624,6 +635,7 @@ const handleNumberSizeChange = () => {
 };
 
 const parseNumbers = () => {
+  if (solving.value) return;
   try {
     const parsedNumbers = parseNumberInput();
     assertWithinNumberSize(parsedNumbers);
@@ -640,6 +652,7 @@ const parseNumbers = () => {
 };
 
 const generateRandomNumbers = () => {
+  if (solving.value) return;
   const count = numberSize.value;
   const newNumbers = [];
 
@@ -652,10 +665,10 @@ const generateRandomNumbers = () => {
   // 清除之前的结果
   result.value = null;
   addLog(`随机生成${count}个数字`);
-  ElMessage.success(`随机生成${count}个数字`);
 };
 
 const clearNumbers = () => {
+  if (solving.value) return;
   numbers.value = [];
   numberInput.value = "";
   result.value = null;
@@ -663,6 +676,7 @@ const clearNumbers = () => {
 };
 
 const removeNumber = (index) => {
+  if (solving.value) return;
   const removed = numbers.value[index];
   numbers.value.splice(index, 1);
   numberInput.value = numbers.value.join(", ");
@@ -701,6 +715,8 @@ const startSolve = async () => {
   }
 
   numbers.value = parsedNumbers;
+  const submittedNumbers = [...parsedNumbers];
+  const solveToken = solveScope.begin();
   solving.value = true;
   statusClass.value = "status-running";
   solveTime.value = "--";
@@ -727,6 +743,7 @@ const startSolve = async () => {
     // 提交任务到后端
     addLog("提交任务中");
     const submitResponse = await submitTask(taskData);
+    if (!solveScope.isCurrent(solveToken)) return;
 
     if (submitResponse.success) {
       clearCustomTaskName();
@@ -735,11 +752,17 @@ const startSolve = async () => {
       loadTaskHistory();
 
       // 开始轮询任务状态
-      await pollTaskStatus(submitResponse.taskId, startTime);
+      await pollTaskStatus(
+        submitResponse.taskId,
+        startTime,
+        solveToken,
+        submittedNumbers
+      );
     } else {
       throw new Error(submitResponse.message || "任务提交失败");
     }
   } catch (error) {
+    if (!solveScope.isCurrent(solveToken)) return;
     clearCustomTaskName();
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
@@ -750,14 +773,27 @@ const startSolve = async () => {
 };
 
 // 轮询任务状态
-const pollTaskStatus = async (taskId, startTime) => {
+const pollTaskStatus = async (
+  taskId,
+  startTime,
+  solveToken,
+  submittedNumbers
+) => {
   const pollInterval = 2000; // 2秒轮询一次
 
   const poll = async () => {
-    if (!solving.value) return;
+    if (
+      !solveScope.isCurrent(solveToken) ||
+      currentTaskId.value !== taskId ||
+      !solving.value
+    ) return;
     try {
       const statusResponse = await getTaskStatus(taskId);
-      if (!solving.value) return;
+      if (
+        !solveScope.isCurrent(solveToken) ||
+        currentTaskId.value !== taskId ||
+        !solving.value
+      ) return;
 
       if (statusResponse.state === "completed") {
         // 任务完成
@@ -791,11 +827,11 @@ const pollTaskStatus = async (taskId, startTime) => {
 
           if (Array.isArray(solutionVector)) {
             solutionVector.forEach((value, index) => {
-              if (index < numbers.value.length) {
+              if (index < submittedNumbers.length) {
                 if (value === 1 || value > 0) {
-                  subsetA.push(numbers.value[index]);
+                  subsetA.push(submittedNumbers[index]);
                 } else {
-                  subsetB.push(numbers.value[index]);
+                  subsetB.push(submittedNumbers[index]);
                 }
               }
             });
@@ -850,7 +886,7 @@ const pollTaskStatus = async (taskId, startTime) => {
         // 任务处理中
         statusText.value = "计算中...";
         addTaskProgressLog("processing");
-        setTimeout(poll, pollInterval);
+        solveScope.schedule(solveToken, poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
           statusResponse.queuePosition
@@ -858,9 +894,10 @@ const pollTaskStatus = async (taskId, startTime) => {
             : ""
         }`;
         addTaskProgressLog("queued", statusResponse.queuePosition);
-        setTimeout(poll, pollInterval);
+        solveScope.schedule(solveToken, poll, pollInterval);
       }
     } catch (error) {
+      if (!solveScope.isCurrent(solveToken)) return;
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
       solving.value = false;
@@ -870,7 +907,7 @@ const pollTaskStatus = async (taskId, startTime) => {
   };
 
   // 开始轮询
-  setTimeout(poll, pollInterval);
+  solveScope.schedule(solveToken, poll, pollInterval);
 };
 
 const cancelSolve = async () => {
@@ -894,6 +931,7 @@ const cancelSolve = async () => {
         }
         solving.value = false;
         currentTaskId.value = null;
+        solveScope.invalidate();
         loadTaskHistory();
       }
       return;
@@ -902,6 +940,7 @@ const cancelSolve = async () => {
     ElMessage.success(res?.message || "任务已取消");
     addLog("任务已取消");
     solving.value = false;
+    solveScope.invalidate();
     statusClass.value = "status-fail";
     statusText.value = "已取消";
     currentTaskId.value = null;
@@ -966,6 +1005,7 @@ const getHistoryDeleteFilters = () => {
 };
 
 const loadTaskHistory = async (params = {}) => {
+  const requestId = taskHistoryRequestGuard.begin();
   const requestTaskName = (params.taskName ?? appliedHistoryTaskName.value).trim();
   const requestParams = {
     problemType: "number_partition",
@@ -977,6 +1017,7 @@ const loadTaskHistory = async (params = {}) => {
   try {
     historyLoading.value = true;
     const response = await getTaskHistory(requestParams);
+    if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     if (response.success && response.data) {
       taskHistory.value = response.data.tasks || [];
       historyTotal.value = response.data.total || 0;
@@ -986,12 +1027,15 @@ const loadTaskHistory = async (params = {}) => {
       historyTotal.value = 0;
     }
   } catch (error) {
+    if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     console.error("加载任务历史失败:", error);
     addLog("加载任务历史失败: " + error.message);
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
-    historyLoading.value = false;
+    if (taskHistoryRequestGuard.isLatest(requestId)) {
+      historyLoading.value = false;
+    }
   }
 };
 
@@ -1189,13 +1233,19 @@ const handleDeleteAllTasks = async () => {
 
 // 查看任务详情
 const handleViewTaskDetail = async (row) => {
+  const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = row;
+    taskDetailResults.value = null;
     detailDialogVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (row.status === "completed") {
       const statusResponse = await getTaskStatus(row.taskId);
+      if (
+        !taskDetailRequestGuard.isLatest(requestId) ||
+        selectedTask.value?.taskId !== row.taskId
+      ) return;
       if (statusResponse.results) {
         taskDetailResults.value = statusResponse.results;
       }
@@ -1203,10 +1253,17 @@ const handleViewTaskDetail = async (row) => {
       taskDetailResults.value = null;
     }
   } catch (error) {
+    if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
     addLog("获取任务详情失败: " + error.message);
     ElMessage.error(error.message || "获取任务详情失败");
   }
+};
+
+const handleTaskDetailClosed = () => {
+  taskDetailRequestGuard.invalidate();
+  selectedTask.value = null;
+  taskDetailResults.value = null;
 };
 
 // 导出任务详情
@@ -1240,6 +1297,12 @@ const exportTaskDetail = () => {
 // 初始化
 // 异步加载任务历史
 loadTaskHistory();
+
+onBeforeUnmount(() => {
+  solveScope.invalidate();
+  taskHistoryRequestGuard.invalidate();
+  taskDetailRequestGuard.invalidate();
+});
 </script>
 
 <style scoped>

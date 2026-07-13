@@ -167,11 +167,17 @@
         <el-form-item prop="agree">
           <el-checkbox v-model="registerForm.agree">
             我已阅读并同意
-            <el-link type="primary" :underline="false"
+            <el-link
+              type="primary"
+              :underline="false"
+              @click.stop.prevent="openLegalDocument('terms')"
               >《用户协议》</el-link
             >
             和
-            <el-link type="primary" :underline="false"
+            <el-link
+              type="primary"
+              :underline="false"
+              @click.stop.prevent="openLegalDocument('privacy')"
               >《隐私政策》</el-link
             >
           </el-checkbox>
@@ -204,6 +210,24 @@
     <div class="footer-info">
       <p>© {{ new Date().getFullYear() }} 量子Ising求解系统 | 现代化量子优化平台</p>
     </div>
+
+    <el-dialog
+      v-model="legalDialogVisible"
+      :title="activeLegalDocument.title"
+      width="min(680px, 92vw)"
+      append-to-body
+    >
+      <div class="legal-document">
+        <p class="legal-updated">更新日期：2026年7月10日</p>
+        <section v-for="section in activeLegalDocument.sections" :key="section.title">
+          <h3>{{ section.title }}</h3>
+          <p>{{ section.content }}</p>
+        </section>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="legalDialogVisible = false">我已阅读</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -212,6 +236,7 @@ import { ref, reactive, computed, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { authApi } from "../api/auth.js";
+import { EMAIL_REGEX } from "../utils/validation.js";
 // import { notificationManager } from "../utils/auth.js"; // 手机号注册暂未启用
 
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,16}$/;
@@ -219,6 +244,40 @@ const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,16}$/;
 const router = useRouter();
 const registerFormRef = ref(null);
 const loading = ref(false);
+const legalDialogVisible = ref(false);
+const legalDocumentType = ref("terms");
+
+const LEGAL_DOCUMENTS = {
+  terms: {
+    title: "用户协议",
+    sections: [
+      { title: "一、服务说明", content: "本系统提供量子与经典优化问题的任务提交、计算和结果展示服务。计算结果仅供学习、研究和业务评估使用。" },
+      { title: "二、账号责任", content: "用户应提供真实、有效的注册信息，妥善保管账号，并对账号下提交的任务和操作负责。" },
+      { title: "三、使用规范", content: "不得利用本系统实施违法活动、攻击服务、绕过额度限制，或提交侵犯他人合法权益的数据。" },
+      { title: "四、服务与结果", content: "任务可能因网络、算力或第三方服务原因延迟或失败。用户应自行核验重要计算结果并保留必要备份。" },
+      { title: "五、协议更新", content: "系统功能或合规要求变化时，本协议可能更新；重大变化将通过系统页面提示。" },
+    ],
+  },
+  privacy: {
+    title: "隐私政策",
+    sections: [
+      { title: "一、收集的信息", content: "为完成注册、登录和任务服务，系统会处理账号信息、联系方式、任务参数、计算结果及必要的设备和日志信息。" },
+      { title: "二、使用目的", content: "相关信息用于身份验证、任务计算、额度管理、安全审计、故障排查和服务改进。" },
+      { title: "三、存储与保护", content: "系统采取访问控制、传输保护和最小权限等措施保护信息，并在实现服务目的所需期限内保存。" },
+      { title: "四、共享与披露", content: "除完成计算所必需、获得用户授权或法律法规要求外，不会向无关第三方提供个人信息。" },
+      { title: "五、用户权利", content: "用户可以通过系统提供的渠道申请查询、更正或删除个人信息，并可停止使用服务。" },
+    ],
+  },
+};
+
+const activeLegalDocument = computed(
+  () => LEGAL_DOCUMENTS[legalDocumentType.value]
+);
+
+const openLegalDocument = (type) => {
+  legalDocumentType.value = type;
+  legalDialogVisible.value = true;
+};
 
 // 注册方式（手机号注册暂未启用，固定为邮箱）
 const registerType = ref("email");
@@ -274,7 +333,7 @@ const validateEmail = (rule, value, callback) => {
   if (registerType.value === "email") {
     if (!value) {
       callback(new Error("请输入邮箱地址"));
-    } else if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(value)) {
+    } else if (!EMAIL_REGEX.test(value)) {
       callback(new Error("请输入有效的邮箱地址"));
     } else {
       callback();
@@ -391,7 +450,7 @@ const sendEmailCode = async () => {
     return;
   }
   if (
-    !/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(registerForm.email)
+    !EMAIL_REGEX.test(registerForm.email)
   ) {
     ElMessage.warning("请输入有效的邮箱地址");
     return;
@@ -700,6 +759,28 @@ const goToLogin = () => {
 }
 
 /* 用户协议 */
+.legal-document {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
+  color: #4b5563;
+  line-height: 1.75;
+}
+
+.legal-document h3 {
+  margin: 18px 0 6px;
+  color: #1f2937;
+  font-size: 15px;
+}
+
+.legal-document p {
+  margin: 0;
+}
+
+.legal-updated {
+  color: #8c8fa3;
+  font-size: 13px;
+}
 .register-form :deep(.el-checkbox__label) {
   font-size: 13px;
   color: #606266;
@@ -765,4 +846,3 @@ const goToLogin = () => {
   }
 }
 </style>
-

@@ -53,7 +53,11 @@ const routes = [
     name: 'Tasks',
     component: () => import('../views/Tasks.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/login'
   }
 ]
 
-export default routes 
+export default routes

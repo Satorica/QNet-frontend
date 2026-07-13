@@ -21,7 +21,7 @@ const cloudApi = axios.create({
 // 清理本地用户信息并跳转登录页
 // Token 存储在 HttpOnly Cookie 中，由后端通过 Set-Cookie 清除；
 // 前端只清理非敏感的用户信息缓存。
-const handleTokenExpired = () => {
+const handleTokenExpired = (redirectToLogin = true) => {
   const keys = ["userInfo", "isLoggedIn"];
   keys.forEach((key) => {
     sessionStorage.removeItem(key);
@@ -30,6 +30,7 @@ const handleTokenExpired = () => {
   localStorage.removeItem("rememberMe");
 
   if (
+    redirectToLogin &&
     window.location.pathname !== "/login" &&
     window.location.pathname !== "/register" &&
     window.location.pathname !== "/forgot-password"
@@ -74,7 +75,7 @@ cloudApi.interceptors.response.use(
 
     // 认证类接口本身 401 不走刷新（避免死循环）
     if (originalRequest.url?.startsWith("/auth/")) {
-      handleTokenExpired();
+      handleTokenExpired(originalRequest.url !== "/auth/verify");
       return Promise.reject(error);
     }
 

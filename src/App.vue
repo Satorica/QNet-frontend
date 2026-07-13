@@ -36,7 +36,6 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { tokenManager, userManager } from "./utils/auth.js";
 import { useRoute } from "vue-router";
 import Sidebar from "./components/Sidebar.vue";
 import TopBar from "./components/TopBar.vue";
@@ -44,10 +43,7 @@ import TopBar from "./components/TopBar.vue";
 const route = useRoute();
 const initialized = ref(false);
 
-onMounted(async () => {
-  if (userManager.isLoggedIn()) {
-    await tokenManager.verifyToken();
-  }
+onMounted(() => {
   initialized.value = true;
 });
 
@@ -201,4 +197,4 @@ body {
 .el-main {
   padding: 0;
 }
-</style> 
+</style>

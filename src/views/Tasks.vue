@@ -245,6 +245,7 @@
       title="任务详情"
       width="800px"
       :close-on-click-modal="false"
+      @closed="handleTaskDetailClosed"
     >
       <div v-if="selectedTask" class="task-detail">
         <!-- 基本信息 -->
@@ -407,7 +408,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
 import {
@@ -425,6 +426,7 @@ import {
   isTaskDeletable,
 } from "../utils/task.js";
 import { formatCandidateValue } from "../utils/format.js";
+import { createLatestRequestGuard } from "../utils/asyncScope.js";
 
 // 响应式数据
 const tasks = ref([]);
@@ -452,6 +454,8 @@ const quotaLastUpdatedAt = ref(null);
 let quotaRefreshPromise = null;
 let quotaRefreshQueued = false;
 let quotaFeedbackRequested = false;
+const taskHistoryRequestGuard = createLatestRequestGuard();
+const taskDetailRequestGuard = createLatestRequestGuard();
 const problemTypeOptions = [
   { value: "maxcut", label: "图分割问题" },
   { value: "number_partition", label: "数分问题" },
@@ -479,6 +483,7 @@ const compactTaskFilters = (filters = {}) => {
 };
 
 const loadTasks = async (params = {}) => {
+  const requestId = taskHistoryRequestGuard.begin();
   const requestFilters = normalizeTaskFilters({
     taskName: params.taskName ?? appliedTaskFilters.value.taskName,
     modelType: params.modelType ?? appliedTaskFilters.value.modelType,
@@ -493,6 +498,7 @@ const loadTasks = async (params = {}) => {
   try {
     historyLoading.value = true;
     const response = await getTaskHistory(requestParams);
+    if (!taskHistoryRequestGuard.isLatest(requestId)) return;
 
     if (response.success && response.data) {
       tasks.value = response.data.tasks || [];
@@ -505,12 +511,15 @@ const loadTasks = async (params = {}) => {
     total.value = 0;
     ElMessage.error(response.message || "加载任务失败");
   } catch (error) {
+    if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     console.error("加载任务失败:", error);
     tasks.value = [];
     total.value = 0;
     ElMessage.error(error.message || "加载任务失败");
   } finally {
-    historyLoading.value = false;
+    if (taskHistoryRequestGuard.isLatest(requestId)) {
+      historyLoading.value = false;
+    }
   }
 };
 
@@ -606,21 +615,34 @@ const handleResetSearch = () => {
 };
 
 const viewTask = async (task) => {
+  const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = task;
+    taskDetailResults.value = null;
     taskDetailVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (task.status === "completed") {
       const statusResponse = await getTaskStatus(task.taskId);
+      if (
+        !taskDetailRequestGuard.isLatest(requestId) ||
+        selectedTask.value?.taskId !== task.taskId
+      ) {
+        return;
+      }
       taskDetailResults.value = statusResponse.results || null;
-    } else {
-      taskDetailResults.value = null;
     }
   } catch (error) {
+    if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
     ElMessage.error(error.message || "获取任务详情失败");
   }
+};
+
+const handleTaskDetailClosed = () => {
+  taskDetailRequestGuard.invalidate();
+  selectedTask.value = null;
+  taskDetailResults.value = null;
 };
 
 const confirmCancelTask = async (taskName = "") => {
@@ -898,6 +920,11 @@ const exportTaskDetail = () => {
 onMounted(() => {
   loadTasks();
   loadQuotaSummary();
+});
+
+onBeforeUnmount(() => {
+  taskHistoryRequestGuard.invalidate();
+  taskDetailRequestGuard.invalidate();
 });
 </script>
 

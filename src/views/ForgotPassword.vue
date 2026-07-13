@@ -222,8 +222,8 @@ import {
   Message,
 } from "@element-plus/icons-vue";
 import { authApi } from "../api/auth.js";
+import { EMAIL_REGEX } from "../utils/validation.js";
 
-const EMAIL_REGEX = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/;
 const CODE_REGEX = /^\d{6}$/;
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,16}$/;
 

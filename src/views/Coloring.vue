@@ -7,7 +7,7 @@
           <!-- 求解模型选择 -->
           <div class="controls-top">
             <span class="label">求解模型选择：</span>
-            <el-radio-group v-model="solveType" class="solve-type-group">
+            <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
               <el-radio-button label="classic">经典计算</el-radio-button>
               <el-radio-button label="sim">量子芯片模拟计算</el-radio-button>
               <el-radio-button label="cloud">量子云服务计算</el-radio-button>
@@ -21,6 +21,7 @@
                 v-model="nodeCount"
                 :min="3"
                 :max="24"
+                :disabled="solving"
                 style="width: 130px"
               />
             </div>
@@ -28,6 +29,7 @@
               <span class="ctrl-label">图类型：</span>
               <el-select
                 v-model="graphType"
+                :disabled="solving"
                 @change="generateGraph"
                 style="width: 120px"
               >
@@ -45,6 +47,7 @@
                 :min="0.1"
                 :max="0.8"
                 :step="0.1"
+                :disabled="solving"
                 @change="generateGraph"
                 style="width: 120px"
               />
@@ -60,18 +63,20 @@
                 <div class="matrix-actions">
                   <el-button
                     :type="matrixMode === 'custom' ? 'primary' : ''"
+                    :disabled="solving"
                     @click="setMatrixMode('custom')"
                     >自定义</el-button
                   >
                   <el-button
                     :type="matrixMode === 'random' ? 'primary' : ''"
+                    :disabled="solving"
                     @click="
                       setMatrixMode('random');
                       generateRandomMatrix();
                     "
                     >随机生成</el-button
                   >
-                  <el-button @click="triggerFileInput"
+                  <el-button :disabled="solving" @click="triggerFileInput"
                     >数据导入(txt/csv)</el-button
                   >
                   <input
@@ -97,6 +102,7 @@
                   class="matrix-cell"
                   :class="{
                     editable:
+                      !solving &&
                       (matrixMode === 'custom' || matrixMode === 'random') &&
                       i !== j,
                   }"
@@ -118,7 +124,7 @@
               :edges="edges"
               :coloring="coloring"
               :colors="availableColors"
-              :editable="true"
+              :editable="!solving"
               :selected-nodes="selectedNodes"
               @node-click="onGraphNodeClick"
               @node-color="handleNodeColor"
@@ -360,6 +366,7 @@
       title="任务详细信息"
       width="800px"
       :close-on-click-modal="false"
+      @closed="handleTaskDetailClosed"
     >
       <div v-if="selectedTask" class="task-detail">
         <!-- 基本信息卡片 -->
@@ -518,7 +525,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import {
   submitTask,
   getTaskStatus,
@@ -541,6 +548,7 @@ import {
   isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task.js";
+import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope.js";
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -601,6 +609,7 @@ const solving = ref(false);
 const solveTime = ref("--");
 const currentTaskId = ref(null);
 const solveCandidates = ref([]);
+const solveScope = createAsyncScope();
 
 // 任务历史
 const taskHistory = ref([]);
@@ -611,6 +620,8 @@ const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
 const historyTotal = ref(0);
 const appliedHistoryTaskName = ref("");
+const taskHistoryRequestGuard = createLatestRequestGuard();
+const taskDetailRequestGuard = createLatestRequestGuard();
 
 // 任务详情对话框
 const detailDialogVisible = ref(false);
@@ -757,6 +768,7 @@ const createRandomLayout = () => {
 
 // 方法
 const generateGraph = () => {
+  if (solving.value) return;
   // 随机图同时随机拓扑和节点坐标；其他图保持稳定的规则布局。
   nodes.value =
     graphType.value === "random" ? createRandomLayout() : createCircleLayout();
@@ -841,6 +853,7 @@ const generateGridGraph = () => {
 
 // 两点点击建边/取消边
 const onGraphNodeClick = (nodeId) => {
+  if (solving.value) return;
   // 选中逻辑：切换选中
   if (selectedNodes.value.includes(nodeId)) {
     selectedNodes.value = selectedNodes.value.filter((id) => id !== nodeId);
@@ -862,6 +875,7 @@ const onGraphNodeClick = (nodeId) => {
 };
 
 const toggleEdge = (a, b) => {
+  if (solving.value) return;
   if (a === b) return;
   const i = Math.min(a, b);
   const j = Math.max(a, b);
@@ -920,6 +934,7 @@ const syncEdgesFromMatrix = () => {
 
 // 邻接矩阵交互
 const setMatrixMode = (mode) => {
+  if (solving.value) return;
   matrixMode.value = mode;
   // 切换模式时清除颜色结果
   coloring.value = {};
@@ -927,6 +942,7 @@ const setMatrixMode = (mode) => {
 };
 
 const generateRandomMatrix = () => {
+  if (solving.value) return;
   const size = nodeCount.value;
   const newMatrix = Array(size)
     .fill()
@@ -950,14 +966,20 @@ const generateRandomMatrix = () => {
 };
 
 const triggerFileInput = () => {
+  if (solving.value) return;
   fileInput.value && fileInput.value.click();
 };
 
 const handleFileImport = (event) => {
+  if (solving.value) return;
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
+    if (solving.value) {
+      addLog("导入已取消：任务正在求解");
+      return;
+    }
     try {
       const content = e.target.result;
       const lines = content
@@ -1061,10 +1083,14 @@ const handleFileImport = (event) => {
       addLog(`导入失败：${error.message}`);
     }
   };
+  reader.onloadend = () => {
+    event.target.value = "";
+  };
   reader.readAsText(file);
 };
 
 const toggleMatrixCell = (i, j) => {
+  if (solving.value) return;
   if (
     (matrixMode.value !== "custom" && matrixMode.value !== "random") ||
     i === j
@@ -1154,13 +1180,19 @@ const handleDeleteAllTasks = async () => {
 
 // 查看任务详情
 const handleViewTaskDetail = async (row) => {
+  const requestId = taskDetailRequestGuard.begin();
   try {
     selectedTask.value = row;
+    taskDetailResults.value = null;
     detailDialogVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (row.status === "completed") {
       const statusResponse = await getTaskStatus(row.taskId);
+      if (
+        !taskDetailRequestGuard.isLatest(requestId) ||
+        selectedTask.value?.taskId !== row.taskId
+      ) return;
       if (statusResponse.results) {
         taskDetailResults.value = statusResponse.results;
       }
@@ -1168,6 +1200,7 @@ const handleViewTaskDetail = async (row) => {
       taskDetailResults.value = null;
     }
   } catch (error) {
+    if (!taskDetailRequestGuard.isLatest(requestId)) return;
     console.error("获取任务详情失败:", error);
     addLog("获取任务详情失败: " + error.message);
     ElMessage.error(error.message || "获取任务详情失败");
@@ -1215,6 +1248,8 @@ const submitSolve = async () => {
     return;
   }
 
+  const submittedNodeCount = nodeCount.value;
+  const solveToken = solveScope.begin();
   solving.value = true;
   statusClass.value = "status-idle";
   statusText.value = "求解中...";
@@ -1243,6 +1278,7 @@ const submitSolve = async () => {
 
     // 提交任务到后端
     const submitResponse = await submitTask(taskData);
+    if (!solveScope.isCurrent(solveToken)) return;
 
     if (submitResponse.success) {
       clearCustomTaskName();
@@ -1251,11 +1287,17 @@ const submitSolve = async () => {
       loadTaskHistory();
 
       // 开始轮询任务状态
-      await pollTaskStatus(submitResponse.taskId, startTime);
+      await pollTaskStatus(
+        submitResponse.taskId,
+        startTime,
+        solveToken,
+        submittedNodeCount
+      );
     } else {
       throw new Error(submitResponse.message || "任务提交失败");
     }
   } catch (error) {
+    if (!solveScope.isCurrent(solveToken)) return;
     clearCustomTaskName();
     console.error("求解失败:", error);
     addLog(`求解失败: ${error.message}`);
@@ -1267,14 +1309,27 @@ const submitSolve = async () => {
 };
 
 // 轮询任务状态
-const pollTaskStatus = async (taskId, startTime) => {
+const pollTaskStatus = async (
+  taskId,
+  startTime,
+  solveToken,
+  submittedNodeCount
+) => {
   const pollInterval = 2000; // 2秒轮询一次
 
   const poll = async () => {
-    if (!solving.value) return;
+    if (
+      !solveScope.isCurrent(solveToken) ||
+      currentTaskId.value !== taskId ||
+      !solving.value
+    ) return;
     try {
       const statusResponse = await getTaskStatus(taskId);
-      if (!solving.value) return;
+      if (
+        !solveScope.isCurrent(solveToken) ||
+        currentTaskId.value !== taskId ||
+        !solving.value
+      ) return;
 
       if (statusResponse.state === "completed") {
         // 任务完成
@@ -1298,7 +1353,7 @@ const pollTaskStatus = async (taskId, startTime) => {
 
           const { coloringMap, usedColorsCount } = normalizeColoringSolution(
             bestResult.solution,
-            nodeCount.value
+            submittedNodeCount
           );
           const unsatisfiedCount = Number(bestResult.unsatisfied_count);
           const conflictCount = Number.isFinite(unsatisfiedCount)
@@ -1341,7 +1396,7 @@ const pollTaskStatus = async (taskId, startTime) => {
         // 任务处理中
         statusText.value = "计算中...";
         addTaskProgressLog("processing");
-        setTimeout(poll, pollInterval);
+        solveScope.schedule(solveToken, poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
           statusResponse.queuePosition
@@ -1349,9 +1404,10 @@ const pollTaskStatus = async (taskId, startTime) => {
             : ""
         }`;
         addTaskProgressLog("queued", statusResponse.queuePosition);
-        setTimeout(poll, pollInterval);
+        solveScope.schedule(solveToken, poll, pollInterval);
       }
     } catch (error) {
+      if (!solveScope.isCurrent(solveToken)) return;
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
       solving.value = false;
@@ -1361,7 +1417,7 @@ const pollTaskStatus = async (taskId, startTime) => {
   };
 
   // 开始轮询
-  setTimeout(poll, pollInterval);
+  solveScope.schedule(solveToken, poll, pollInterval);
 };
 
 const cancelSolve = async () => {
@@ -1385,6 +1441,7 @@ const cancelSolve = async () => {
         }
         solving.value = false;
         currentTaskId.value = null;
+        solveScope.invalidate();
         loadTaskHistory();
       }
       return;
@@ -1393,6 +1450,7 @@ const cancelSolve = async () => {
     ElMessage.success(res?.message || "任务已取消");
     addLog("任务已取消");
     solving.value = false;
+    solveScope.invalidate();
     statusClass.value = "status-fail";
     statusText.value = "已取消";
     currentTaskId.value = null;
@@ -1407,6 +1465,12 @@ const cancelSolve = async () => {
       historyCancelingTaskId.value = null;
     }
   }
+};
+
+const handleTaskDetailClosed = () => {
+  taskDetailRequestGuard.invalidate();
+  selectedTask.value = null;
+  taskDetailResults.value = null;
 };
 
 // 经典算法求解 (示例)
@@ -1502,6 +1566,7 @@ const getHistoryDeleteFilters = () => {
 };
 
 const loadTaskHistory = async (params = {}) => {
+  const requestId = taskHistoryRequestGuard.begin();
   const requestTaskName = (params.taskName ?? appliedHistoryTaskName.value).trim();
   const requestParams = {
     problemType: "coloring",
@@ -1513,6 +1578,7 @@ const loadTaskHistory = async (params = {}) => {
   try {
     historyLoading.value = true;
     const response = await getTaskHistory(requestParams);
+    if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     if (response.success && response.data) {
       taskHistory.value = response.data.tasks || [];
       historyTotal.value = response.data.total || 0;
@@ -1522,12 +1588,15 @@ const loadTaskHistory = async (params = {}) => {
       historyTotal.value = 0;
     }
   } catch (error) {
+    if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     console.error("加载任务历史失败:", error);
     addLog("加载任务历史失败: " + error.message);
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
-    historyLoading.value = false;
+    if (taskHistoryRequestGuard.isLatest(requestId)) {
+      historyLoading.value = false;
+    }
   }
 };
 
@@ -1657,6 +1726,12 @@ const formatDate = (timestamp) => {
 generateGraph();
 // 异步加载任务历史
 loadTaskHistory();
+
+onBeforeUnmount(() => {
+  solveScope.invalidate();
+  taskHistoryRequestGuard.invalidate();
+  taskDetailRequestGuard.invalidate();
+});
 </script>
 
 <style scoped>
