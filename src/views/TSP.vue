@@ -49,16 +49,29 @@
                     "
                     >随机生成</el-button
                   >
-                  <el-button :disabled="solving" @click="triggerFileInput"
-                    >数据导入(txt/csv)</el-button
+                  <el-upload
+                    ref="importUpload"
+                    action="#"
+                    accept=".csv,.txt,text/csv,text/plain"
+                    :limit="1"
+                    :show-file-list="false"
+                    :disabled="solving || importing"
+                    :http-request="handleFileImport"
+                    :on-success="clearImportFiles"
+                    :on-error="clearImportFiles"
                   >
-                  <input
-                    ref="fileInput"
-                    type="file"
-                    accept=".csv,.txt"
-                    style="display: none"
-                    @change="handleFileImport"
-                  />
+                    <el-button
+                      :disabled="solving || importing"
+                      :loading="importing"
+                    >
+                      {{ importing ? "解析中..." : "数据导入(txt/csv)" }}
+                    </el-button>
+                  </el-upload>
+                  <el-button
+                    :disabled="solving"
+                    @click="handleTemplateDownload"
+                    >下载模板</el-button
+                  >
                 </div>
               </div>
             </template>
@@ -174,7 +187,14 @@
           <!-- 候选结果 -->
           <el-card class="candidates-card">
             <template #header>
-              <span>候选结果</span>
+              <div class="result-header">
+                <span>候选结果</span>
+                <el-button
+                  :disabled="solveCandidates.length === 0"
+                  @click="exportResults"
+                  >结果导出</el-button
+                >
+              </div>
             </template>
             <div
               v-if="solveCandidates.length === 0"
@@ -504,8 +524,14 @@ import {
   getTaskHistory,
   deleteTask,
   deleteTasksByFilter,
+  parseProblemImportFile,
 } from "../api";
-import { ElMessage, ElMessageBox } from "element-plus";
+import {
+  ElMessage,
+  ElMessageBox,
+  type UploadInstance,
+  type UploadRequestOptions,
+} from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName";
 import { formatBestValue, formatSolveTime } from "../utils/format";
 import {
@@ -519,8 +545,8 @@ import {
   isTaskDeletable,
 } from "../utils/task";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
-import { parseStrictNonNegativeNumber } from "../utils/validation";
 import { getErrorMessage } from "../utils/error";
+import { downloadMatrixTemplate } from "../utils/dataImport";
 import type {
   City,
   ModelType,
@@ -533,6 +559,13 @@ import type {
   TaskSubmitRequest,
 } from "../types/api";
 type TagType = "success" | "primary" | "warning" | "info" | "danger";
+type TspExportContext = {
+  cityCount: number;
+  cities: City[];
+  distanceMatrix: number[][];
+  algorithm: string;
+  solveType: ModelType;
+};
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -551,6 +584,7 @@ const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
 const currentTaskId = ref<string | null>(null);
 const solveCandidates = ref<TaskCandidate[]>([]);
+const resultExportContext = ref<TspExportContext | null>(null);
 const solveScope = createAsyncScope();
 
 const TSP_LAYOUT_CENTER_X = 380;
@@ -589,7 +623,8 @@ const selectedNodes = ref<number[]>([]);
 // 距离矩阵（允许非负数）
 const distanceMatrix = ref<number[][]>([]);
 const matrixMode = ref("custom");
-const fileInput = ref<HTMLInputElement | null>(null);
+const importUpload = ref<UploadInstance>();
+const importing = ref(false);
 
 // 计算属性
 const currentDistance = computed(() => {
@@ -1185,167 +1220,50 @@ const generateRandomMatrix = () => {
   addLog("随机生成距离矩阵（对角线为0，其余单元格均为非零距离）");
 };
 
-const triggerFileInput = () => {
-  if (solving.value) return;
-  fileInput.value?.click();
+const handleTemplateDownload = async () => {
+  try {
+    await downloadMatrixTemplate("tsp");
+  } catch (error) {
+    addLog(`模板下载失败：${getErrorMessage(error, "请稍后重试")}`);
+  }
 };
 
-const handleFileImport = (event: Event) => {
-  if (solving.value) return;
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
+const clearImportFiles = () => importUpload.value?.clearFiles();
+
+const handleFileImport = async ({ file }: UploadRequestOptions) => {
+  if (solving.value || importing.value) {
+    throw new Error("当前无法导入文件");
+  }
+  importing.value = true;
+  try {
+    const imported = await parseProblemImportFile("tsp", file);
     if (solving.value) {
       addLog("导入已取消：任务正在求解");
       return;
     }
-    try {
-      const content = String(e.target?.result ?? "");
-      const lines = content
-        .trim()
-        .split("\n")
-        .filter((line) => line.trim());
-
-      if (lines.length === 0) {
-        addLog("导入失败：文件为空");
-        return;
+    cityCount.value = imported.matrixSize;
+    distanceMatrix.value = imported.adjacencyMatrix;
+    generateCities();
+    layoutCitiesByDistanceMatrix(imported.adjacencyMatrix);
+    currentRoute.value = [];
+    bestRoute.value = [];
+    solveCandidates.value = [];
+    resetSolveStatus();
+    let edgeCount = 0;
+    for (let i = 0; i < imported.matrixSize; i++) {
+      for (let j = i + 1; j < imported.matrixSize; j++) {
+        if (imported.adjacencyMatrix[i][j] > 0) edgeCount++;
       }
-
-      const newMatrix = lines.map((line, lineIdx) =>
-        line
-          .split(/[,\s]+/)
-          .filter((cell) => cell.trim())
-          .map((cell, colIdx) => {
-            const val = cell.trim();
-            const num = parseStrictNonNegativeNumber(val);
-
-            // 检查是否为有效数字
-            if (isNaN(num)) {
-              throw new Error(
-                `第${lineIdx + 1}行第${colIdx + 1}列包含非数字：${val}`
-              );
-            }
-
-            // 检查是否为负数
-            if (num < 0) {
-              throw new Error(
-                `第${lineIdx + 1}行第${
-                  colIdx + 1
-                }列为负数：${num}（距离必须非负）`
-              );
-            }
-
-            // 检查是否为整数或浮点数
-            if (!Number.isFinite(num)) {
-              throw new Error(
-                `第${lineIdx + 1}行第${colIdx + 1}列不是有效数值：${val}`
-              );
-            }
-
-            return num;
-          })
-      );
-
-      // 验证1：检查是否为方阵
-      const size = newMatrix.length;
-      if (size === 0) {
-        addLog("导入失败：矩阵为空");
-        return;
-      }
-
-      for (let i = 0; i < size; i++) {
-        if (newMatrix[i].length !== size) {
-          addLog(
-            `导入失败：不是方阵（第${i + 1}行有${
-              newMatrix[i].length
-            }列，期望${size}列）`
-          );
-          return;
-        }
-      }
-
-      // 验证2：检查对角线是否为0（无自环）
-      for (let i = 0; i < size; i++) {
-        if (newMatrix[i][i] !== 0) {
-          addLog(
-            `导入失败：对角线元素[${i}][${i}]=${newMatrix[i][i]}，不允许自环（必须为0）`
-          );
-          return;
-        }
-      }
-
-      // 验证3：检查是否对称
-      for (let i = 0; i < size; i++) {
-        for (let j = i + 1; j < size; j++) {
-          if (newMatrix[i][j] < MIN_DISTANCE_WEIGHT || newMatrix[j][i] < MIN_DISTANCE_WEIGHT) {
-            addLog(`导入失败：非对角线距离必须 ≥ 0.1（[${i}][${j}] 或 [${j}][${i}] 不符合）`);
-            return;
-          }
-          const diff = Math.abs(newMatrix[i][j] - newMatrix[j][i]);
-          // 使用小的容差来处理浮点数精度问题
-          if (diff > 0.0001) {
-            addLog(
-              `导入失败：矩阵不对称（[${i}][${j}]=${newMatrix[i][j]}，但[${j}][${i}]=${newMatrix[j][i]}）`
-            );
-            return;
-          }
-          // 确保完全对称
-          newMatrix[j][i] = newMatrix[i][j];
-        }
-      }
-
-      // 验证4：检查规模是否在允许范围内
-      if (size < 3 || size > 24) {
-        addLog(`导入失败：矩阵规模${size}超出范围（允许3-24）`);
-        return;
-      }
-
-      // 验证5：检查是否所有非对角线元素都为0（这样的矩阵无意义）
-      let hasEdge = false;
-      for (let i = 0; i < size; i++) {
-        for (let j = i + 1; j < size; j++) {
-          if (newMatrix[i][j] > 0) {
-            hasEdge = true;
-            break;
-          }
-        }
-        if (hasEdge) break;
-      }
-
-      if (!hasEdge) {
-        addLog("警告：矩阵中没有任何正权重边，TSP问题无意义");
-      }
-
-      // 所有验证通过，导入数据
-      cityCount.value = size;
-      distanceMatrix.value = newMatrix;
-      generateCities();
-      layoutCitiesByDistanceMatrix(newMatrix);
-      currentRoute.value = [];
-      bestRoute.value = [];
-      solveCandidates.value = [];
-      resetSolveStatus();
-
-      // 计算边数（非零边）
-      let edgeCount = 0;
-      for (let i = 0; i < size; i++) {
-        for (let j = i + 1; j < size; j++) {
-          if (newMatrix[i][j] > 0) edgeCount++;
-        }
-      }
-
-      addLog(`数据导入成功：${size}×${size}距离矩阵，${edgeCount}条非零边`);
-    } catch (err) {
-      console.error("文件解析失败:", err);
-      addLog(`导入失败：${getErrorMessage(err, "未知错误")}`);
     }
-  };
-  reader.onloadend = () => {
-    input.value = "";
-  };
-  reader.readAsText(file);
+    addLog(
+      `数据导入成功：${imported.matrixSize}×${imported.matrixSize}距离矩阵，${edgeCount}条非零边`,
+    );
+  } catch (error) {
+    addLog(`导入失败：${getErrorMessage(error, "请稍后重试")}`);
+    throw error instanceof Error ? error : new Error("导入失败");
+  } finally {
+    importing.value = false;
+  }
 };
 
 const toggleMatrixCell = async (i: number, j: number) => {
@@ -1388,6 +1306,13 @@ const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
 // 求解提交（统一POST参数）
 const submitSolve = async () => {
   const submittedCityCount = cityCount.value;
+  resultExportContext.value = {
+    cityCount: submittedCityCount,
+    cities: cities.value.map((city) => ({ ...city })),
+    distanceMatrix: distanceMatrix.value.map((row) => [...row]),
+    algorithm: algorithm.value,
+    solveType: solveType.value,
+  };
   const solveToken = solveScope.begin();
   try {
     solving.value = true;
@@ -1923,6 +1848,27 @@ const exportTaskDetail = () => {
   URL.revokeObjectURL(url);
 };
 
+// 导出当前求解结果
+const exportResults = () => {
+  if (!resultExportContext.value || solveCandidates.value.length === 0) return;
+
+  const data = {
+    ...resultExportContext.value,
+    candidates: solveCandidates.value,
+    timestamp: new Date().toISOString(),
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `tsp-candidates-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 // 初始化
 generateCitiesAndMatrix();
 // 异步加载任务历史
@@ -2353,6 +2299,12 @@ onBeforeUnmount(() => {
 
 .candidates-card {
   margin-top: 16px;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .candidates-placeholder {

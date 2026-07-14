@@ -6,6 +6,8 @@ import type {
   ApiResponse,
   CancelTaskResponse,
   DeleteTaskResponse,
+  MatrixImportData,
+  MatrixImportProblemType,
   QuotaData,
   TaskDeleteFilters,
   TaskHistoryData,
@@ -177,6 +179,39 @@ export const submitTask = async (
     taskData,
   );
   return { ...response.data, serverType: "cloud", usePolling: true };
+};
+
+export const getProblemImportTemplate = async (
+  problemType: MatrixImportProblemType,
+): Promise<{ blob: Blob; filename: string }> => {
+  const response = await cloudApi.get<Blob>(
+    `/api/problem-imports/${problemType}/template`,
+    { responseType: "blob" },
+  );
+  const disposition = String(response.headers["content-disposition"] || "");
+  const encodedFilename = disposition.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+  const plainFilename = disposition.match(/filename="?([^";]+)"?/i)?.[1];
+  const filename = encodedFilename
+    ? decodeURIComponent(encodedFilename)
+    : plainFilename || `${problemType}-template.csv`;
+  return { blob: response.data, filename };
+};
+
+export const parseProblemImportFile = async (
+  problemType: MatrixImportProblemType,
+  file: File,
+): Promise<MatrixImportData> => {
+  const formData = new FormData();
+  formData.append("file", file, file.name);
+  const response = await cloudApi.post<ApiResponse<MatrixImportData>>(
+    `/api/problem-imports/${problemType}`,
+    formData,
+    { headers: { "Content-Type": "multipart/form-data" } },
+  );
+  if (!response.data.data) {
+    throw new Error(response.data.message || "导入响应缺少矩阵数据");
+  }
+  return response.data.data;
 };
 
 // 获取任务状态

@@ -76,16 +76,29 @@
                     "
                     >随机生成</el-button
                   >
-                  <el-button :disabled="solving" @click="triggerFileInput"
-                    >数据导入(txt/csv)</el-button
+                  <el-upload
+                    ref="importUpload"
+                    action="#"
+                    accept=".csv,.txt,text/csv,text/plain"
+                    :limit="1"
+                    :show-file-list="false"
+                    :disabled="solving || importing"
+                    :http-request="handleFileImport"
+                    :on-success="clearImportFiles"
+                    :on-error="clearImportFiles"
                   >
-                  <input
-                    ref="fileInput"
-                    type="file"
-                    accept=".csv,.txt"
-                    style="display: none"
-                    @change="handleFileImport"
-                  />
+                    <el-button
+                      :disabled="solving || importing"
+                      :loading="importing"
+                    >
+                      {{ importing ? "解析中..." : "数据导入(txt/csv)" }}
+                    </el-button>
+                  </el-upload>
+                  <el-button
+                    :disabled="solving"
+                    @click="handleTemplateDownload"
+                    >下载模板</el-button
+                  >
                 </div>
               </div>
             </template>
@@ -202,7 +215,14 @@
           <!-- 保留候选结果位 -->
           <el-card class="candidates-card">
             <template #header>
-              <span>候选结果</span>
+              <div class="result-header">
+                <span>候选结果</span>
+                <el-button
+                  :disabled="solveCandidates.length === 0"
+                  @click="exportResults"
+                  >结果导出</el-button
+                >
+              </div>
             </template>
             <div
               v-if="solveCandidates.length === 0"
@@ -533,8 +553,14 @@ import {
   getTaskHistory,
   deleteTask,
   deleteTasksByFilter,
+  parseProblemImportFile,
 } from "../api";
-import { ElMessage, ElMessageBox } from "element-plus";
+import {
+  ElMessage,
+  ElMessageBox,
+  type UploadInstance,
+  type UploadRequestOptions,
+} from "element-plus";
 import ColoringGraph from "../components/ColoringGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
 import { formatCandidateValue, formatSolveTime } from "../utils/format";
@@ -550,6 +576,7 @@ import {
 } from "../utils/task";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
+import { downloadMatrixTemplate } from "../utils/dataImport";
 import type {
   GraphEdge,
   GraphNode,
@@ -563,6 +590,11 @@ import type {
   TaskSubmitRequest,
 } from "../types/api";
 type TagType = "success" | "primary" | "warning" | "info" | "danger";
+type ColoringExportContext = {
+  nodeCount: number;
+  adjacencyMatrix: number[][];
+  solveType: ModelType;
+};
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -584,7 +616,9 @@ const coloring = ref<Record<number, number>>({});
 // 邻接矩阵数据与模式
 const matrixMode = ref("custom");
 const adjacencyMatrix = ref<number[][]>([]);
-const fileInput = ref<HTMLInputElement | null>(null);
+const importUpload = ref<UploadInstance>();
+const importing = ref(false);
+let skipNextNodeCountRebuild = false;
 
 // 颜色定义
 const availableColors = [
@@ -623,6 +657,7 @@ const solving = ref(false);
 const solveTime = ref("--");
 const currentTaskId = ref<string | null>(null);
 const solveCandidates = ref<TaskCandidate[]>([]);
+const resultExportContext = ref<ColoringExportContext | null>(null);
 const solveScope = createAsyncScope();
 
 // 任务历史
@@ -784,6 +819,17 @@ const createRandomLayout = () => {
 };
 
 // 方法
+const invalidateCurrentResult = () => {
+  coloring.value = {};
+  conflicts.value = "--";
+  solveTime.value = "--";
+  statusClass.value = "status-idle";
+  statusText.value = "等待求解";
+  currentTaskId.value = null;
+  solveCandidates.value = [];
+  resultExportContext.value = null;
+};
+
 const generateGraph = () => {
   if (solving.value) return;
   // 随机图同时随机拓扑和节点坐标；其他图保持稳定的规则布局。
@@ -813,8 +859,8 @@ const generateGraph = () => {
   // 同步邻接矩阵
   syncMatrixFromEdges();
 
-  // 清理状态
-  coloring.value = {};
+  // 图结构变化后清理旧求解结果
+  invalidateCurrentResult();
   selectedNodes.value = [];
   addLog(
     `生成${graphType.value}图，${nodeCount.value}个节点，${edges.value.length}条边`
@@ -909,8 +955,7 @@ const toggleEdge = (a: number, b: number) => {
   }
   // 同步矩阵
   syncMatrixFromEdges();
-  // 修改边时清除颜色结果
-  coloring.value = {};
+  invalidateCurrentResult();
 };
 
 const _clearSelected = () => {
@@ -920,6 +965,7 @@ const _clearSelected = () => {
 const _clearEdges = () => {
   edges.value = [];
   syncMatrixFromEdges();
+  invalidateCurrentResult();
   // validateColoring() // 移除前端冲突检测
   addLog("清空所有边");
 };
@@ -953,9 +999,8 @@ const syncEdgesFromMatrix = () => {
 const setMatrixMode = (mode: "custom" | "random") => {
   if (solving.value) return;
   matrixMode.value = mode;
-  // 切换模式时清除颜色结果
-  coloring.value = {};
-  addLog("切换矩阵模式，清除颜色结果");
+  invalidateCurrentResult();
+  addLog("切换矩阵模式，清除当前结果");
 };
 
 const generateRandomMatrix = () => {
@@ -977,134 +1022,48 @@ const generateRandomMatrix = () => {
   if (graphType.value === "random") {
     nodes.value = createRandomLayout();
   }
-  // 清除颜色结果
-  coloring.value = {};
+  invalidateCurrentResult();
   addLog("随机生成邻接矩阵并覆盖当前图结构");
 };
 
-const triggerFileInput = () => {
-  if (solving.value) return;
-  fileInput.value?.click();
+const handleTemplateDownload = async () => {
+  try {
+    await downloadMatrixTemplate("coloring");
+  } catch (error) {
+    addLog(`模板下载失败：${getErrorMessage(error, "请稍后重试")}`);
+  }
 };
 
-const handleFileImport = (event: Event) => {
-  if (solving.value) return;
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
+const clearImportFiles = () => importUpload.value?.clearFiles();
+
+const handleFileImport = async ({ file }: UploadRequestOptions) => {
+  if (solving.value || importing.value) {
+    throw new Error("当前无法导入文件");
+  }
+  importing.value = true;
+  try {
+    const imported = await parseProblemImportFile("coloring", file);
     if (solving.value) {
       addLog("导入已取消：任务正在求解");
       return;
     }
-    try {
-      const content = String(e.target?.result ?? "");
-      const lines = content
-        .trim()
-        .split("\n")
-        .filter((line) => line.trim());
-
-      if (lines.length === 0) {
-        addLog("导入失败：文件为空");
-        return;
-      }
-
-      const newMatrix = lines.map((line) =>
-        line
-          .split(/[,\s]+/)
-          .filter((cell) => cell.trim())
-          .map((cell) => {
-            const val = cell.trim();
-            if (val !== "0" && val !== "1") {
-              throw new Error(`包含非法字符：${val}（仅允许0和1）`);
-            }
-            return parseInt(val);
-          })
-      );
-
-      // 验证1：检查是否为方阵
-      const size = newMatrix.length;
-      if (size === 0) {
-        addLog("导入失败：矩阵为空");
-        return;
-      }
-
-      for (let i = 0; i < size; i++) {
-        if (newMatrix[i].length !== size) {
-          addLog(
-            `导入失败：不是方阵（第${i + 1}行有${
-              newMatrix[i].length
-            }列，期望${size}列）`
-          );
-          return;
-        }
-      }
-
-      // 验证2：检查是否只包含0和1
-      for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-          if (newMatrix[i][j] !== 0 && newMatrix[i][j] !== 1) {
-            addLog(`导入失败：矩阵[${i}][${j}]=${newMatrix[i][j]}，只允许0或1`);
-            return;
-          }
-        }
-      }
-
-      // 验证3：检查对角线是否为0（无自环）
-      for (let i = 0; i < size; i++) {
-        if (newMatrix[i][i] !== 0) {
-          addLog(
-            `导入失败：对角线元素[${i}][${i}]=${newMatrix[i][i]}，不允许自环（必须为0）`
-          );
-          return;
-        }
-      }
-
-      // 验证4：检查是否对称
-      for (let i = 0; i < size; i++) {
-        for (let j = i + 1; j < size; j++) {
-          if (newMatrix[i][j] !== newMatrix[j][i]) {
-            addLog(
-              `导入失败：矩阵不对称（[${i}][${j}]=${newMatrix[i][j]}，但[${j}][${i}]=${newMatrix[j][i]}）`
-            );
-            return;
-          }
-        }
-      }
-
-      // 验证5：检查规模是否在允许范围内
-      if (size < 3 || size > 24) {
-        addLog(`导入失败：矩阵规模${size}超出范围（允许3-24）`);
-        return;
-      }
-
-      // 所有验证通过，导入数据
-      nodeCount.value = size;
-      adjacencyMatrix.value = newMatrix;
-      // 覆盖图结构
-      rebuildNodesLayout();
-      syncEdgesFromMatrix();
-      coloring.value = {};
-
-      // 计算边数
-      let edgeCount = 0;
-      for (let i = 0; i < size; i++) {
-        for (let j = i + 1; j < size; j++) {
-          if (newMatrix[i][j] === 1) edgeCount++;
-        }
-      }
-
-      addLog(`数据导入成功：${size}×${size}邻接矩阵，${edgeCount}条边`);
-    } catch (error) {
-      console.error("文件解析失败:", error);
-      addLog(`导入失败：${getErrorMessage(error, "未知错误")}`);
+    if (nodeCount.value !== imported.matrixSize) {
+      skipNextNodeCountRebuild = true;
     }
-  };
-  reader.onloadend = () => {
-    input.value = "";
-  };
-  reader.readAsText(file);
+    nodeCount.value = imported.matrixSize;
+    adjacencyMatrix.value = imported.adjacencyMatrix;
+    rebuildNodesLayout();
+    syncEdgesFromMatrix();
+    invalidateCurrentResult();
+    addLog(
+      `数据导入成功：${imported.matrixSize}×${imported.matrixSize}邻接矩阵，${edges.value.length}条边`,
+    );
+  } catch (error) {
+    addLog(`导入失败：${getErrorMessage(error, "请稍后重试")}`);
+    throw error instanceof Error ? error : new Error("导入失败");
+  } finally {
+    importing.value = false;
+  }
 };
 
 const toggleMatrixCell = (i: number, j: number) => {
@@ -1118,8 +1077,7 @@ const toggleMatrixCell = (i: number, j: number) => {
   adjacencyMatrix.value[i][j] = newValue;
   adjacencyMatrix.value[j][i] = newValue;
   syncEdgesFromMatrix();
-  // 修改矩阵时清除颜色结果
-  coloring.value = {};
+  invalidateCurrentResult();
 };
 
 const rebuildNodesLayout = () => {
@@ -1253,6 +1211,27 @@ const exportTaskDetail = () => {
   URL.revokeObjectURL(url);
 };
 
+// 导出当前求解结果
+const exportResults = () => {
+  if (!resultExportContext.value || solveCandidates.value.length === 0) return;
+
+  const data = {
+    ...resultExportContext.value,
+    candidates: solveCandidates.value,
+    timestamp: new Date().toISOString(),
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `graph-coloring-candidates-${Date.now()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+};
+
 // 颜色交互（保留以便候选结果展示）
 const handleNodeColor = (nodeId: number, colorIndex: number) => {
   coloring.value = { ...coloring.value, [nodeId]: colorIndex };
@@ -1267,6 +1246,11 @@ const submitSolve = async () => {
   }
 
   const submittedNodeCount = nodeCount.value;
+  resultExportContext.value = {
+    nodeCount: submittedNodeCount,
+    adjacencyMatrix: adjacencyMatrix.value.map((row) => [...row]),
+    solveType: solveType.value,
+  };
   const solveToken = solveScope.begin();
   solving.value = true;
   statusClass.value = "status-idle";
@@ -1560,14 +1544,17 @@ const _solveClassic = async (graph: { nodes: GraphNode[]; edges: GraphEdge[] }) 
 
 // 清空颜色与状态
 const _clearColoring = () => {
-  coloring.value = {};
-  conflicts.value = "--";
+  invalidateCurrentResult();
   selectedNodes.value = [];
   addLog("清空结果/颜色");
 };
 
 // 监听节点数变化，重建矩阵
 watch(nodeCount, () => {
+  if (skipNextNodeCountRebuild) {
+    skipNextNodeCountRebuild = false;
+    return;
+  }
   const size = nodeCount.value;
   adjacencyMatrix.value = Array(size)
     .fill(null)
@@ -1839,6 +1826,11 @@ onBeforeUnmount(() => {
 /***** 候选结果占位 *****/
 .candidates-card {
   margin-top: 16px;
+}
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .candidates-placeholder {
   color: #8c8fa3;

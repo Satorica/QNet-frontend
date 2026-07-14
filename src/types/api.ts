@@ -1,5 +1,6 @@
 export type ModelType = "classic" | "sim" | "cloud";
 export type ProblemType = "maxcut" | "number_partition" | "coloring" | "tsp";
+export type MatrixImportProblemType = Exclude<ProblemType, "number_partition">;
 export type TaskStatus = "queued" | "processing" | "completed" | "failed" | "cancelled";
 export type TaskStatusFilter = TaskStatus | "running";
 
@@ -94,6 +95,12 @@ export interface TaskSubmitRequest {
   matrixSize: number;
   adjacencyMatrix: number[] | number[][];
   [key: string]: unknown;
+}
+
+export interface MatrixImportData {
+  problemType: MatrixImportProblemType;
+  matrixSize: number;
+  adjacencyMatrix: number[][];
 }
 
 export interface TaskCandidate {

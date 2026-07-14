@@ -55,14 +55,24 @@
               "
               >随机生成</el-button
             >
-            <el-button :disabled="solving" @click="triggerFileInput">数据导入(txt/csv)</el-button>
-            <input
-              ref="fileInput"
-              type="file"
-              accept=".csv,.txt"
-              style="display: none"
-              @change="handleFileImport"
-            />
+            <el-upload
+              ref="importUpload"
+              action="#"
+              accept=".csv,.txt,text/csv,text/plain"
+              :limit="1"
+              :show-file-list="false"
+              :disabled="solving || importing"
+              :http-request="handleFileImport"
+              :on-success="clearImportFiles"
+              :on-error="clearImportFiles"
+            >
+              <el-button :disabled="solving || importing" :loading="importing">
+                {{ importing ? "解析中..." : "数据导入(txt/csv)" }}
+              </el-button>
+            </el-upload>
+            <el-button :disabled="solving" @click="handleTemplateDownload"
+              >下载模板</el-button
+            >
           </div>
 
           <!-- 邻接矩阵网格 -->
@@ -470,8 +480,14 @@ import {
   getTaskHistory,
   deleteTask,
   deleteTasksByFilter,
+  parseProblemImportFile,
 } from "../api";
-import { ElMessage, ElMessageBox } from "element-plus";
+import {
+  ElMessage,
+  ElMessageBox,
+  type UploadInstance,
+  type UploadRequestOptions,
+} from "element-plus";
 import MaxCutGraph from "../components/MaxCutGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
 import {
@@ -491,6 +507,7 @@ import {
 } from "../utils/task";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
+import { downloadMatrixTemplate } from "../utils/dataImport";
 import type {
   CandidateDisplay,
   ModelType,
@@ -523,7 +540,8 @@ const candidates = ref<CandidateDisplay[]>([]);
 const currentTaskId = ref<string | null>(null);
 const solveScope = createAsyncScope();
 
-const fileInput = ref<HTMLInputElement | null>(null);
+const importUpload = ref<UploadInstance>();
+const importing = ref(false);
 
 // 任务历史
 const taskHistory = ref<TaskHistoryItem[]>([]);
@@ -559,17 +577,6 @@ const edgeCount = computed(() => {
   }
   return count;
 });
-
-const parseAdjacencyWeight = (value: unknown): number => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0 || parsed > MAX_ADJACENCY_WEIGHT) {
-    throw new Error(`包含非法数值：${value}（仅允许0到${MAX_ADJACENCY_WEIGHT}，保留一位小数）`);
-  }
-  if (Math.abs(parsed * 10 - Math.round(parsed * 10)) > 1e-8) {
-    throw new Error(`包含非法数值：${value}（最多保留一位小数）`);
-  }
-  return normalizeAdjacencyWeight(parsed);
-};
 
 const normalizeAdjacencyWeight = (value: unknown): number => Number(Number(value).toFixed(1));
 
@@ -751,123 +758,41 @@ const openEdgeDialog = async (a: number, b: number) => {
   }
 };
 
-// 触发文件输入
-const triggerFileInput = () => {
-  if (solving.value) return;
-  fileInput.value?.click();
+const handleTemplateDownload = async () => {
+  try {
+    await downloadMatrixTemplate("maxcut");
+  } catch (error) {
+    addLog(`模板下载失败：${getErrorMessage(error, "请稍后重试")}`);
+  }
 };
 
-// 处理文件导入
-const handleFileImport = (event: Event) => {
-  if (solving.value) return;
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
+const clearImportFiles = () => importUpload.value?.clearFiles();
 
-  const reader = new FileReader();
-  reader.onload = (e) => {
+// 文件内容由后端解析；返回 Promise 交给 el-upload 管理成功/失败状态。
+const handleFileImport = async ({ file }: UploadRequestOptions) => {
+  if (solving.value || importing.value) {
+    throw new Error("当前无法导入文件");
+  }
+  importing.value = true;
+  try {
+    const imported = await parseProblemImportFile("maxcut", file);
     if (solving.value) {
       addLog("导入已取消：任务正在求解");
       return;
     }
-    try {
-      const content = String(e.target?.result ?? "");
-      const lines = content
-        .trim()
-        .split("\n")
-        .filter((line) => line.trim());
-
-      if (lines.length === 0) {
-        addLog("导入失败：文件为空");
-        return;
-      }
-
-      const newMatrix = lines.map((line) =>
-        line
-          .split(/[,\s]+/)
-          .filter((cell) => cell.trim())
-          .map((cell) => {
-            return parseAdjacencyWeight(cell.trim());
-          })
-      );
-
-      // 验证1：检查是否为方阵
-      const size = newMatrix.length;
-      if (size === 0) {
-        addLog("导入失败：矩阵为空");
-        return;
-      }
-
-      for (let i = 0; i < size; i++) {
-        if (newMatrix[i].length !== size) {
-          addLog(
-            `导入失败：不是方阵（第${i + 1}行有${
-              newMatrix[i].length
-            }列，期望${size}列）`
-          );
-          return;
-        }
-      }
-
-      // 验证2：检查是否只包含允许的权重范围
-      for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-          if (
-            !Number.isFinite(newMatrix[i][j]) ||
-            newMatrix[i][j] < 0 ||
-            newMatrix[i][j] > MAX_ADJACENCY_WEIGHT
-          ) {
-            addLog(
-              `导入失败：矩阵[${i}][${j}]=${newMatrix[i][j]}，只允许0到${MAX_ADJACENCY_WEIGHT}，保留一位小数`
-            );
-            return;
-          }
-        }
-      }
-
-      // 验证3：检查对角线是否为0（无自环）
-      for (let i = 0; i < size; i++) {
-        if (newMatrix[i][i] !== 0) {
-          addLog(
-            `导入失败：对角线元素[${i}][${i}]=${newMatrix[i][i]}，不允许自环（必须为0）`
-          );
-          return;
-        }
-      }
-
-      // 验证4：检查是否对称
-      for (let i = 0; i < size; i++) {
-        for (let j = i + 1; j < size; j++) {
-          if (newMatrix[i][j] !== newMatrix[j][i]) {
-            addLog(
-              `导入失败：矩阵不对称（[${i}][${j}]=${newMatrix[i][j]}，但[${j}][${i}]=${newMatrix[j][i]}）`
-            );
-            return;
-          }
-        }
-      }
-
-      // 验证5：检查规模是否在允许范围内
-      if (size < 2 || size > 24) {
-        addLog(`导入失败：矩阵规模${size}超出范围（允许2-24）`);
-        return;
-      }
-
-      // 所有验证通过，导入数据
-      matrixSize.value = size;
-      matrix.value = newMatrix;
-      generateNodes();
-      syncEdgesFromMatrix();
-      addLog(`数据导入成功：${size}×${size}邻接矩阵，${edgeCount.value}条边`);
-    } catch (error) {
-      console.error("文件解析失败:", error);
-      addLog(`导入失败：${getErrorMessage(error, "未知错误")}`);
-    }
-  };
-  reader.onloadend = () => {
-    input.value = "";
-  };
-  reader.readAsText(file);
+    matrixSize.value = imported.matrixSize;
+    matrix.value = imported.adjacencyMatrix;
+    generateNodes();
+    syncEdgesFromMatrix();
+    addLog(
+      `数据导入成功：${imported.matrixSize}×${imported.matrixSize}邻接矩阵，${edgeCount.value}条边`,
+    );
+  } catch (error) {
+    addLog(`导入失败：${getErrorMessage(error, "请稍后重试")}`);
+    throw error instanceof Error ? error : new Error("导入失败");
+  } finally {
+    importing.value = false;
+  }
 };
 
 // 开始求解
