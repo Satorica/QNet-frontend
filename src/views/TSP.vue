@@ -1259,7 +1259,9 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
       `数据导入成功：${imported.matrixSize}×${imported.matrixSize}距离矩阵，${edgeCount}条非零边`,
     );
   } catch (error) {
-    addLog(`导入失败：${getErrorMessage(error, "请稍后重试")}`);
+    const message = getErrorMessage(error, "请稍后重试");
+    addLog(`导入失败：${message}`);
+    ElMessage.error(`导入失败：${message}`);
     throw error instanceof Error ? error : new Error("导入失败");
   } finally {
     importing.value = false;

@@ -4,9 +4,8 @@
     "allowJs": false,
     "checkJs": false,
     "strict": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
     "types": ["vite/client"]
   },
