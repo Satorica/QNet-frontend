@@ -30,69 +30,72 @@
             </div>
           </div>
 
-          <!-- 矩阵标题 -->
-          <div class="matrix-header">
-            <div class="title-section">
-              <div class="title-bar"></div>
-              <span class="title-text">请输入图的邻接矩阵：</span>
-            </div>
-          </div>
+          <!-- 邻接矩阵 -->
+          <el-card class="matrix-card">
+            <template #header>
+              <div class="matrix-header">
+                <span>邻接矩阵</span>
+                <div class="matrix-actions">
+                  <el-button
+                    :type="editMode === 'custom' ? 'primary' : ''"
+                    :disabled="solving"
+                    @click="setEditMode('custom')"
+                    >自定义</el-button
+                  >
+                  <el-button
+                    :type="editMode === 'random' ? 'primary' : ''"
+                    :disabled="solving"
+                    @click="
+                      setEditMode('random');
+                      generateRandomMatrix();
+                    "
+                    >随机生成</el-button
+                  >
+                  <el-upload
+                    ref="importUpload"
+                    action="#"
+                    accept=".csv,.txt,text/csv,text/plain"
+                    :limit="1"
+                    :show-file-list="false"
+                    :disabled="solving || importing"
+                    :http-request="handleFileImport"
+                    :on-success="clearImportFiles"
+                    :on-error="clearImportFiles"
+                  >
+                    <el-button
+                      :disabled="solving || importing"
+                      :loading="importing"
+                    >
+                      {{ importing ? "解析中..." : "数据导入(txt/csv)" }}
+                    </el-button>
+                  </el-upload>
+                  <el-button
+                    :disabled="solving"
+                    @click="handleTemplateDownload"
+                    >下载模板</el-button
+                  >
+                </div>
+              </div>
+            </template>
 
-          <!-- 矩阵操作按钮 -->
-          <div class="matrix-options">
-            <el-button
-              :type="editMode === 'custom' ? 'primary' : ''"
-              :disabled="solving"
-              @click="setEditMode('custom')"
-              >自定义</el-button
-            >
-            <el-button
-              :type="editMode === 'random' ? 'primary' : ''"
-              :disabled="solving"
-              @click="
-                setEditMode('random');
-                generateRandomMatrix();
-              "
-              >随机生成</el-button
-            >
-            <el-upload
-              ref="importUpload"
-              action="#"
-              accept=".csv,.txt,text/csv,text/plain"
-              :limit="1"
-              :show-file-list="false"
-              :disabled="solving || importing"
-              :http-request="handleFileImport"
-              :on-success="clearImportFiles"
-              :on-error="clearImportFiles"
-            >
-              <el-button :disabled="solving || importing" :loading="importing">
-                {{ importing ? "解析中..." : "数据导入(txt/csv)" }}
-              </el-button>
-            </el-upload>
-            <el-button :disabled="solving" @click="handleTemplateDownload"
-              >下载模板</el-button
-            >
-          </div>
-
-          <!-- 邻接矩阵网格 -->
-          <div class="matrix-grid">
-            <div v-for="(row, i) in matrix" :key="i" class="matrix-row">
-              <div
-                v-for="(cell, j) in row"
-                :key="j"
-                class="matrix-cell"
-                :class="{ editable: !solving && i !== j }"
-                @click="toggleCell(i, j)"
-              >
-                {{ formatMatrixCell(cell) }}
+            <div class="matrix-grid">
+              <div v-for="(row, i) in matrix" :key="i" class="matrix-row">
+                <div
+                  v-for="(cell, j) in row"
+                  :key="j"
+                  class="matrix-cell"
+                  :class="{ editable: !solving && i !== j }"
+                  @click="toggleCell(i, j)"
+                >
+                  {{ formatMatrixCell(cell) }}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="tip">
-            矩阵与图同步；点矩阵改权重（0-30，1位小数），点两节点连/删边。
-          </div>
+            <div class="tip">
+              矩阵与图同步；点矩阵改权重（0-30，1位小数），点两节点连/删边。
+            </div>
+          </el-card>
 
           <!-- 图形可视化 -->
           <div class="graph-container">
@@ -1400,36 +1403,19 @@ onBeforeUnmount(() => {
   border-color: #dcdfe6;
 }
 
+.matrix-card {
+  margin: 16px 0;
+}
+
 .matrix-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
 }
 
-.title-section {
+.matrix-actions {
   display: flex;
-  align-items: center;
   gap: 8px;
-}
-
-.title-bar {
-  width: 4px;
-  height: 20px;
-  background: linear-gradient(180deg, #4050f8, #7848e8);
-  border-radius: 2px;
-}
-
-.title-text {
-  font-weight: 600;
-  color: #292929;
-}
-
-.matrix-options {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
 }
 
 .matrix-grid {

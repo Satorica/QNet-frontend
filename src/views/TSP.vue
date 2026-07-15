@@ -723,7 +723,6 @@ const generateCitiesAndMatrix = () => {
   bestRoute.value = [];
   solveCandidates.value = [];
   resetSolveStatus();
-  matrixMode.value = "random";
 };
 
 const generateCities = () => {
