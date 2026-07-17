@@ -44,6 +44,57 @@ export interface ApiResponse<T = undefined> {
   errorCode?: string;
 }
 
+export type FeedbackCategory =
+  | "task"
+  | "quota"
+  | "account"
+  | "suggestion"
+  | "other";
+
+export interface FeedbackClientInfo {
+  platform?: string;
+  system?: string;
+  version?: string;
+  brand?: string;
+  model?: string;
+  envVersion?: string;
+  appVersion?: string;
+  sourcePage?: string;
+  collectedAt?: number;
+}
+
+export interface FeedbackSubmitRequest {
+  category: FeedbackCategory;
+  content: string;
+  contact?: string;
+  clientInfo?: FeedbackClientInfo;
+}
+
+export interface FeedbackSubmitData {
+  feedbackId: number | string;
+}
+
+export interface FeedbackHistoryItem {
+  id: string;
+  category: FeedbackCategory;
+  content: string;
+  status: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface FeedbackHistoryData {
+  feedbacks: FeedbackHistoryItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface FeedbackHistoryParams {
+  page?: number;
+  pageSize?: number;
+}
+
 export interface QuotaModelSummary {
   remaining: number;
   pending: number;

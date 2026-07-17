@@ -1,7 +1,7 @@
 <template>
   <div class="topbar">
     <div class="top-left">
-      <div class="task-input">
+      <div v-if="!isFeedbackRoute" class="task-input">
         <el-input
           v-model="taskName"
           placeholder="请输入任务名："
@@ -85,6 +85,8 @@ const currentTime = ref("");
 const currentWeekday = ref("");
 const currentDateOnly = ref("");
 let timer: ReturnType<typeof setInterval> | null = null;
+
+const isFeedbackRoute = computed(() => route.path.startsWith("/feedback"));
 
 const { setCustomTaskName, customTaskName, clearCustomTaskName } =
   useCustomTaskName();

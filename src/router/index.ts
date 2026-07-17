@@ -54,6 +54,18 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/feedback",
+    name: "Feedback",
+    component: () => import("../views/Feedback.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/feedback/history",
+    name: "FeedbackHistory",
+    component: () => import("../views/FeedbackHistory.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
     path: "/:pathMatch(.*)*",
     redirect: "/login",
   },

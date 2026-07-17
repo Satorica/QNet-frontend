@@ -12,7 +12,7 @@
 
       <!-- 导航菜单 -->
       <el-menu
-        :default-active="$route.path"
+        :default-active="activeMenu"
         class="nav-menu"
         router
         background-color="transparent"
@@ -41,7 +41,7 @@
     <!-- 底部导航 -->
     <div class="sidebar-bottom">
       <el-menu
-        :default-active="$route.path"
+        :default-active="activeMenu"
         class="bottom-menu"
         router
         background-color="transparent"
@@ -51,6 +51,10 @@
         <el-menu-item index="/tasks">
           <el-icon><List /></el-icon>
           <span>任务情况</span>
+        </el-menu-item>
+        <el-menu-item index="/feedback">
+          <el-icon><ChatDotRound /></el-icon>
+          <span>问题反馈</span>
         </el-menu-item>
         <el-menu-item class="logout-btn" @click="handleLogout">
           <el-icon><SwitchButton /></el-icon>
@@ -62,12 +66,15 @@
 </template>
 
 <script setup lang="ts">
-import { TrendCharts, Odometer, MagicStick, Location, List, SwitchButton } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { TrendCharts, Odometer, MagicStick, Location, List, ChatDotRound, SwitchButton } from '@element-plus/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { userManager } from '../utils/auth'
 
 const router = useRouter()
+const route = useRoute()
+const activeMenu = computed(() => route.path.startsWith('/feedback') ? '/feedback' : route.path)
 
 const handleLogout = async () => {
   try {
