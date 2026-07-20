@@ -275,6 +275,7 @@ export interface TaskDetail {
   state: TaskStatus;
   updatedAt: number;
   message: string;
+  input: unknown;
   taskInfo: TaskInfo;
   queuePosition?: number;
   runtime?: number;

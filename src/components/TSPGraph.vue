@@ -51,7 +51,6 @@
         :stroke="isSelected(city.id) ? '#4050F8' : '#FFFFFF'"
         :stroke-width="isSelected(city.id) ? 3 : 2"
         :class="{ clickable: editable }"
-        @mousedown="startDrag(city)"
         @click="handleCityClick(city.id)"
       />
 
@@ -207,13 +206,6 @@ const isSelected = (cityId: number) => {
   return (
     Array.isArray(props.selectedNodes) && props.selectedNodes.includes(cityId)
   );
-};
-
-const startDrag = (city: City) => {
-  if (props.editable) {
-    // 简化的拖拽实现
-    console.log("开始拖拽城市:", city.id);
-  }
 };
 
 const handleCityClick = (cityId: number) => {

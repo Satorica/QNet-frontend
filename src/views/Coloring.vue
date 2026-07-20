@@ -537,6 +537,7 @@
           type="primary"
           @click="exportTaskDetail"
           v-if="selectedTask && selectedTask.status === 'completed'"
+          :disabled="!taskDetailResults"
           >导出结果</el-button
         >
       </template>
@@ -549,6 +550,7 @@ import { ref, computed, watch, onBeforeUnmount } from "vue";
 import {
   submitTask,
   getTaskStatus,
+  getTaskDetail,
   cancelTask as cancelTaskAPI,
   getTaskHistory,
   deleteTask,
@@ -577,6 +579,10 @@ import {
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadMatrixTemplate } from "../utils/dataImport";
+import {
+  downloadTaskResultExport,
+  type TaskResultExportInfo,
+} from "../utils/resultExport";
 import type {
   GraphEdge,
   GraphNode,
@@ -591,9 +597,9 @@ import type {
 } from "../types/api";
 type TagType = "success" | "primary" | "warning" | "info" | "danger";
 type ColoringExportContext = {
+  taskInfo: TaskResultExportInfo;
   nodeCount: number;
   adjacencyMatrix: number[][];
-  solveType: ModelType;
 };
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
@@ -657,6 +663,7 @@ const solving = ref(false);
 const solveTime = ref("--");
 const currentTaskId = ref<string | null>(null);
 const solveCandidates = ref<TaskCandidate[]>([]);
+const solveTaskResults = ref<TaskResults | null>(null);
 const resultExportContext = ref<ColoringExportContext | null>(null);
 const solveScope = createAsyncScope();
 
@@ -676,6 +683,7 @@ const taskDetailRequestGuard = createLatestRequestGuard();
 const detailDialogVisible = ref(false);
 const selectedTask = ref<TaskHistoryItem | null>(null);
 const taskDetailResults = ref<TaskResults | null>(null);
+const taskDetailInput = ref<unknown>(null);
 
 // 计算属性
 const usedColors = computed(() => {
@@ -827,6 +835,7 @@ const invalidateCurrentResult = () => {
   statusText.value = "等待求解";
   currentTaskId.value = null;
   solveCandidates.value = [];
+  solveTaskResults.value = null;
   resultExportContext.value = null;
 };
 
@@ -1162,24 +1171,23 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   try {
     selectedTask.value = row;
     taskDetailResults.value = null;
+    taskDetailInput.value = null;
     detailDialogVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (row.status === "completed") {
-      const statusResponse = await getTaskStatus(row.taskId);
+      const taskDetail = await getTaskDetail(row.taskId);
       if (
         !taskDetailRequestGuard.isLatest(requestId) ||
         selectedTask.value?.taskId !== row.taskId
       ) return;
-      if (statusResponse.results) {
-        taskDetailResults.value = statusResponse.results;
-      }
+      taskDetailResults.value = taskDetail.results || null;
+      taskDetailInput.value = taskDetail.input;
     } else {
       taskDetailResults.value = null;
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    console.error("获取任务详情失败:", error);
     addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
@@ -1187,51 +1195,37 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
 
 // 导出任务详情
 const exportTaskDetail = () => {
-  if (!selectedTask.value) return;
+  if (!selectedTask.value || !taskDetailResults.value) return;
 
-  const data = {
-    taskInfo: {
+  downloadTaskResultExport(
+    {
       taskId: selectedTask.value.taskId,
       taskName: selectedTask.value.taskName,
-      problemType: "coloring",
+      problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,
     },
-    results: taskDetailResults.value,
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `task-${selectedTask.value.taskId}-detail.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+    taskDetailInput.value,
+    taskDetailResults.value
+  );
 };
 
 // 导出当前求解结果
 const exportResults = () => {
-  if (!resultExportContext.value || solveCandidates.value.length === 0) return;
+  const exportContext = resultExportContext.value;
+  const taskResults = solveTaskResults.value;
+  if (!exportContext || !taskResults || solveCandidates.value.length === 0) return;
 
-  const data = {
-    ...resultExportContext.value,
-    candidates: solveCandidates.value,
-    timestamp: new Date().toISOString(),
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `graph-coloring-candidates-${Date.now()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadTaskResultExport(
+    exportContext.taskInfo,
+    {
+      nodeCount: exportContext.nodeCount,
+      adjacencyMatrix: exportContext.adjacencyMatrix,
+    },
+    taskResults
+  );
 };
 
 // 颜色交互（保留以便候选结果展示）
@@ -1248,10 +1242,20 @@ const submitSolve = async () => {
   }
 
   const submittedNodeCount = nodeCount.value;
+  const submittedAt = Date.now();
+  const submittedTaskName = customTaskName.value || `Coloring_${submittedAt}`;
   resultExportContext.value = {
+    taskInfo: {
+      taskId: "",
+      taskName: submittedTaskName,
+      problemType: "coloring",
+      modelType: solveType.value,
+      matrixSize: submittedNodeCount,
+      timestamp: new Date(submittedAt).toISOString(),
+      status: "completed",
+    },
     nodeCount: submittedNodeCount,
     adjacencyMatrix: adjacencyMatrix.value.map((row) => [...row]),
-    solveType: solveType.value,
   };
   const solveToken = solveScope.begin();
   solving.value = true;
@@ -1261,6 +1265,7 @@ const submitSolve = async () => {
   conflicts.value = "--";
   coloring.value = {};
   solveCandidates.value = [];
+  solveTaskResults.value = null;
   currentTaskId.value = null;
 
   const startTime = Date.now();
@@ -1271,7 +1276,7 @@ const submitSolve = async () => {
   try {
     // 准备任务数据
     const taskData: TaskSubmitRequest = {
-      taskName: customTaskName.value || `Coloring_${Date.now()}`,
+      taskName: submittedTaskName,
       modelType: solveType.value,
       problemType: "coloring",
       matrixSize: nodeCount.value,
@@ -1287,6 +1292,15 @@ const submitSolve = async () => {
     if (submitResponse.success) {
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
+      if (resultExportContext.value) {
+        resultExportContext.value = {
+          ...resultExportContext.value,
+          taskInfo: {
+            ...resultExportContext.value.taskInfo,
+            taskId: submitResponse.taskId,
+          },
+        };
+      }
       addLog("任务已提交，等待结果");
       loadTaskHistory();
 
@@ -1303,7 +1317,6 @@ const submitSolve = async () => {
   } catch (error) {
     if (!solveScope.isCurrent(solveToken)) return;
     clearCustomTaskName();
-    console.error("求解失败:", error);
     addLog(`求解失败: ${getErrorMessage(error, "求解失败")}`);
     ElMessage.error(getErrorMessage(error, "求解失败"));
     statusClass.value = "status-fail";
@@ -1347,15 +1360,14 @@ const pollTaskStatus = async (
         solving.value = false;
 
         // 解析后端返回的结果
-        console.log("着色问题返回结果:", statusResponse.results);
-
+        solveTaskResults.value = statusResponse.results || null;
         const resultCandidates = statusResponse.results?.candidates || [];
         solveCandidates.value = resultCandidates;
         if (resultCandidates.length > 0) {
           // 取第一个候选结果
           const bestResult = resultCandidates[0];
 
-          const { coloringMap, usedColorsCount } = normalizeColoringSolution(
+          const { coloringMap } = normalizeColoringSolution(
             bestResult.solution,
             submittedNodeCount
           );
@@ -1370,9 +1382,6 @@ const pollTaskStatus = async (
 
           statusClass.value = "status-success";
           statusText.value = "求解成功";
-
-          console.log("最终着色结果:", coloringMap);
-          console.log("使用颜色数:", usedColorsCount);
 
           addLog("求解完成");
         } else {
@@ -1475,6 +1484,7 @@ const handleTaskDetailClosed = () => {
   taskDetailRequestGuard.invalidate();
   selectedTask.value = null;
   taskDetailResults.value = null;
+  taskDetailInput.value = null;
 };
 
 // 经典算法求解 (示例)
@@ -1596,7 +1606,6 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
     }
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    console.error("加载任务历史失败:", error);
     addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
     taskHistory.value = [];
     historyTotal.value = 0;

@@ -400,6 +400,7 @@
           type="primary"
           @click="exportTaskDetail"
           v-if="selectedTask && selectedTask.status === 'completed'"
+          :disabled="!taskDetailResults"
           >导出结果</el-button
         >
       </template>
@@ -417,7 +418,7 @@ import {
   cancelTask as cancelTaskAPI,
   deleteTask as deleteTaskAPI,
   deleteTasksByFilter as deleteTasksByFilterAPI,
-  getTaskStatus,
+  getTaskDetail,
 } from "../api";
 import {
   getDeleteAllResultMessage,
@@ -428,6 +429,7 @@ import {
 import { formatCandidateValue } from "../utils/format";
 import { createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
+import { downloadTaskResultExport } from "../utils/resultExport";
 import type {
   ModelType,
   ProblemType,
@@ -456,6 +458,7 @@ const total = ref(0);
 const taskDetailVisible = ref(false);
 const selectedTask = ref<TaskHistoryItem | null>(null);
 const taskDetailResults = ref<TaskResults | null>(null);
+const taskDetailInput = ref<unknown>(null);
 const historyLoading = ref(false);
 const cancelingTaskId = ref<string | null>(null);
 const appliedTaskFilters = ref<TaskFilterState>({
@@ -529,7 +532,6 @@ const loadTasks = async (params: TaskHistoryParams = {}) => {
     ElMessage.error(response.message || "加载任务失败");
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    console.error("加载任务失败:", error);
     tasks.value = [];
     total.value = 0;
     ElMessage.error(getErrorMessage(error, "加载任务失败"));
@@ -552,7 +554,6 @@ const requestQuotaSummary = async () => {
 
     quotaError.value = response.message || "加载额度失败";
   } catch (error) {
-    console.error("加载额度失败:", error);
     quotaError.value = getErrorMessage(error, "加载额度失败");
   }
   return false;
@@ -636,22 +637,23 @@ const viewTask = async (task: TaskHistoryItem) => {
   try {
     selectedTask.value = task;
     taskDetailResults.value = null;
+    taskDetailInput.value = null;
     taskDetailVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (task.status === "completed") {
-      const statusResponse = await getTaskStatus(task.taskId);
+      const taskDetail = await getTaskDetail(task.taskId);
       if (
         !taskDetailRequestGuard.isLatest(requestId) ||
         selectedTask.value?.taskId !== task.taskId
       ) {
         return;
       }
-      taskDetailResults.value = statusResponse.results || null;
+      taskDetailResults.value = taskDetail.results || null;
+      taskDetailInput.value = taskDetail.input;
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    console.error("获取任务详情失败:", error);
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
 };
@@ -660,6 +662,7 @@ const handleTaskDetailClosed = () => {
   taskDetailRequestGuard.invalidate();
   selectedTask.value = null;
   taskDetailResults.value = null;
+  taskDetailInput.value = null;
 };
 
 const confirmCancelTask = async (taskName = "") => {
@@ -697,7 +700,6 @@ const cancelTask = async (task: TaskHistoryItem) => {
     ElMessage.success(response?.message || "任务已取消");
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      console.error("取消任务失败:", error);
       ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
@@ -741,7 +743,6 @@ const deleteTask = async (task: TaskHistoryItem) => {
           ElMessage.error("删除任务失败: " + response.message);
         }
       } catch (error) {
-        console.error("删除任务失败:", error);
         ElMessage.error(getErrorMessage(error, "删除任务失败"));
       }
     })
@@ -909,10 +910,10 @@ const formatSolution = (solution: unknown) => {
 };
 
 const exportTaskDetail = () => {
-  if (!selectedTask.value) return;
+  if (!selectedTask.value || !taskDetailResults.value) return;
 
-  const data = {
-    taskInfo: {
+  downloadTaskResultExport(
+    {
       taskId: selectedTask.value.taskId,
       taskName: selectedTask.value.taskName,
       problemType: selectedTask.value.problemType,
@@ -921,18 +922,9 @@ const exportTaskDetail = () => {
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,
     },
-    results: taskDetailResults.value,
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `task-${selectedTask.value.taskId}-detail.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+    taskDetailInput.value,
+    taskDetailResults.value
+  );
 };
 
 onMounted(() => {

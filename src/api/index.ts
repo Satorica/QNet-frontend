@@ -10,6 +10,7 @@ import type {
   MatrixImportProblemType,
   QuotaData,
   TaskDeleteFilters,
+  TaskDetail,
   TaskHistoryData,
   TaskHistoryParams,
   TaskStatusResponse,
@@ -285,6 +286,16 @@ export const cleanupTasks = async (retentionDays = 30): Promise<ApiResponse> => 
 export const deleteTask = async (taskId: string): Promise<DeleteTaskResponse> => {
   const response = await cloudApi.post<DeleteTaskResponse>("/api/tasks/delete", { taskId });
   return response.data;
+};
+
+export const getTaskDetail = async (taskId: string): Promise<TaskDetail> => {
+  const response = await cloudApi.get<ApiResponse<TaskDetail>>("/api/tasks/detail", {
+    params: { taskId },
+  });
+  if (!response.data.data) {
+    throw new Error(response.data.message || "任务详情响应缺少数据");
+  }
+  return response.data.data;
 };
 
 const compactTaskFilterPayload = (params: TaskDeleteFilters = {}): TaskDeleteFilters =>

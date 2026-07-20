@@ -507,6 +507,7 @@
           type="primary"
           @click="exportTaskDetail"
           v-if="selectedTask && selectedTask.status === 'completed'"
+          :disabled="!taskDetailResults"
           >导出结果</el-button
         >
       </template>
@@ -520,6 +521,7 @@ import TSPGraph from "../components/TSPGraph.vue";
 import {
   submitTask,
   getTaskStatus,
+  getTaskDetail,
   cancelTask,
   getTaskHistory,
   deleteTask,
@@ -547,6 +549,10 @@ import {
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadMatrixTemplate } from "../utils/dataImport";
+import {
+  downloadTaskResultExport,
+  type TaskResultExportInfo,
+} from "../utils/resultExport";
 import type {
   City,
   ModelType,
@@ -560,11 +566,11 @@ import type {
 } from "../types/api";
 type TagType = "success" | "primary" | "warning" | "info" | "danger";
 type TspExportContext = {
+  taskInfo: TaskResultExportInfo;
   cityCount: number;
   cities: City[];
   distanceMatrix: number[][];
   algorithm: string;
-  solveType: ModelType;
 };
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
@@ -584,6 +590,7 @@ const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
 const currentTaskId = ref<string | null>(null);
 const solveCandidates = ref<TaskCandidate[]>([]);
+const solveTaskResults = ref<TaskResults | null>(null);
 const resultExportContext = ref<TspExportContext | null>(null);
 const solveScope = createAsyncScope();
 
@@ -612,6 +619,7 @@ const taskDetailRequestGuard = createLatestRequestGuard();
 const detailDialogVisible = ref(false);
 const selectedTask = ref<TaskHistoryItem | null>(null);
 const taskDetailResults = ref<TaskResults | null>(null);
+const taskDetailInput = ref<unknown>(null);
 
 const cities = ref<City[]>([]);
 const currentRoute = ref<number[]>([]);
@@ -1307,12 +1315,22 @@ const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
 // 求解提交（统一POST参数）
 const submitSolve = async () => {
   const submittedCityCount = cityCount.value;
+  const submittedAt = Date.now();
+  const submittedTaskName = customTaskName.value || `TSP_${submittedAt}`;
   resultExportContext.value = {
+    taskInfo: {
+      taskId: "",
+      taskName: submittedTaskName,
+      problemType: "tsp",
+      modelType: solveType.value,
+      matrixSize: submittedCityCount,
+      timestamp: new Date(submittedAt).toISOString(),
+      status: "completed",
+    },
     cityCount: submittedCityCount,
     cities: cities.value.map((city) => ({ ...city })),
     distanceMatrix: distanceMatrix.value.map((row) => [...row]),
     algorithm: algorithm.value,
-    solveType: solveType.value,
   };
   const solveToken = solveScope.begin();
   try {
@@ -1325,13 +1343,14 @@ const submitSolve = async () => {
     currentTaskId.value = null;
     statusText.value = "求解中";
     solveCandidates.value = [];
+    solveTaskResults.value = null;
     const start = Date.now();
     resetSolveLogs(
       `开始求解旅行商问题（求解模型：${getModelTypeText(solveType.value)}，${cityCount.value}个城市）`
     );
 
     const payload: TaskSubmitRequest = {
-      taskName: customTaskName.value || `TSP_${Date.now()}`,
+      taskName: submittedTaskName,
       problemType: "tsp",
       modelType: solveType.value, // classic | sim | cloud
       algorithm: algorithm.value,
@@ -1346,6 +1365,15 @@ const submitSolve = async () => {
     if (res?.success) {
       clearCustomTaskName();
       currentTaskId.value = res.taskId;
+      if (resultExportContext.value) {
+        resultExportContext.value = {
+          ...resultExportContext.value,
+          taskInfo: {
+            ...resultExportContext.value.taskInfo,
+            taskId: res.taskId,
+          },
+        };
+      }
       addLog("任务已提交，等待结果");
       loadTaskHistory();
 
@@ -1406,26 +1434,18 @@ const pollTaskStatus = async (
         solveTime.value = displaySolveTime;
         solving.value = false;
 
-        // 更新结果
-        console.log("-----GET RESULT FROM BACKEND------");
-        console.log(statusResponse);
-        console.log("-----RESULT END------");
-
         // 解析后端返回的结果
+        solveTaskResults.value = statusResponse.results || null;
         const resultCandidates = statusResponse.results?.candidates || [];
         solveCandidates.value = resultCandidates;
         if (resultCandidates.length > 0) {
           // 取第一个候选结果
           const bestResult = resultCandidates[0];
-          const routeValue = bestResult.value; // 路径长度
 
           const route = normalizeTspRouteFromSolution(
             bestResult.solution,
             submittedCityCount
           );
-
-          console.log("解析的路径:", route);
-          console.log("路径长度:", routeValue);
 
           bestRoute.value = route;
           currentRoute.value = route;
@@ -1581,7 +1601,6 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
     }
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    console.error("加载任务历史失败:", error);
     addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
     taskHistory.value = [];
     historyTotal.value = 0;
@@ -1749,7 +1768,6 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
       ElMessage.error(getErrorMessage(error, "删除任务失败"));
-      console.error("删除任务失败:", error);
       addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
     }
   }
@@ -1792,24 +1810,23 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   try {
     selectedTask.value = row;
     taskDetailResults.value = null;
+    taskDetailInput.value = null;
     detailDialogVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (row.status === "completed") {
-      const statusResponse = await getTaskStatus(row.taskId);
+      const taskDetail = await getTaskDetail(row.taskId);
       if (
         !taskDetailRequestGuard.isLatest(requestId) ||
         selectedTask.value?.taskId !== row.taskId
       ) return;
-      if (statusResponse.results) {
-        taskDetailResults.value = statusResponse.results;
-      }
+      taskDetailResults.value = taskDetail.results || null;
+      taskDetailInput.value = taskDetail.input;
     } else {
       taskDetailResults.value = null;
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    console.error("获取任务详情失败:", error);
     addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
@@ -1819,55 +1836,44 @@ const handleTaskDetailClosed = () => {
   taskDetailRequestGuard.invalidate();
   selectedTask.value = null;
   taskDetailResults.value = null;
+  taskDetailInput.value = null;
 };
 
 // 导出任务详情
 const exportTaskDetail = () => {
-  if (!selectedTask.value) return;
+  if (!selectedTask.value || !taskDetailResults.value) return;
 
-  const data = {
-    taskInfo: {
+  downloadTaskResultExport(
+    {
       taskId: selectedTask.value.taskId,
       taskName: selectedTask.value.taskName,
-      problemType: "tsp",
+      problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,
     },
-    results: taskDetailResults.value,
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `task-${selectedTask.value.taskId}-detail.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+    taskDetailInput.value,
+    taskDetailResults.value
+  );
 };
 
 // 导出当前求解结果
 const exportResults = () => {
-  if (!resultExportContext.value || solveCandidates.value.length === 0) return;
+  const exportContext = resultExportContext.value;
+  const taskResults = solveTaskResults.value;
+  if (!exportContext || !taskResults || solveCandidates.value.length === 0) return;
 
-  const data = {
-    ...resultExportContext.value,
-    candidates: solveCandidates.value,
-    timestamp: new Date().toISOString(),
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `tsp-candidates-${Date.now()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadTaskResultExport(
+    exportContext.taskInfo,
+    {
+      cityCount: exportContext.cityCount,
+      cities: exportContext.cities,
+      distanceMatrix: exportContext.distanceMatrix,
+      algorithm: exportContext.algorithm,
+    },
+    taskResults
+  );
 };
 
 // 初始化

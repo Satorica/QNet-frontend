@@ -509,7 +509,6 @@ const sendEmailCode = async () => {
 //       ElMessage.error(response.message || t("register.messages.codeFailed"));
 //     }
 //   } catch (error) {
-//     console.error("Send phone code error:", error);
 //     ElMessage.error(
 //       error.response?.data?.message || t("register.messages.codeFailed")
 //     );
@@ -555,7 +554,6 @@ const handleRegister = async () => {
           ElMessage.error(response.message || "注册失败");
         }
       } catch (error) {
-        console.error("Register error:", error);
         ElMessage.error(getErrorMessage(error, "注册失败，请检查网络连接"));
       } finally {
         loading.value = false;

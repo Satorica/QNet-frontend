@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => {
     esbuild:
       mode === "production"
         ? {
-            pure: ["console.log", "console.error", "console.warn", "console.debug", "console.info"],
+            drop: ["console"],
           }
         : undefined,
   };

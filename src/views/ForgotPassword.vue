@@ -413,7 +413,6 @@ const sendResetCode = async () => {
       );
     }
   } catch (error) {
-    console.error("Send reset code error:", error);
     ElMessage.error(
       getErrorMessage(error, "验证码发送失败")
     );
@@ -449,7 +448,6 @@ const handleVerify = async () => {
         );
       }
     } catch (error) {
-      console.error("Verify reset code error:", error);
       ElMessage.error(
         getErrorMessage(error, "身份核验失败")
       );
@@ -500,7 +498,6 @@ const handleResetPassword = async () => {
         );
       }
     } catch (error) {
-      console.error("Reset password error:", error);
       const message = getErrorMessage(
         error,
         "密码重置失败"

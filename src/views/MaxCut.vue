@@ -156,7 +156,11 @@
             <template #header>
               <div class="result-header">
                 <span>候选结果</span>
-                <el-button @click="exportResults">结果导出</el-button>
+                <el-button
+                  :disabled="candidates.length === 0"
+                  @click="exportResults"
+                  >结果导出</el-button
+                >
               </div>
             </template>
             <div v-if="candidates.length === 0" class="candidates-placeholder">
@@ -177,7 +181,9 @@
                 <div class="candidate-solution">
                   <span class="solution-label">解向量：</span>
                   <span class="solution-value">{{
-                    candidate.solution || "--"
+                    candidate.solution == null
+                      ? "--"
+                      : JSON.stringify(candidate.solution)
                   }}</span>
                 </div>
               </div>
@@ -467,6 +473,7 @@
           type="primary"
           @click="exportTaskDetail"
           v-if="selectedTask && selectedTask.status === 'completed'"
+          :disabled="!taskDetailResults"
           >导出结果</el-button
         >
       </template>
@@ -479,6 +486,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import {
   submitTask,
   getTaskStatus,
+  getTaskDetail,
   cancelTask,
   getTaskHistory,
   deleteTask,
@@ -511,9 +519,13 @@ import {
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadMatrixTemplate } from "../utils/dataImport";
+import {
+  downloadTaskResultExport,
+  type TaskResultExportInfo,
+} from "../utils/resultExport";
 import type {
-  CandidateDisplay,
   ModelType,
+  TaskCandidate,
   TaskDeleteFilters,
   TaskHistoryItem,
   TaskHistoryParams,
@@ -524,6 +536,10 @@ import type {
   GraphNode,
 } from "../types/api";
 type TagType = "success" | "primary" | "warning" | "info" | "danger";
+type MaxCutExportContext = {
+  taskInfo: TaskResultExportInfo;
+  matrix: number[][];
+};
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -539,7 +555,9 @@ const solveTime = ref("--");
 const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
 const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
-const candidates = ref<CandidateDisplay[]>([]);
+const candidates = ref<TaskCandidate[]>([]);
+const solveTaskResults = ref<TaskResults | null>(null);
+const resultExportContext = ref<MaxCutExportContext | null>(null);
 const currentTaskId = ref<string | null>(null);
 const solveScope = createAsyncScope();
 
@@ -562,6 +580,7 @@ const taskDetailRequestGuard = createLatestRequestGuard();
 const detailDialogVisible = ref(false);
 const selectedTask = ref<TaskHistoryItem | null>(null);
 const taskDetailResults = ref<TaskResults | null>(null);
+const taskDetailInput = ref<unknown>(null);
 
 // 图形可视化数据
 const nodes = ref<GraphNode[]>([]);
@@ -802,11 +821,26 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
 
 // 开始求解
 const startSolve = async () => {
+  const submittedAt = Date.now();
+  const submittedTaskName = customTaskName.value || `MaxCut_${submittedAt}`;
+  resultExportContext.value = {
+    taskInfo: {
+      taskId: "",
+      taskName: submittedTaskName,
+      problemType: "maxcut",
+      modelType: solveType.value,
+      matrixSize: matrixSize.value,
+      timestamp: new Date(submittedAt).toISOString(),
+      status: "completed",
+    },
+    matrix: matrix.value.map((row) => [...row]),
+  };
   const solveToken = solveScope.begin();
   solving.value = true;
   stateClass.value = "state-running";
   solveTime.value = "--";
   candidates.value = [];
+  solveTaskResults.value = null;
   partition.value = {};
   currentTaskId.value = null;
   stateText.value = "求解中";
@@ -819,7 +853,7 @@ const startSolve = async () => {
   try {
     // 准备任务数据
     const taskData: TaskSubmitRequest = {
-      taskName: customTaskName.value || `MaxCut_${Date.now()}`,
+      taskName: submittedTaskName,
       modelType: solveType.value,
       problemType: "maxcut",
       matrixSize: matrixSize.value,
@@ -834,6 +868,15 @@ const startSolve = async () => {
     if (submitResponse.success) {
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
+      if (resultExportContext.value) {
+        resultExportContext.value = {
+          ...resultExportContext.value,
+          taskInfo: {
+            ...resultExportContext.value.taskInfo,
+            taskId: submitResponse.taskId,
+          },
+        };
+      }
       addLog("任务已提交，等待结果");
       loadTaskHistory();
 
@@ -884,20 +927,11 @@ const pollTaskStatus = async (taskId: string, startTime: number, solveToken: num
         solveTime.value = displaySolveTime;
         solving.value = false;
 
-        // 更新结果
-        console.log("-----GET RESULT FROM BACKEND------");
-        console.log(statusResponse.results);
-        console.log("-----RESULT END------");
-
         // 修复：后端返回的是 results.candidates 数组
+        solveTaskResults.value = statusResponse.results || null;
         const resultCandidates = statusResponse.results?.candidates || [];
         if (resultCandidates.length > 0) {
-          candidates.value = resultCandidates.map((result) => ({
-            value: result.value,
-            solution: JSON.stringify(result.solution),
-          }));
-          console.log("更新候选结果:", candidates.value);
-
+          candidates.value = resultCandidates;
           // 更新图形分区显示 - 将解向量转换为两种颜色的分区
           if (Array.isArray(resultCandidates[0].solution)) {
             const solution = resultCandidates[0].solution;
@@ -915,7 +949,6 @@ const pollTaskStatus = async (taskId: string, startTime: number, solveToken: num
             });
 
             partition.value = newPartition;
-            console.log("分区结果:", newPartition);
           }
         }
 
@@ -1017,22 +1050,17 @@ const cancelSolve = async () => {
 
 // 导出结果
 const exportResults = () => {
-  const data = {
-    matrix: matrix.value,
-    candidates: candidates.value,
-    solveType: solveType.value,
-    timestamp: new Date().toISOString(),
-  };
+  const exportContext = resultExportContext.value;
+  const taskResults = solveTaskResults.value;
+  if (!exportContext || !taskResults || candidates.value.length === 0) return;
 
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `quantum-solve-result-${Date.now()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadTaskResultExport(
+    exportContext.taskInfo,
+    {
+      matrix: exportContext.matrix,
+    },
+    taskResults
+  );
 };
 
 // 任务历史相关方法
@@ -1065,7 +1093,6 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
     }
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    console.error("加载任务历史失败:", error);
     addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
     taskHistory.value = [];
     historyTotal.value = 0;
@@ -1275,24 +1302,23 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   try {
     selectedTask.value = row;
     taskDetailResults.value = null;
+    taskDetailInput.value = null;
     detailDialogVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (row.status === "completed") {
-      const statusResponse = await getTaskStatus(row.taskId);
+      const taskDetail = await getTaskDetail(row.taskId);
       if (
         !taskDetailRequestGuard.isLatest(requestId) ||
         selectedTask.value?.taskId !== row.taskId
       ) return;
-      if (statusResponse.results) {
-        taskDetailResults.value = statusResponse.results;
-      }
+      taskDetailResults.value = taskDetail.results || null;
+      taskDetailInput.value = taskDetail.input;
     } else {
       taskDetailResults.value = null;
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    console.error("获取任务详情失败:", error);
     addLog(`获取任务详情失败: ${getErrorMessage(error, "未知错误")}`);
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
@@ -1302,34 +1328,26 @@ const handleTaskDetailClosed = () => {
   taskDetailRequestGuard.invalidate();
   selectedTask.value = null;
   taskDetailResults.value = null;
+  taskDetailInput.value = null;
 };
 
 // 导出任务详情
 const exportTaskDetail = () => {
-  if (!selectedTask.value) return;
+  if (!selectedTask.value || !taskDetailResults.value) return;
 
-  const data = {
-    taskInfo: {
+  downloadTaskResultExport(
+    {
       taskId: selectedTask.value.taskId,
       taskName: selectedTask.value.taskName,
-      problemType: "maxcut",
+      problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,
     },
-    results: taskDetailResults.value,
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `task-${selectedTask.value.taskId}-detail.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+    taskDetailInput.value,
+    taskDetailResults.value
+  );
 };
 
 onMounted(() => {

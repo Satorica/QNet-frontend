@@ -52,8 +52,6 @@ export const tokenManager = {
         } catch (error: unknown) {
             if (axios.isAxiosError(error) && [401, 403].includes(error.response?.status ?? 0)) {
                 tokenManager.clearTokens()
-            } else {
-                console.error('Token verification failed:', error)
             }
             return false
         }
@@ -104,8 +102,8 @@ export const userManager = {
     logout: async () => {
         try {
             await authApi.logout()
-        } catch (error: unknown) {
-            console.error('Logout request failed:', error)
+        } catch {
+            // 服务端登出失败时仍清理本地登录状态。
         }
         tokenManager.clearTokens()
     }

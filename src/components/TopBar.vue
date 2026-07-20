@@ -176,10 +176,8 @@ const handleCommand = async (command: string) => {
 
       // 跳转到登录页
       router.push("/login");
-    } catch (error) {
-      if (error !== "cancel") {
-        console.error("Logout error:", error);
-      }
+    } catch {
+      // 用户取消退出时无需处理。
     }
   }
 };

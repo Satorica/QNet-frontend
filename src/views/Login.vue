@@ -173,7 +173,6 @@ const handleLogin = async () => {
           ElMessage.error(response.message || "登录失败");
         }
       } catch (error) {
-        console.error("Login error:", error);
         ElMessage.error(getErrorMessage(error, "登录失败，请检查网络连接"));
       } finally {
         loading.value = false;

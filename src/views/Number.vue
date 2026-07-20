@@ -75,7 +75,11 @@
             <template #header>
               <div class="result-header">
                 <span>候选结果</span>
-                <el-button @click="exportResults">结果导出</el-button>
+                <el-button
+                  :disabled="!result || !resultExportContext"
+                  @click="exportResults"
+                  >结果导出</el-button
+                >
               </div>
             </template>
             <div v-if="candidates.length === 0" class="candidates-placeholder">
@@ -139,7 +143,6 @@
             <template #header>
               <div class="result-header">
                 <span>求解结果</span>
-                <el-button size="small" @click="exportResult">导出</el-button>
               </div>
             </template>
 
@@ -493,6 +496,7 @@
           type="primary"
           @click="exportTaskDetail"
           v-if="selectedTask && selectedTask.status === 'completed'"
+          :disabled="!taskDetailResults"
           >导出结果</el-button
         >
       </template>
@@ -505,6 +509,7 @@ import { ref, computed, onBeforeUnmount } from "vue";
 import {
   submitTask,
   getTaskStatus,
+  getTaskDetail,
   cancelTask,
   getTaskHistory,
   deleteTask,
@@ -530,6 +535,10 @@ import {
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import {
+  downloadTaskResultExport,
+  type TaskResultExportInfo,
+} from "../utils/resultExport";
+import {
   assertSafeIntegerSum,
   parsePositiveSafeInteger,
 } from "../utils/validation";
@@ -545,6 +554,10 @@ import type {
   TaskSubmitRequest,
 } from "../types/api";
 type TagType = "success" | "primary" | "warning" | "info" | "danger";
+type NumberExportContext = {
+  taskInfo: TaskResultExportInfo;
+  numbers: number[];
+};
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 
@@ -567,7 +580,16 @@ const { addLog, resetSolveLogs, addTaskProgressLog } =
   createSolveLogController(logs);
 const currentTaskId = ref<string | null>(null);
 const candidates = ref<CandidateDisplay[]>([]);
+const solveTaskResults = ref<TaskResults | null>(null);
+const resultExportContext = ref<NumberExportContext | null>(null);
 const solveScope = createAsyncScope();
+
+const clearSolveResult = () => {
+  result.value = null;
+  candidates.value = [];
+  solveTaskResults.value = null;
+  resultExportContext.value = null;
+};
 
 // 任务历史
 const taskHistory = ref<TaskHistoryItem[]>([]);
@@ -585,6 +607,7 @@ const taskDetailRequestGuard = createLatestRequestGuard();
 const detailDialogVisible = ref(false);
 const selectedTask = ref<TaskHistoryItem | null>(null);
 const taskDetailResults = ref<TaskResults | null>(null);
+const taskDetailInput = ref<unknown>(null);
 
 // 计算属性
 const totalSum = computed(() =>
@@ -645,8 +668,7 @@ const handleNumberSizeChange = () => {
 
   numbers.value = nextNumbers;
   numberInput.value = nextInput;
-  result.value = null;
-  candidates.value = [];
+  clearSolveResult();
 };
 
 const parseNumbers = () => {
@@ -656,7 +678,7 @@ const parseNumbers = () => {
     assertWithinNumberSize(parsedNumbers);
     numbers.value = parsedNumbers;
     // 清除之前的结果
-    result.value = null;
+    clearSolveResult();
     addLog(`解析得到${numbers.value.length}个数字`);
     ElMessage.success(`成功解析${numbers.value.length}个数字`);
   } catch (error) {
@@ -678,7 +700,7 @@ const generateRandomNumbers = () => {
   numbers.value = newNumbers;
   numberInput.value = newNumbers.join(", ");
   // 清除之前的结果
-  result.value = null;
+  clearSolveResult();
   addLog(`随机生成${count}个数字`);
 };
 
@@ -686,7 +708,7 @@ const clearNumbers = () => {
   if (solving.value) return;
   numbers.value = [];
   numberInput.value = "";
-  result.value = null;
+  clearSolveResult();
   addLog("已清空数字列表");
 };
 
@@ -695,6 +717,7 @@ const removeNumber = (index: number) => {
   const removed = numbers.value[index];
   numbers.value.splice(index, 1);
   numberInput.value = numbers.value.join(", ");
+  clearSolveResult();
   addLog(`移除数字：${removed}`);
 };
 
@@ -731,14 +754,28 @@ const startSolve = async () => {
 
   numbers.value = parsedNumbers;
   const submittedNumbers = [...parsedNumbers];
+  const submittedAt = Date.now();
+  const submittedTaskName =
+    customTaskName.value || `NumberPartition_${submittedAt}`;
   const solveToken = solveScope.begin();
   solving.value = true;
   statusClass.value = "status-running";
   solveTime.value = "--";
   currentTaskId.value = null;
   statusText.value = "求解中";
-  result.value = null;
-  candidates.value = [];
+  clearSolveResult();
+  resultExportContext.value = {
+    taskInfo: {
+      taskId: "",
+      taskName: submittedTaskName,
+      problemType: "number_partition",
+      modelType: solveType.value,
+      matrixSize: submittedNumbers.length,
+      timestamp: new Date(submittedAt).toISOString(),
+      status: "completed",
+    },
+    numbers: submittedNumbers,
+  };
 
   const startTime = Date.now();
   resetSolveLogs(
@@ -748,7 +785,7 @@ const startSolve = async () => {
   try {
     // 准备任务数据
     const taskData: TaskSubmitRequest = {
-      taskName: customTaskName.value || `NumberPartition_${Date.now()}`,
+      taskName: submittedTaskName,
       problemType: "number_partition",
       modelType: solveType.value, // classic | sim | cloud
       matrixSize: parsedNumbers.length,
@@ -763,6 +800,15 @@ const startSolve = async () => {
     if (submitResponse.success) {
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
+      if (resultExportContext.value) {
+        resultExportContext.value = {
+          ...resultExportContext.value,
+          taskInfo: {
+            ...resultExportContext.value.taskInfo,
+            taskId: submitResponse.taskId,
+          },
+        };
+      }
       addLog("任务已提交，等待结果");
       loadTaskHistory();
 
@@ -823,12 +869,8 @@ const pollTaskStatus = async (
         solveTime.value = displaySolveTime;
         solving.value = false;
 
-        // 更新结果
-        console.log("-----GET RESULT FROM BACKEND------");
-        console.log(statusResponse);
-        console.log("-----RESULT END------");
-
         // 解析后端返回的结果
+        solveTaskResults.value = statusResponse.results || null;
         const resultCandidates = statusResponse.results?.candidates || [];
         if (resultCandidates.length > 0) {
           // 取第一个候选结果
@@ -868,8 +910,6 @@ const pollTaskStatus = async (
             difference,
             balance,
           };
-
-          console.log("解析的结果:", result.value);
 
           // 填充候选结果列表
           candidates.value = resultCandidates.map((c) => ({
@@ -973,42 +1013,19 @@ const cancelSolve = async () => {
 };
 
 const exportResults = () => {
-  const data = {
-    numbers: numbers.value,
-    solveType: solveType.value,
-    candidates: candidates.value,
-    timestamp: new Date().toISOString(),
-  };
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `number-partition-candidates-${Date.now()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-};
+  const exportContext = resultExportContext.value;
+  const solveResult = result.value;
+  const taskResults = solveTaskResults.value;
+  if (!exportContext || !solveResult || !taskResults) return;
 
-const exportResult = () => {
-  if (!result.value) return;
-
-  const data = {
-    numbers: numbers.value,
-    solveType: solveType.value,
-    result: result.value,
-    timestamp: new Date().toISOString(),
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `number-partition-result-${Date.now()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadTaskResultExport(
+    exportContext.taskInfo,
+    {
+      numbers: exportContext.numbers,
+    },
+    taskResults,
+    solveResult
+  );
 };
 
 // 任务历史相关方法
@@ -1043,7 +1060,6 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
     }
   } catch (error) {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    console.error("加载任务历史失败:", error);
     addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
     taskHistory.value = [];
     historyTotal.value = 0;
@@ -1253,24 +1269,23 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   try {
     selectedTask.value = row;
     taskDetailResults.value = null;
+    taskDetailInput.value = null;
     detailDialogVisible.value = true;
 
     // 如果任务已完成，获取详细结果
     if (row.status === "completed") {
-      const statusResponse = await getTaskStatus(row.taskId);
+      const taskDetail = await getTaskDetail(row.taskId);
       if (
         !taskDetailRequestGuard.isLatest(requestId) ||
         selectedTask.value?.taskId !== row.taskId
       ) return;
-      if (statusResponse.results) {
-        taskDetailResults.value = statusResponse.results;
-      }
+      taskDetailResults.value = taskDetail.results || null;
+      taskDetailInput.value = taskDetail.input;
     } else {
       taskDetailResults.value = null;
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    console.error("获取任务详情失败:", error);
     addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   }
@@ -1280,34 +1295,26 @@ const handleTaskDetailClosed = () => {
   taskDetailRequestGuard.invalidate();
   selectedTask.value = null;
   taskDetailResults.value = null;
+  taskDetailInput.value = null;
 };
 
 // 导出任务详情
 const exportTaskDetail = () => {
-  if (!selectedTask.value) return;
+  if (!selectedTask.value || !taskDetailResults.value) return;
 
-  const data = {
-    taskInfo: {
+  downloadTaskResultExport(
+    {
       taskId: selectedTask.value.taskId,
       taskName: selectedTask.value.taskName,
-      problemType: "number_partition",
+      problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,
     },
-    results: taskDetailResults.value,
-  };
-
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `task-${selectedTask.value.taskId}-detail.json`;
-  link.click();
-  URL.revokeObjectURL(url);
+    taskDetailInput.value,
+    taskDetailResults.value
+  );
 };
 
 // 初始化
