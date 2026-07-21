@@ -974,16 +974,22 @@ const cancelSolve = async () => {
     await confirmCancelTask();
 
     const res = await cancelTask(taskId);
+    if (currentTaskId.value !== taskId) return;
     if (res?.success === false) {
       ElMessage.warning(res?.message || "取消失败");
       addLog(`取消失败：${res?.message || "取消失败"}`);
       // 任务刚好完成时继续保留轮询，让完成分支回填结果。
-      if (["completed", "failed", "cancelled"].includes(res?.taskStatus)) {
-        applyTerminalTaskStatus(res.taskStatus);
-        if (res.taskStatus === "completed") {
-          loadTaskHistory();
-          return;
+      if (res.taskStatus === "completed") {
+        if (solving.value) {
+          statusClass.value = "status-running";
+          statusText.value = "正在获取结果";
+          addLog("任务已完成，正在获取最终结果");
         }
+        loadTaskHistory();
+        return;
+      }
+      if (["failed", "cancelled"].includes(res.taskStatus)) {
+        applyTerminalTaskStatus(res.taskStatus);
         solving.value = false;
         currentTaskId.value = null;
         solveScope.invalidate();

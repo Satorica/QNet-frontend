@@ -430,6 +430,10 @@ import { formatCandidateValue } from "../utils/format";
 import { createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadTaskResultExport } from "../utils/resultExport";
+import {
+  extractGeneralInputSnapshot,
+  restoreGeneralTaskResults,
+} from "../utils/generalObjective";
 import type {
   ModelType,
   ProblemType,
@@ -481,6 +485,7 @@ const problemTypeOptions = [
   { value: "number_partition", label: "数分问题" },
   { value: "coloring", label: "图着色问题" },
   { value: "tsp", label: "旅行商问题" },
+  { value: "general", label: "一般问题" },
 ];
 const quotaColorMap: Record<ModelType, Array<{ color: string; percentage: number }>> = {
   classic: [{ color: "#ff9966", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
@@ -649,8 +654,25 @@ const viewTask = async (task: TaskHistoryItem) => {
       ) {
         return;
       }
-      taskDetailResults.value = taskDetail.results || null;
+      const detailGeneralInput = extractGeneralInputSnapshot(taskDetail.input);
+      taskDetailResults.value = taskDetail.results && detailGeneralInput
+        ? restoreGeneralTaskResults(taskDetail.results, detailGeneralInput)
+        : taskDetail.results || null;
       taskDetailInput.value = taskDetail.input;
+      const restoredBestValue = taskDetailResults.value?.candidates?.[0]?.value;
+      if (
+        task.problemType === "general"
+        && typeof restoredBestValue === "number"
+        && Number.isFinite(restoredBestValue)
+        && selectedTask.value
+      ) {
+        selectedTask.value = {
+          ...selectedTask.value,
+          bestValue: restoredBestValue,
+        };
+        const historyItem = tasks.value.find((item) => item.taskId === task.taskId);
+        if (historyItem) historyItem.bestValue = restoredBestValue;
+      }
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
@@ -791,6 +813,7 @@ const problemTypeMap = {
   number_partition: "数字分割",
   coloring: "图着色",
   tsp: "旅行商",
+  general: "一般问题",
 };
 
 const modelTypeMap = {
@@ -894,6 +917,7 @@ const getProblemTypeSizeUnit = (type: ProblemType) => {
     coloring: "个节点",
     number_partition: "个数字",
     tsp: "个城市",
+    general: "个变量",
   };
   return units[type] || "个节点";
 };

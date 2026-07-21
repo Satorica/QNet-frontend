@@ -1,6 +1,6 @@
 export type ModelType = "classic" | "sim" | "cloud";
-export type ProblemType = "maxcut" | "number_partition" | "coloring" | "tsp";
-export type MatrixImportProblemType = Exclude<ProblemType, "number_partition">;
+export type ProblemType = "maxcut" | "number_partition" | "coloring" | "tsp" | "general";
+export type MatrixImportProblemType = "maxcut" | "coloring" | "tsp";
 export type TaskStatus = "queued" | "processing" | "completed" | "failed" | "cancelled";
 export type TaskStatusFilter = TaskStatus | "running";
 
@@ -139,14 +139,25 @@ export interface ResetCodeData {
   maskedEmail?: string;
 }
 
-export interface TaskSubmitRequest {
+interface TaskSubmitRequestBase {
   taskName: string;
   problemType: ProblemType;
   modelType: ModelType;
   matrixSize: number;
-  adjacencyMatrix: number[] | number[][];
-  [key: string]: unknown;
 }
+
+export type TaskSubmitRequest = TaskSubmitRequestBase & (
+  | {
+      problemType: "general";
+      quboMatrix: number[][];
+      adjacencyMatrix?: never;
+    }
+  | {
+      problemType: Exclude<ProblemType, "general">;
+      adjacencyMatrix: number[] | number[][];
+      quboMatrix?: never;
+    }
+) & Record<string, unknown>;
 
 export interface MatrixImportData {
   problemType: MatrixImportProblemType;
@@ -264,7 +275,8 @@ export interface TaskInfo {
   problemType: ProblemType;
   modelType: ModelType;
   matrixSize: number;
-  adjacencyMatrix: number[] | number[][];
+  adjacencyMatrix?: number[] | number[][];
+  quboMatrix?: number[][];
   createdAt: number;
   extra?: Record<string, unknown>;
 }

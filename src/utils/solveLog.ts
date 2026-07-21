@@ -1,7 +1,7 @@
 const SOLVE_LOG_LIMIT = 8;
 export const SOLVE_LOG_IDLE_MESSAGE = "等待求解";
 const IMPORTANT_LOG_PATTERN =
-  /^(开始求解|提交任务中|任务已提交|排队中|任务计算中|求解完成|求解失败|提交失败|任务已取消|取消失败|取消任务失败|无法获取任务状态|请先|导入失败|数据导入成功|警告：)/;
+  /^(开始求解|提交任务中|任务已提交|排队中|任务计算中|求解完成|求解失败|提交失败|任务已取消|取消失败|取消任务失败|无法获取任务状态|请先|导入失败|数据导入成功|已加载|警告：)/;
 
 const formatLogTime = () =>
   new Date().toLocaleTimeString("zh-CN", { hour12: false });
