@@ -169,7 +169,12 @@ const handleCommand = async (command: string) => {
           type: "warning",
         }
       );
+    } catch {
+      // 用户取消退出时无需处理。
+      return;
+    }
 
+    try {
       // 执行退出
       await userManager.logout();
       ElMessage.success("已退出登录");
@@ -177,7 +182,7 @@ const handleCommand = async (command: string) => {
       // 跳转到登录页
       router.push("/login");
     } catch {
-      // 用户取消退出时无需处理。
+      ElMessage.error("登出失败，请稍后重试");
     }
   }
 };

@@ -12,6 +12,31 @@ const USER_INFO_STORAGE_KEY = 'userInfo'
 const LOGIN_STATE_STORAGE_KEY = 'isLoggedIn'
 const REMEMBER_ME_STORAGE_KEY = 'rememberMe'
 
+export type ServerSessionStatus = 'unknown' | 'authenticated'
+
+let serverSessionStatus: ServerSessionStatus = 'unknown'
+let shouldSkipNextAuthPageVerification = false
+
+export const serverSessionManager = {
+    getStatus: (): ServerSessionStatus => serverSessionStatus,
+    markAuthenticated: (): void => {
+        serverSessionStatus = 'authenticated'
+        shouldSkipNextAuthPageVerification = false
+    },
+    markUnknown: (): void => {
+        serverSessionStatus = 'unknown'
+        shouldSkipNextAuthPageVerification = false
+    },
+    scheduleAuthPageVerificationSkip: (): void => {
+        shouldSkipNextAuthPageVerification = true
+    },
+    consumeAuthPageVerificationSkip: (): boolean => {
+        if (!shouldSkipNextAuthPageVerification) return false
+        shouldSkipNextAuthPageVerification = false
+        return true
+    },
+}
+
 const toSafeUserInfo = (userInfo: UserInfo): SafeUserInfo => ({
     id: userInfo.id,
     username: userInfo.username,
@@ -61,6 +86,7 @@ export const tokenManager = {
         removeAuthState(sessionStorage)
         removeAuthState(localStorage)
         localStorage.removeItem(REMEMBER_ME_STORAGE_KEY)
+        serverSessionManager.markUnknown()
     },
 }
 
@@ -73,6 +99,7 @@ export const userManager = {
         removeAuthState(localStorage)
         storage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(safeUserInfo))
         storage.setItem(LOGIN_STATE_STORAGE_KEY, 'true')
+        serverSessionManager.markAuthenticated()
     },
 
     getUserInfo: () => {
@@ -97,15 +124,16 @@ export const userManager = {
     clearUserInfo: () => {
         removeAuthState(sessionStorage)
         removeAuthState(localStorage)
+        serverSessionManager.markUnknown()
     },
 
     logout: async () => {
-        try {
-            await authApi.logout()
-        } catch {
-            // 服务端登出失败时仍清理本地登录状态。
+        const response = await authApi.logout()
+        if (!response.success) {
+            throw new Error(response.message || '登出失败')
         }
         tokenManager.clearTokens()
+        serverSessionManager.scheduleAuthPageVerificationSkip()
     }
 }
 
