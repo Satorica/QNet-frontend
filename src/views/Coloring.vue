@@ -159,7 +159,10 @@
               {{ solving ? "求解中..." : "求解" }}
             </el-button>
             <el-button
-              :loading="historyCancelingTaskId === currentTaskId"
+              :loading="
+                currentTaskId !== null &&
+                historyCancelingTaskId === currentTaskId
+              "
               :disabled="!solving || historyCancelingTaskId !== null"
               @click="cancelSolve"
               >取消任务</el-button

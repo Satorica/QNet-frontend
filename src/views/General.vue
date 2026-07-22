@@ -14,7 +14,7 @@
 
           <div class="controls-row">
             <div class="control-item">
-              <span class="ctrl-label">求解问题规模：</span>
+              <span class="ctrl-label">问题规模：</span>
               <el-input-number
                 v-model="matrixSize"
                 :min="1"
@@ -201,7 +201,9 @@
               {{ solving ? "求解中..." : "求解" }}
             </el-button>
             <el-button
-              :loading="cancelingTaskId === currentTaskId"
+              :loading="
+                currentTaskId !== null && cancelingTaskId === currentTaskId
+              "
               :disabled="!solving || cancelingTaskId !== null"
               @click="cancelSolve"
             >取消任务</el-button>

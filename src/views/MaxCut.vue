@@ -18,7 +18,7 @@
           <!-- 规模控制 -->
           <div class="controls-row">
             <div class="control-item">
-              <span class="ctrl-label">求解问题规模：</span>
+              <span class="ctrl-label">问题规模：</span>
               <el-input-number
                 v-model="matrixSize"
                 :min="2"
@@ -124,7 +124,10 @@
               {{ solving ? "求解中..." : "求解" }}
             </el-button>
             <el-button
-              :loading="historyCancelingTaskId === currentTaskId"
+              :loading="
+                currentTaskId !== null &&
+                historyCancelingTaskId === currentTaskId
+              "
               :disabled="!solving || historyCancelingTaskId !== null"
               @click="cancelSolve"
               >取消任务</el-button
@@ -613,6 +616,17 @@ const normalizeAdjacencyWeight = (value: unknown): number => Number(Number(value
 
 const formatMatrixCell = (value: unknown): string => String(normalizeAdjacencyWeight(value));
 
+const invalidateCurrentResult = () => {
+  partition.value = {};
+  candidates.value = [];
+  solveTime.value = "--";
+  stateClass.value = "state-idle";
+  stateText.value = "等待求解";
+  currentTaskId.value = null;
+  solveTaskResults.value = null;
+  resultExportContext.value = null;
+};
+
 // 初始化矩阵
 const generateMatrix = () => {
   if (solving.value) return;
@@ -622,9 +636,7 @@ const generateMatrix = () => {
     .map(() => Array(size).fill(0));
   generateNodes();
   syncEdgesFromMatrix();
-  // 清除分区结果
-  partition.value = {};
-  candidates.value = [];
+  invalidateCurrentResult();
 };
 
 // 生成节点布局
@@ -661,18 +673,14 @@ const generateRandomMatrix = () => {
 
   matrix.value = newMatrix;
   syncEdgesFromMatrix();
-  // 清除分区结果
-  partition.value = {};
-  candidates.value = [];
+  invalidateCurrentResult();
 };
 
 // 设置编辑模式
 const setEditMode = (mode: "custom" | "random") => {
   if (solving.value) return;
   editMode.value = mode;
-  // 切换编辑模式时清除分区结果
-  partition.value = {};
-  candidates.value = [];
+  invalidateCurrentResult();
   addLog("切换编辑模式，清除分区结果");
 };
 
@@ -683,8 +691,7 @@ const setEdgeWeight = (i: number, j: number, weight: number) => {
   matrix.value[i][j] = normalizedWeight;
   matrix.value[j][i] = normalizedWeight;
   syncEdgesFromMatrix();
-  partition.value = {};
-  candidates.value = [];
+  invalidateCurrentResult();
   addLog(`设置边 (${i}, ${j}) = ${normalizedWeight}`);
 };
 
@@ -815,6 +822,7 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
     matrix.value = imported.adjacencyMatrix;
     generateNodes();
     syncEdgesFromMatrix();
+    invalidateCurrentResult();
     addLog(
       `数据导入成功：${imported.matrixSize}×${imported.matrixSize}邻接矩阵，${edgeCount.value}条边`,
     );

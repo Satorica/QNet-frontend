@@ -516,12 +516,21 @@ const compactTaskFilters = (filters = {}) => {
   );
 };
 
+const hasOwnFilter = (params: TaskHistoryParams, key: keyof TaskFilterState) =>
+  Object.prototype.hasOwnProperty.call(params, key);
+
 const loadTasks = async (params: TaskHistoryParams = {}) => {
   const requestId = taskHistoryRequestGuard.begin();
   const requestFilters = normalizeTaskFilters({
-    taskName: params.taskName ?? appliedTaskFilters.value.taskName,
-    modelType: params.modelType ?? appliedTaskFilters.value.modelType,
-    problemType: params.problemType ?? appliedTaskFilters.value.problemType,
+    taskName: hasOwnFilter(params, "taskName")
+      ? params.taskName ?? ""
+      : appliedTaskFilters.value.taskName,
+    modelType: hasOwnFilter(params, "modelType")
+      ? params.modelType ?? ""
+      : appliedTaskFilters.value.modelType,
+    problemType: hasOwnFilter(params, "problemType")
+      ? params.problemType ?? ""
+      : appliedTaskFilters.value.problemType,
   });
   const requestParams = {
     page: params.page ?? currentPage.value,
