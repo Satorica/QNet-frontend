@@ -35,10 +35,7 @@
           <el-icon><Location /></el-icon>
           <span>旅行商问题</span>
         </el-menu-item>
-        <el-menu-item index="/general">
-          <el-icon><DataAnalysis /></el-icon>
-          <span>一般问题</span>
-        </el-menu-item>
+        <!-- 一般问题入口暂时隐藏，路由与页面保留以便后续恢复。 -->
       </el-menu>
     </div>
 
@@ -71,7 +68,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { TrendCharts, Odometer, MagicStick, Location, DataAnalysis, List, ChatDotRound, SwitchButton } from '@element-plus/icons-vue'
+import { TrendCharts, Odometer, MagicStick, Location, List, ChatDotRound, SwitchButton } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { userManager } from '../utils/auth'
