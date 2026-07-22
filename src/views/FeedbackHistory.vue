@@ -37,12 +37,7 @@
 
             <div v-else class="feedback-list">
               <article v-for="item in feedbacks" :key="item.id" class="feedback-item">
-                <button
-                  class="feedback-summary"
-                  type="button"
-                  :aria-label="`查看${getCategoryLabel(item.category)}反馈详情`"
-                  @click="openFeedbackDetail(item)"
-                >
+                <div class="feedback-summary">
                   <div class="feedback-summary-main">
                     <div class="feedback-meta">
                       <span class="category-label">{{ getCategoryLabel(item.category) }}</span>
@@ -54,12 +49,17 @@
                     <el-tag class="status-tag" :type="getStatusType(item.status)" effect="light" round>
                       {{ getStatusLabel(item.status) }}
                     </el-tag>
-                    <span class="detail-action">
+                    <button
+                      class="detail-action"
+                      type="button"
+                      :aria-label="`查看${getCategoryLabel(item.category)}反馈详情`"
+                      @click="openFeedbackDetail(item)"
+                    >
                       查看详情
                       <el-icon><ArrowRight /></el-icon>
-                    </span>
+                    </button>
                   </div>
-                </button>
+                </div>
               </article>
             </div>
           </div>
@@ -92,7 +92,12 @@
         <div v-if="selectedFeedback" class="dialog-heading">
           <div>
             <h3>反馈详情</h3>
-            <p>提交于 {{ formatDate(selectedFeedback.createdAt) }}</p>
+            <div class="dialog-meta">
+              <span class="dialog-category-label">
+                {{ getCategoryLabel(selectedFeedback.category) }}
+              </span>
+              <span>提交于 {{ formatDate(selectedFeedback.createdAt) }}</span>
+            </div>
           </div>
           <el-tag class="status-tag" :type="getStatusType(selectedFeedback.status)" effect="light" round>
             {{ getStatusLabel(selectedFeedback.status) }}
@@ -102,12 +107,6 @@
 
       <div v-if="selectedFeedback" class="dialog-body">
         <section class="dialog-content-card">
-          <div class="dialog-content-header">
-            <div class="dialog-content-label">反馈内容</div>
-            <span class="dialog-category-label">
-              {{ getCategoryLabel(selectedFeedback.category) }}
-            </span>
-          </div>
           <p>{{ selectedFeedback.content }}</p>
         </section>
       </div>
@@ -390,13 +389,6 @@ onMounted(loadFeedbacks);
   color: inherit;
   font: inherit;
   text-align: left;
-  cursor: pointer;
-}
-
-.feedback-summary:focus-visible {
-  border-radius: 11px;
-  outline: 2px solid #4050f8;
-  outline-offset: -2px;
 }
 
 .feedback-summary-main {
@@ -451,16 +443,27 @@ onMounted(loadFeedbacks);
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  padding: 4px 2px;
+  border: 0;
+  background: transparent;
   color: #337ecc;
+  cursor: pointer;
+  font: inherit;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.detail-action:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid #4050f8;
+  outline-offset: 2px;
 }
 
 .detail-action .el-icon {
   transition: transform 0.18s ease;
 }
 
-.feedback-summary:hover .detail-action .el-icon {
+.detail-action:hover .el-icon {
   transform: translateX(2px);
 }
 
@@ -499,8 +502,11 @@ onMounted(loadFeedbacks);
   line-height: 1.4;
 }
 
-.dialog-heading p {
-  margin: 5px 0 0;
+.dialog-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 7px;
   color: #9298a7;
   font-size: 12px;
 }
@@ -508,25 +514,10 @@ onMounted(loadFeedbacks);
 .dialog-content-card {
   min-height: 172px;
   box-sizing: border-box;
-  padding: 18px 20px 22px;
+  padding: 20px;
   border: 1px solid #e7ebf0;
   border-radius: 10px;
   background: #fbfcfe;
-}
-
-.dialog-content-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #edf0f4;
-}
-
-.dialog-content-label {
-  color: #596273;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .dialog-category-label {
@@ -539,7 +530,7 @@ onMounted(loadFeedbacks);
 }
 
 .dialog-content-card p {
-  margin: 16px 0 0;
+  margin: 0;
   color: #303746;
   font-size: 14px;
   line-height: 1.75;

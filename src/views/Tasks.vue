@@ -247,7 +247,12 @@
       :close-on-click-modal="false"
       @closed="handleTaskDetailClosed"
     >
-      <div v-if="selectedTask" class="task-detail">
+      <div
+        v-if="selectedTask"
+        v-loading="taskDetailLoading"
+        class="task-detail"
+        element-loading-text="正在加载任务详情..."
+      >
         <!-- 基本信息 -->
         <el-card class="detail-section">
           <template #header>
@@ -291,7 +296,10 @@
             </div>
             <div class="detail-row">
               <span class="detail-label">任务状态：</span>
-              <el-tag :type="getStatusType(selectedTask.status)">
+              <el-tag
+                class="task-detail-status-tag"
+                :type="getStatusType(selectedTask.status)"
+              >
                 {{ getStatusText(selectedTask.status) }}
               </el-tag>
             </div>
@@ -300,7 +308,7 @@
 
         <!-- 结果信息 -->
         <el-card
-          class="detail-section"
+          class="detail-section task-detail-result-card"
           v-if="selectedTask.status === 'completed' && taskDetailResults"
         >
           <template #header>
@@ -463,6 +471,7 @@ const taskDetailVisible = ref(false);
 const selectedTask = ref<TaskHistoryItem | null>(null);
 const taskDetailResults = ref<TaskResults | null>(null);
 const taskDetailInput = ref<unknown>(null);
+const taskDetailLoading = ref(false);
 const historyLoading = ref(false);
 const cancelingTaskId = ref<string | null>(null);
 const appliedTaskFilters = ref<TaskFilterState>({
@@ -639,12 +648,12 @@ const handleResetSearch = () => {
 
 const viewTask = async (task: TaskHistoryItem) => {
   const requestId = taskDetailRequestGuard.begin();
+  selectedTask.value = task;
+  taskDetailResults.value = null;
+  taskDetailInput.value = null;
+  taskDetailLoading.value = task.status === "completed";
+  taskDetailVisible.value = true;
   try {
-    selectedTask.value = task;
-    taskDetailResults.value = null;
-    taskDetailInput.value = null;
-    taskDetailVisible.value = true;
-
     // 如果任务已完成，获取详细结果
     if (task.status === "completed") {
       const taskDetail = await getTaskDetail(task.taskId);
@@ -677,6 +686,10 @@ const viewTask = async (task: TaskHistoryItem) => {
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
+  } finally {
+    if (taskDetailRequestGuard.isLatest(requestId)) {
+      taskDetailLoading.value = false;
+    }
   }
 };
 
@@ -685,6 +698,7 @@ const handleTaskDetailClosed = () => {
   selectedTask.value = null;
   taskDetailResults.value = null;
   taskDetailInput.value = null;
+  taskDetailLoading.value = false;
 };
 
 const confirmCancelTask = async (taskName = "") => {

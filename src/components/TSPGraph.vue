@@ -235,9 +235,13 @@ const handleCityClick = (cityId: number) => {
 
 .clickable {
   cursor: pointer;
+  transition: transform 0.3s ease, filter 0.3s ease;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
 .clickable:hover {
-  r: 14;
+  filter: brightness(1.1);
+  transform: scale(1.1);
 }
 </style>

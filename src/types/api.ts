@@ -176,6 +176,11 @@ export interface TaskCandidate {
 export interface TaskResults {
   runtime?: number;
   candidates?: TaskCandidate[];
+  /** 算法节点状态码：2 开始求解，3 求解等待中，4 求解成功，5 求解失败。 */
+  solve_state?: number;
+  solve_state_text?: string;
+  begintime?: string | null;
+  endtime?: string | null;
   [key: string]: unknown;
 }
 

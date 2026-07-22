@@ -300,7 +300,12 @@
     </el-card>
 
     <el-dialog v-model="detailDialogVisible" title="任务详细信息" width="800px" :close-on-click-modal="false" @closed="handleTaskDetailClosed">
-      <div v-if="selectedTask" class="task-detail">
+      <div
+        v-if="selectedTask"
+        v-loading="taskDetailLoading"
+        class="task-detail"
+        element-loading-text="正在加载任务详情..."
+      >
         <el-card class="detail-section">
           <template #header>
             <div class="detail-header">
@@ -334,12 +339,12 @@
             </div>
             <div class="detail-row">
               <span class="detail-label">任务状态：</span>
-              <el-tag :type="getStatusType(selectedTask.status)">{{ getStatusText(selectedTask.status) }}</el-tag>
+              <el-tag class="task-detail-status-tag" :type="getStatusType(selectedTask.status)">{{ getStatusText(selectedTask.status) }}</el-tag>
             </div>
           </div>
         </el-card>
 
-        <el-card v-if="selectedTask.status === 'completed' && taskDetailResults" class="detail-section">
+        <el-card v-if="selectedTask.status === 'completed' && taskDetailResults" class="detail-section task-detail-result-card">
           <template #header>
             <div class="detail-header">
               <span class="detail-title">结果信息</span>
@@ -528,6 +533,7 @@ const detailDialogVisible = ref(false);
 const selectedTask = ref<TaskHistoryItem | null>(null);
 const taskDetailResults = ref<TaskResults | null>(null);
 const taskDetailInput = ref<unknown>(null);
+const taskDetailLoading = ref(false);
 
 const getDefaultVariableNames = (size: number) =>
   Array.from({ length: size }, (_, index) => `x${index + 1}`);
@@ -959,6 +965,7 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
   selectedTask.value = row;
   taskDetailResults.value = null;
   taskDetailInput.value = null;
+  taskDetailLoading.value = true;
   detailDialogVisible.value = true;
   try {
     const taskDetail = await getTaskDetail(row.taskId);
@@ -997,6 +1004,10 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
     addLog(`获取任务详情失败: ${getErrorMessage(error, "未知错误")}`);
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
+  } finally {
+    if (taskDetailRequestGuard.isLatest(requestId)) {
+      taskDetailLoading.value = false;
+    }
   }
 };
 
@@ -1005,6 +1016,7 @@ const handleTaskDetailClosed = () => {
   selectedTask.value = null;
   taskDetailResults.value = null;
   taskDetailInput.value = null;
+  taskDetailLoading.value = false;
 };
 
 const exportTaskDetail = () => {

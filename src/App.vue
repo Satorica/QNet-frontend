@@ -64,6 +64,18 @@ const shouldShowMainLayout = computed(() => {
   font-family: "PingFang SC", "Noto Sans SC", "Inter", "Roboto", sans-serif;
 }
 
+/* 任务详情弹窗中的状态标签保持静态，避免弹窗打开时出现额外过渡。 */
+.task-detail-status-tag {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* 结果卡片随详情弹窗一次性呈现，不执行卡片自身的过渡。 */
+.task-detail-result-card {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* 加载状态样式 */
 .loading-container {
   height: 100vh;

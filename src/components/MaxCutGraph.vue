@@ -181,7 +181,7 @@ const handleNodeClick = (nodeId: number) => {
 
 .clickable {
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, filter 0.3s ease;
   transform-box: fill-box;
   transform-origin: center;
 }
