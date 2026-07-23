@@ -380,6 +380,7 @@ onMounted(loadFeedbacks);
 .feedback-summary {
   display: flex;
   width: 100%;
+  box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
