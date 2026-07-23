@@ -157,6 +157,7 @@ const rules: FormRules<FeedbackFormModel> = {
   category: [{ required: true, message: "请选择反馈类型", trigger: "change" }],
   content: [
     {
+      required: true,
       validator: (_rule, value: string, callback) => {
         const contentLength = value.trim().length;
         if (contentLength === 0) {

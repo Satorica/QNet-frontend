@@ -78,6 +78,7 @@ export interface FeedbackHistoryItem {
   id: string;
   category: FeedbackCategory;
   content: string;
+  adminReply?: string | null;
   status: number;
   createdAt?: string | null;
   updatedAt?: string | null;

@@ -106,8 +106,43 @@
       </template>
 
       <div v-if="selectedFeedback" class="dialog-body">
-        <section class="dialog-content-card">
-          <p>{{ selectedFeedback.content }}</p>
+        <section class="dialog-message-section">
+          <header class="dialog-message-heading">
+            <span class="dialog-message-icon is-user" aria-hidden="true">
+              <el-icon><User /></el-icon>
+            </span>
+            <div>
+              <h4>用户反馈</h4>
+            </div>
+          </header>
+          <div class="dialog-message-card is-user">
+            <p>{{ selectedFeedback.content }}</p>
+          </div>
+        </section>
+
+        <section class="dialog-message-section">
+          <header class="dialog-message-heading">
+            <span class="dialog-message-icon is-admin" aria-hidden="true">
+              <el-icon><Service /></el-icon>
+            </span>
+            <div>
+              <h4>管理员回复</h4>
+              <span v-if="selectedFeedback.adminReply && selectedFeedback.updatedAt">
+                更新于 {{ formatDate(selectedFeedback.updatedAt) }}
+              </span>
+              <span v-else-if="selectedFeedback.adminReply">管理员已回复</span>
+            </div>
+          </header>
+          <div
+            class="dialog-message-card is-admin"
+            :class="{ 'is-empty': !selectedFeedback.adminReply }"
+          >
+            <p v-if="selectedFeedback.adminReply">{{ selectedFeedback.adminReply }}</p>
+            <div v-else class="dialog-reply-empty">
+              <span class="reply-waiting-dot" aria-hidden="true"></span>
+              <span>暂无管理员回复，请耐心等待</span>
+            </div>
+          </div>
         </section>
       </div>
 
@@ -121,7 +156,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { ArrowRight, ChatDotRound, EditPen, Warning } from "@element-plus/icons-vue";
+import {
+  ArrowRight,
+  ChatDotRound,
+  EditPen,
+  Service,
+  User,
+  Warning,
+} from "@element-plus/icons-vue";
 import type { TagProps } from "element-plus";
 import { getFeedbackHistory } from "../api/feedback";
 import type { FeedbackCategory, FeedbackHistoryItem } from "../types/api";
@@ -469,23 +511,59 @@ onMounted(loadFeedbacks);
 }
 
 :global(.feedback-detail-dialog) {
+  display: flex;
+  max-height: calc(100vh - 48px);
+  flex-direction: column;
   overflow: hidden;
   border-radius: 14px;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
 }
 
 :global(.feedback-detail-dialog .el-dialog__header) {
+  position: relative;
+  flex-shrink: 0;
   margin: 0;
-  padding: 22px 26px 18px;
-  border-bottom: 1px solid #edf0f4;
+  padding: 20px 26px 16px;
+  border-bottom: 0;
+}
+
+:global(.feedback-detail-dialog .el-dialog__header::after) {
+  position: absolute;
+  right: 26px;
+  bottom: 0;
+  left: 26px;
+  height: 1px;
+  background: #edf0f4;
+  content: "";
+}
+
+:global(.feedback-detail-dialog .el-dialog__headerbtn) {
+  top: -2px;
+  right: -2px;
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+:global(.feedback-detail-dialog .el-dialog__headerbtn:hover) {
+  background: #f5f7fa;
+  color: #337ecc;
 }
 
 :global(.feedback-detail-dialog .el-dialog__body) {
-  padding: 22px 26px 6px;
+  width: 100%;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 26px 6px;
 }
 
 :global(.feedback-detail-dialog .el-dialog__footer) {
-  padding: 18px 26px 22px;
+  flex-shrink: 0;
+  margin-top: 0;
+  padding: 14px 26px 18px;
 }
 
 .dialog-heading {
@@ -493,7 +571,7 @@ onMounted(loadFeedbacks);
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding-right: 14px;
+  padding-right: 0;
 }
 
 .dialog-heading h3 {
@@ -512,13 +590,105 @@ onMounted(loadFeedbacks);
   font-size: 12px;
 }
 
-.dialog-content-card {
-  min-height: 172px;
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dialog-message-section {
+  min-width: 0;
+}
+
+.dialog-message-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 11px;
+}
+
+.dialog-message-icon {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.dialog-message-icon.is-user {
+  background: #edf6ff;
+  color: #337ecc;
+}
+
+.dialog-message-icon.is-admin {
+  background: #f2f0ff;
+  color: #5b5bd6;
+}
+
+.dialog-message-heading h4 {
+  margin: 0;
+  color: #303746;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.dialog-message-heading > div > span {
+  display: block;
+  margin-top: 3px;
+  color: #a0a5b4;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.dialog-message-card {
   box-sizing: border-box;
-  padding: 20px;
-  border: 1px solid #e7ebf0;
+  border: 1px solid #e3e9f0;
   border-radius: 10px;
+}
+
+.dialog-message-card.is-user {
+  min-height: 96px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 16px 18px;
   background: #fbfcfe;
+}
+
+.dialog-message-card.is-admin {
+  display: flex;
+  min-height: 64px;
+  max-height: 156px;
+  overflow-y: auto;
+  align-items: flex-start;
+  padding: 14px 18px;
+  border-color: #e5e3f6;
+  background: #fafaff;
+}
+
+.dialog-message-card::-webkit-scrollbar,
+:global(.feedback-detail-dialog .el-dialog__body::-webkit-scrollbar) {
+  width: 6px;
+}
+
+.dialog-message-card::-webkit-scrollbar-thumb,
+:global(.feedback-detail-dialog .el-dialog__body::-webkit-scrollbar-thumb) {
+  border-radius: 999px;
+  background: #d9dee8;
+}
+
+.dialog-message-card::-webkit-scrollbar-track,
+:global(.feedback-detail-dialog .el-dialog__body::-webkit-scrollbar-track) {
+  background: transparent;
+}
+
+.dialog-message-card.is-empty {
+  align-items: center;
+  overflow: hidden;
+  border-style: solid;
 }
 
 .dialog-category-label {
@@ -530,7 +700,7 @@ onMounted(loadFeedbacks);
   font-weight: 600;
 }
 
-.dialog-content-card p {
+.dialog-message-card p {
   margin: 0;
   color: #303746;
   font-size: 14px;
@@ -539,10 +709,38 @@ onMounted(loadFeedbacks);
   word-break: break-word;
 }
 
+.dialog-reply-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #9298a7;
+  font-size: 13px;
+}
+
+.reply-waiting-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: #9b9be8;
+}
+
 .dialog-close-button {
   min-width: 80px;
   height: 32px;
   border-radius: 6px;
+  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
+}
+
+.dialog-close-button:hover {
+  border-color: #9bc6ee;
+  background: #f7faff;
+  color: #337ecc;
+}
+
+.dialog-close-button:focus-visible {
+  outline: 2px solid rgba(64, 158, 255, 0.26);
+  outline-offset: 2px;
 }
 
 .load-error {
@@ -604,6 +802,45 @@ onMounted(loadFeedbacks);
 
   :global(.feedback-detail-dialog) {
     width: calc(100vw - 32px) !important;
+    max-height: calc(100vh - 32px);
+  }
+
+  :global(.feedback-detail-dialog .el-dialog__header) {
+    padding: 18px 20px 15px;
+  }
+
+  :global(.feedback-detail-dialog .el-dialog__headerbtn) {
+    top: -14px;
+  }
+
+  :global(.feedback-detail-dialog .el-dialog__header::after) {
+    right: 20px;
+    left: 20px;
+  }
+
+  :global(.feedback-detail-dialog .el-dialog__body) {
+    width: 100%;
+    padding: 16px 20px 6px;
+  }
+
+  :global(.feedback-detail-dialog .el-dialog__footer) {
+    padding: 14px 20px 18px;
+  }
+
+  .dialog-heading {
+    align-items: flex-start;
+  }
+
+  .dialog-meta {
+    flex-wrap: wrap;
+  }
+
+  .dialog-body {
+    gap: 18px;
+  }
+
+  .dialog-message-card.is-user {
+    max-height: 160px;
   }
 
 }
