@@ -16,12 +16,12 @@
             <div class="control-item">
               <span class="ctrl-label">问题规模：</span>
               <el-input-number
-                v-model="matrixSize"
+                v-model="activeMatrixSize"
                 :min="1"
                 :max="10"
-                :disabled="solving"
+                :disabled="solving || importing"
                 style="width: 130px"
-                @change="resizeMatrix"
+                @change="resizeActiveMatrix"
               />
             </div>
           </div>
@@ -142,17 +142,18 @@
 
               <el-tab-pane label="QUBO矩阵输入" name="matrix">
                 <div class="matrix-actions">
-                  <input ref="fileInput" class="file-input" type="file" accept=".csv,.txt,text/csv,text/plain" @change="handleFileImport" />
-                  <el-button :disabled="solving" @click="openFilePicker">数据导入(txt/csv)</el-button>
-                  <el-button :disabled="solving" @click="symmetrizeMatrix">对称化</el-button>
-                  <el-button :disabled="solving" @click="clearMatrix">全零</el-button>
+                  <input ref="fileInput" class="file-input" type="file" accept=".csv,.txt,text/csv,text/plain" :disabled="solving || importing" @change="handleFileImport" />
+                  <el-button :loading="importing" :disabled="solving || importing" @click="openFilePicker">数据导入(txt/csv)</el-button>
+                  <el-button :disabled="solving || importing" @click="handleTemplateDownload">下载模板</el-button>
+                  <el-button :disabled="solving || importing" @click="symmetrizeMatrix">对称化</el-button>
+                  <el-button :disabled="solving || importing" @click="clearMatrix">全零</el-button>
                 </div>
               </el-tab-pane>
             </el-tabs>
 
             <div v-show="inputMode === 'matrix'" class="qubo-matrix-section">
               <div class="matrix-title-row" :style="{ width: `min(100%, ${matrixDisplayWidth}px)` }">
-                <span>{{ matrixSize }} × {{ matrixSize }}</span>
+                <span>{{ directMatrixSize }} × {{ directMatrixSize }}</span>
               </div>
               <div class="matrix-scroll" :style="{ width: `min(100%, ${matrixDisplayWidth}px)` }">
                 <table class="qubo-table" :style="{ minWidth: `${matrixDisplayWidth}px` }">
@@ -160,7 +161,7 @@
                     <tr>
                       <th></th>
                       <th
-                        v-for="(name, j) in variableNames"
+                        v-for="(name, j) in matrixVariableNames"
                         :key="name"
                         :class="{ 'is-axis-hovered': hoveredCell?.column === j }"
                       >{{ name }}</th>
@@ -168,7 +169,7 @@
                   </thead>
                   <tbody>
                     <tr v-for="(row, i) in matrix" :key="i">
-                      <th :class="{ 'is-axis-hovered': hoveredCell?.row === i }">{{ variableNames[i] }}</th>
+                      <th :class="{ 'is-axis-hovered': hoveredCell?.row === i }">{{ matrixVariableNames[i] }}</th>
                       <td
                         v-for="(_, j) in row"
                         :key="j"
@@ -182,7 +183,7 @@
                           v-model="matrix[i][j]"
                           :controls="false"
                           :precision="3"
-                          :disabled="solving"
+                          :disabled="solving || importing"
                           aria-label="QUBO矩阵元素"
                         />
                       </td>
@@ -197,7 +198,7 @@
 
         <div class="right-column">
           <div class="solve-area">
-            <el-button type="primary" size="large" :loading="solving" class="solve-btn" @click="startSolve">
+            <el-button type="primary" size="large" :loading="solving" :disabled="importing" class="solve-btn" @click="startSolve">
               {{ solving ? "求解中..." : "求解" }}
             </el-button>
             <el-button
@@ -426,10 +427,12 @@ import {
   getTaskDetail,
   getTaskHistory,
   getTaskStatus,
+  parseProblemImportFile,
   submitTask,
 } from "../api";
 import { useCustomTaskName } from "../stores/customTaskName";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
+import { downloadMatrixTemplate } from "../utils/dataImport";
 import { getErrorMessage } from "../utils/error";
 import { formatBestValue, formatCandidateValue, formatSolveTime } from "../utils/format";
 import {
@@ -484,6 +487,7 @@ interface GeneralResultExportContext {
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 const solveType = ref<ModelType>("classic");
 const matrixSize = ref(4);
+const directMatrixSize = ref(4);
 const inputMode = ref<InputMode>("expression");
 const expressionForm = ref<ExpressionForm>("scalar");
 const variableText = ref("x1,x2,x3,x4");
@@ -506,9 +510,11 @@ const matrix = ref<number[][]>([
   [0, 1, -2, 1],
   [1, 0, 1, -2],
 ]);
+const directMatrixVariableNames = ref(["x1", "x2", "x3", "x4"]);
 const hoveredCell = ref<{ row: number; column: number } | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 
+const importing = ref(false);
 const solving = ref(false);
 const stateClass = ref("state-idle");
 const stateText = ref("等待求解");
@@ -529,6 +535,7 @@ const appliedHistoryTaskName = ref("");
 const historyCurrentPage = ref(1);
 const historyPageSize = ref(10);
 const historyTotal = ref(0);
+const importRequestGuard = createLatestRequestGuard();
 const taskHistoryRequestGuard = createLatestRequestGuard();
 const taskDetailRequestGuard = createLatestRequestGuard();
 const detailDialogVisible = ref(false);
@@ -540,9 +547,16 @@ const taskDetailLoading = ref(false);
 const getDefaultVariableNames = (size: number) =>
   Array.from({ length: size }, (_, index) => `x${index + 1}`);
 
+const activeMatrixSize = computed({
+  get: () => inputMode.value === "expression" ? matrixSize.value : directMatrixSize.value,
+  set: (size: number) => {
+    if (inputMode.value === "expression") matrixSize.value = size;
+    else directMatrixSize.value = size;
+  },
+});
+
 const variableNames = computed(() => {
   const fallback = getDefaultVariableNames(matrixSize.value);
-  if (inputMode.value === "matrix") return fallback;
   const parsed = variableText.value.split(",").map((item) => item.trim()).filter(Boolean);
   if (
     parsed.length === matrixSize.value
@@ -552,9 +566,15 @@ const variableNames = computed(() => {
   return fallback;
 });
 
+const matrixVariableNames = computed(() =>
+  directMatrixVariableNames.value.length === directMatrixSize.value
+    ? directMatrixVariableNames.value
+    : getDefaultVariableNames(directMatrixSize.value),
+);
+
 const matrixDisplayWidth = computed(() => {
-  const cellWidth = Math.max(60, 92 - Math.max(0, matrixSize.value - 4) * 5);
-  return 40 + matrixSize.value * cellWidth;
+  const cellWidth = Math.max(60, 92 - Math.max(0, directMatrixSize.value - 4) * 5);
+  return 40 + directMatrixSize.value * cellWidth;
 });
 
 const constraintHint = computed(() => {
@@ -564,13 +584,17 @@ const constraintHint = computed(() => {
     : `标量模式：每行输入左端表达式、关系、右端和惩罚系数，表达式按${domainText}解释。约束必须为线性式；不等式会自动加入二进制松弛变量。`;
 });
 
-const resizeMatrix = () => {
+const resizeActiveMatrix = () => {
   if (solving.value) return;
-  const size = matrixSize.value;
-  const previous = matrix.value;
-  matrix.value = Array.from({ length: size }, (_, i) =>
-    Array.from({ length: size }, (_, j) => Number(previous[i]?.[j] ?? 0)),
-  );
+  const size = activeMatrixSize.value;
+  if (inputMode.value === "matrix") {
+    const previous = matrix.value;
+    matrix.value = Array.from({ length: size }, (_, i) =>
+      Array.from({ length: size }, (_, j) => Number(previous[i]?.[j] ?? 0)),
+    );
+    directMatrixVariableNames.value = getDefaultVariableNames(size);
+    return;
+  }
   variableText.value = Array.from({ length: size }, (_, index) => `x${index + 1}`).join(",");
   weightMatrixText.value = formatGeneralMatrix(Array.from({ length: size }, () => Array(size).fill(0)));
   linearVectorText.value = formatGeneralVector(size);
@@ -578,7 +602,7 @@ const resizeMatrix = () => {
 
 const addConstraint = () => {
   constraints.value.push({
-    coefficients: expressionForm.value === "vector" ? `[${Array(matrixSize.value).fill(0).join(", ")}]` : "",
+    coefficients: "",
     operator: "<=",
     rhs: "0",
     penalty: 20,
@@ -614,9 +638,14 @@ const buildExpressionQubo = () => {
       });
     })();
 
-  const activeConstraints = constraints.value
-    .filter((constraint) => constraint.coefficients.trim())
-    .map((constraint) => ({ ...constraint }));
+  const emptyConstraintIndex = constraints.value.findIndex(
+    (constraint) => !constraint.coefficients.trim(),
+  );
+  if (emptyConstraintIndex >= 0) {
+    const fieldName = expressionForm.value === "vector" ? "系数向量 a" : "左端表达式";
+    throw new Error(`第 ${emptyConstraintIndex + 1} 条约束的${fieldName}不能为空`);
+  }
+  const activeConstraints = constraints.value.map((constraint) => ({ ...constraint }));
 
   const constrainedResult = applyGeneralConstraintsToQubo({
     matrix: objectiveMatrix,
@@ -638,6 +667,7 @@ const loadMaxCutExample = () => {
     [1, 0, 1, 0],
   ];
   matrixSize.value = 4;
+  directMatrixSize.value = 4;
   inputMode.value = "expression";
   expressionForm.value = "vector";
   variableText.value = "x1,x2,x3,x4";
@@ -655,6 +685,7 @@ const loadMaxCutExample = () => {
     sense: "maximize",
     kind: "maxcut",
   });
+  directMatrixVariableNames.value = getDefaultVariableNames(4);
   constraints.value = [];
   candidates.value = [];
   solveTaskResults.value = null;
@@ -665,30 +696,37 @@ const loadMaxCutExample = () => {
 };
 
 const openFilePicker = () => fileInput.value?.click();
+const handleTemplateDownload = async () => {
+  try {
+    await downloadMatrixTemplate("general");
+  } catch (error) {
+    const message = getErrorMessage(error, "模板下载失败，请稍后重试");
+    addLog(`模板下载失败：${message}`);
+    ElMessage.error(message);
+  }
+};
+
 const handleFileImport = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) return;
+  const requestId = importRequestGuard.begin();
+  importing.value = true;
   try {
-    if (file.size > 256 * 1024) throw new Error("导入文件不能超过 256 KB");
-    const rows = (await file.text()).split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) =>
-      line.split(line.includes(",") ? "," : /\s+/).map((cell) => {
-        const value = String(cell).trim();
-        return value ? Number(value) : Number.NaN;
-      }),
-    );
-    if (rows.length < 1 || rows.length > 10 || rows.some((row) => row.length !== rows.length)) throw new Error("导入数据必须是 1~10 阶方阵");
-    if (rows.some((row) => row.some((value) => !Number.isFinite(value) || Math.abs(value) > 100000))) throw new Error("矩阵元素必须是绝对值不超过 100000 的有限数字");
-    matrixSize.value = rows.length;
-    variableText.value = getDefaultVariableNames(rows.length).join(",");
-    weightMatrixText.value = formatGeneralMatrix(Array.from({ length: rows.length }, () => Array(rows.length).fill(0)));
-    linearVectorText.value = formatGeneralVector(rows.length);
-    matrix.value = rows;
-    ElMessage.success(`已导入 ${rows.length} 阶QUBO矩阵`);
+    const imported = await parseProblemImportFile("general", file);
+    if (!importRequestGuard.isLatest(requestId)) return;
+    directMatrixSize.value = imported.matrixSize;
+    matrix.value = imported.quboMatrix;
+    directMatrixVariableNames.value = getDefaultVariableNames(imported.matrixSize);
+    ElMessage.success(`已导入 ${imported.matrixSize} 阶QUBO矩阵`);
   } catch (error) {
+    if (!importRequestGuard.isLatest(requestId)) return;
     ElMessage.error(getErrorMessage(error, "导入失败"));
   } finally {
-    input.value = "";
+    if (importRequestGuard.isLatest(requestId)) {
+      importing.value = false;
+      input.value = "";
+    }
   }
 };
 
@@ -702,8 +740,8 @@ const copyDirectQuboMatrix = () => matrix.value.map((row) => row.map((value) => 
 const symmetrizeMatrix = () => {
   try {
     const sourceMatrix = copyDirectQuboMatrix();
-    for (let i = 0; i < matrixSize.value; i += 1) {
-      for (let j = i + 1; j < matrixSize.value; j += 1) {
+    for (let i = 0; i < directMatrixSize.value; i += 1) {
+      for (let j = i + 1; j < directMatrixSize.value; j += 1) {
         const average = Number(((sourceMatrix[i][j] + sourceMatrix[j][i]) / 2).toFixed(6));
         matrix.value[i][j] = average;
         matrix.value[j][i] = average;
@@ -713,7 +751,7 @@ const symmetrizeMatrix = () => {
     ElMessage.error(getErrorMessage(error, "矩阵对称化失败"));
   }
 };
-const clearMatrix = () => { matrix.value = Array.from({ length: matrixSize.value }, () => Array(matrixSize.value).fill(0)); };
+const clearMatrix = () => { matrix.value = Array.from({ length: directMatrixSize.value }, () => Array(directMatrixSize.value).fill(0)); };
 
 const getModelTypeText = (type: ModelType) => ({ classic: "经典计算", sim: "量子芯片模拟计算", cloud: "量子云服务计算" }[type] || type);
 const getStatusText = (status: TaskStatus) => ({ queued: "计算中", processing: "计算中", completed: "已完成", failed: "已失败", cancelled: "已取消" }[status] || status);
@@ -767,6 +805,7 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
 };
 
 const startSolve = async () => {
+  if (importing.value) return;
   const startedAt = Date.now();
   const taskName = customTaskName.value || `General_${startedAt}`;
   const token = solveScope.begin();
@@ -778,11 +817,13 @@ const startSolve = async () => {
   solveTaskResults.value = null;
   resultExportContext.value = null;
   currentTaskId.value = null;
-  resetSolveLogs(`开始求解一般优化问题（${getModelTypeText(solveType.value)}，${matrixSize.value}个变量）`);
+  resetSolveLogs(`开始求解一般优化问题（${getModelTypeText(solveType.value)}，${activeMatrixSize.value}个变量）`);
   try {
     const submittedTaskName = taskName;
     const submittedModelType = solveType.value;
-    const submittedVariables = [...variableNames.value];
+    const submittedVariables = inputMode.value === "matrix"
+      ? [...matrixVariableNames.value]
+      : [...variableNames.value];
     const expressionResult = inputMode.value === "expression"
       ? buildExpressionQubo()
       : { matrix: copyDirectQuboMatrix(), slackVariableNames: [], activeConstraints: [] };
@@ -1051,6 +1092,7 @@ const exportResults = () => {
 onMounted(() => loadTaskHistory());
 onBeforeUnmount(() => {
   solveScope.invalidate();
+  importRequestGuard.invalidate();
   taskHistoryRequestGuard.invalidate();
   taskDetailRequestGuard.invalidate();
 });

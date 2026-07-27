@@ -7,7 +7,7 @@ import type {
   CancelTaskResponse,
   DeleteTaskResponse,
   MatrixImportData,
-  MatrixImportProblemType,
+  MatrixImportTemplateProblemType,
   QuotaData,
   TaskDeleteFilters,
   TaskDetail,
@@ -183,7 +183,7 @@ export const submitTask = async (
 };
 
 export const getProblemImportTemplate = async (
-  problemType: MatrixImportProblemType,
+  problemType: MatrixImportTemplateProblemType,
 ): Promise<{ blob: Blob; filename: string }> => {
   const response = await cloudApi.get<Blob>(
     `/api/problem-imports/${problemType}/template`,
@@ -198,13 +198,15 @@ export const getProblemImportTemplate = async (
   return { blob: response.data, filename };
 };
 
-export const parseProblemImportFile = async (
-  problemType: MatrixImportProblemType,
+export const parseProblemImportFile = async <
+  T extends MatrixImportTemplateProblemType,
+>(
+  problemType: T,
   file: File,
-): Promise<MatrixImportData> => {
+): Promise<MatrixImportData<T>> => {
   const formData = new FormData();
   formData.append("file", file, file.name);
-  const response = await cloudApi.post<ApiResponse<MatrixImportData>>(
+  const response = await cloudApi.post<ApiResponse<MatrixImportData<T>>>(
     `/api/problem-imports/${problemType}`,
     formData,
     { headers: { "Content-Type": "multipart/form-data" } },

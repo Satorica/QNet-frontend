@@ -1,8 +1,8 @@
 import { getProblemImportTemplate } from "../api";
-import type { MatrixImportProblemType } from "../types/api";
+import type { MatrixImportTemplateProblemType } from "../types/api";
 
 export const downloadMatrixTemplate = async (
-  problemType: MatrixImportProblemType,
+  problemType: MatrixImportTemplateProblemType,
 ): Promise<void> => {
   const { blob, filename } = await getProblemImportTemplate(problemType);
   const url = URL.createObjectURL(blob);

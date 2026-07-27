@@ -1,6 +1,7 @@
 export type ModelType = "classic" | "sim" | "cloud";
 export type ProblemType = "maxcut" | "number_partition" | "coloring" | "tsp" | "general";
 export type MatrixImportProblemType = "maxcut" | "coloring" | "tsp";
+export type MatrixImportTemplateProblemType = MatrixImportProblemType | "general";
 export type TaskStatus = "queued" | "processing" | "completed" | "failed" | "cancelled";
 export type TaskStatusFilter = TaskStatus | "running";
 
@@ -160,11 +161,19 @@ export type TaskSubmitRequest = TaskSubmitRequestBase & (
     }
 ) & Record<string, unknown>;
 
-export interface MatrixImportData {
-  problemType: MatrixImportProblemType;
-  matrixSize: number;
-  adjacencyMatrix: number[][];
-}
+export type MatrixImportData<
+  T extends MatrixImportTemplateProblemType = MatrixImportTemplateProblemType,
+> = T extends "general"
+  ? {
+      problemType: "general";
+      matrixSize: number;
+      quboMatrix: number[][];
+    }
+  : {
+      problemType: MatrixImportProblemType;
+      matrixSize: number;
+      adjacencyMatrix: number[][];
+    };
 
 export interface TaskCandidate {
   rank?: number | string;
