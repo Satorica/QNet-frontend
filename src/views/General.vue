@@ -27,7 +27,11 @@
           </div>
 
           <el-card class="model-card">
-            <el-tabs v-model="inputMode" class="input-tabs">
+            <el-tabs
+              v-model="inputMode"
+              class="input-tabs"
+              :before-leave="handleInputModeBeforeLeave"
+            >
               <el-tab-pane label="数学表达输入" name="expression">
                 <el-form label-position="top" class="expression-form">
                   <el-form-item label="变量">
@@ -659,6 +663,40 @@ const buildExpressionQubo = () => {
   return { ...constrainedResult, activeConstraints };
 };
 
+const handleInputModeBeforeLeave = (
+  newMode: string | number,
+  oldMode: string | number,
+) => {
+  if (newMode !== "matrix" || oldMode !== "expression") return true;
+
+  try {
+    const expressionResult = buildExpressionQubo();
+    matrix.value = expressionResult.matrix.map((row) => [...row]);
+    directMatrixSize.value = expressionResult.matrix.length;
+    const usedVariableNames = new Set(variableNames.value);
+    let nextVariableIndex = variableNames.value.length + 1;
+    const slackVariableNames = expressionResult.slackVariableNames.map(() => {
+      while (usedVariableNames.has(`x${nextVariableIndex}`)) {
+        nextVariableIndex += 1;
+      }
+      const name = `x${nextVariableIndex}`;
+      usedVariableNames.add(name);
+      nextVariableIndex += 1;
+      return name;
+    });
+    directMatrixVariableNames.value = [
+      ...variableNames.value,
+      ...slackVariableNames,
+    ];
+    return true;
+  } catch (error) {
+    ElMessage.error(
+      getErrorMessage(error, "数学表达式转换为 QUBO 矩阵失败"),
+    );
+    return false;
+  }
+};
+
 const loadMaxCutExample = () => {
   const exampleWeightMatrix = [
     [0, 1, 0, 1],
@@ -751,7 +789,12 @@ const symmetrizeMatrix = () => {
     ElMessage.error(getErrorMessage(error, "矩阵对称化失败"));
   }
 };
-const clearMatrix = () => { matrix.value = Array.from({ length: directMatrixSize.value }, () => Array(directMatrixSize.value).fill(0)); };
+const clearMatrix = () => {
+  matrix.value = Array.from(
+    { length: directMatrixSize.value },
+    () => Array(directMatrixSize.value).fill(0),
+  );
+};
 
 const getModelTypeText = (type: ModelType) => ({ classic: "经典计算", sim: "量子芯片模拟计算", cloud: "量子云服务计算" }[type] || type);
 const getStatusText = (status: TaskStatus) => ({ queued: "计算中", processing: "计算中", completed: "已完成", failed: "已失败", cancelled: "已取消" }[status] || status);
