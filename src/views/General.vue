@@ -619,8 +619,16 @@ const buildExpressionQubo = () => {
   if (names.length !== matrixSize.value || new Set(names).size !== names.length) {
     throw new Error(`变量数量必须为 ${matrixSize.value}，且变量名不能重复`);
   }
-  if (names.some((name) => !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))) {
-    throw new Error("变量名必须以字母或下划线开头，且只能包含字母、数字和下划线");
+  if (
+    names.some(
+      (name) =>
+        name.length > 64
+        || !/^x[A-Za-z0-9_]*$/.test(name),
+    )
+  ) {
+    throw new Error(
+      "变量名必须以小写 x 开头，只能包含字母、数字和下划线，且不能超过 64 个字符",
+    );
   }
   const objectiveMatrix = expressionForm.value === "scalar"
     ? convertScalarObjectiveToQubo({

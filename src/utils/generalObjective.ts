@@ -543,6 +543,23 @@ const addSquaredPenalty = (
   }
 };
 
+const hasBinaryEqualitySolution = (
+  constant: number,
+  coefficients: number[],
+) => {
+  const assignmentCount = 2 ** coefficients.length;
+  for (let assignment = 0; assignment < assignmentCount; assignment += 1) {
+    let residual = constant;
+    for (let index = 0; index < coefficients.length; index += 1) {
+      if ((assignment & (1 << index)) !== 0) {
+        residual += coefficients[index];
+      }
+    }
+    if (Math.abs(residual) <= 1e-9) return true;
+  }
+  return false;
+};
+
 export const applyGeneralConstraintsToQubo = (options: {
   matrix: number[][];
   constraints: GeneralConstraintInput[];
@@ -564,6 +581,7 @@ export const applyGeneralConstraintsToQubo = (options: {
   const maxSize = options.maxSize ?? 10;
 
   const reservedVariableNames = new Set(options.variableNames);
+  let nextSlackVariableIndex = originalSize + 1;
   options.constraints.forEach((constraint, constraintIndex) => {
     if (!constraint.coefficients.trim()) return;
     const label = `第 ${constraintIndex + 1} 条约束`;
@@ -592,7 +610,11 @@ export const applyGeneralConstraintsToQubo = (options: {
     let coefficients = parsed.coefficients;
     const slackTerms: Array<[number, number]> = [];
 
-    if (constraint.operator !== "==") {
+    if (constraint.operator === "==") {
+      if (!hasBinaryEqualitySolution(constant, coefficients)) {
+        throw new Error(`${label}在所选变量域内不可满足`);
+      }
+    } else {
       const scale = getIntegerScale([constant, ...coefficients]);
       constant = Math.round(constant * scale);
       coefficients = coefficients.map((value) => Math.round(value * scale));
@@ -610,10 +632,11 @@ export const applyGeneralConstraintsToQubo = (options: {
           throw new Error(`加入约束松弛变量后超过 ${maxSize} 个 QUBO 变量，请减少问题规模或约束范围`);
         }
         expandSquareMatrix(matrix, variableIndex + 1);
-        const slackName = `slack_c${constraintIndex + 1}_b${slackTerms.length}`;
-        if (reservedVariableNames.has(slackName)) {
-          throw new Error(`自动松弛变量名冲突：${slackName}`);
+        while (reservedVariableNames.has(`x${nextSlackVariableIndex}`)) {
+          nextSlackVariableIndex += 1;
         }
+        const slackName = `x${nextSlackVariableIndex}`;
+        nextSlackVariableIndex += 1;
         reservedVariableNames.add(slackName);
         slackTerms.push([variableIndex, direction * weight]);
         slackVariableNames.push(slackName);
