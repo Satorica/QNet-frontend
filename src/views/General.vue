@@ -585,7 +585,7 @@ const constraintHint = computed(() => {
   const domainText = variableDomain.value === "spin" ? "-1/+1变量" : "0/1变量";
   return expressionForm.value === "vector"
     ? `向量/矩阵模式：每行表示 aᵀz ≤/≥/= b，z 为当前选择的${domainText}。例如 [1,1,0,0] <= 1；不等式会自动加入二进制松弛变量。`
-    : `标量模式：每行输入左端表达式、关系、右端和惩罚系数，表达式按${domainText}解释。约束必须为线性式；不等式会自动加入二进制松弛变量。`;
+    : `标量模式：左端请填写 x1+x2 等线性表达式，不要填写 [1,1,0,0]；如需系数向量，请切换到“向量/矩阵形式”。表达式按${domainText}解释，不等式会自动加入二进制松弛变量。`;
 });
 
 const resizeActiveMatrix = () => {
@@ -762,7 +762,7 @@ const handleFileImport = async (event: Event) => {
     const imported = await parseProblemImportFile("general", file);
     if (!importRequestGuard.isLatest(requestId)) return;
     directMatrixSize.value = imported.matrixSize;
-    matrix.value = imported.quboMatrix;
+    matrix.value = imported.adjacencyMatrix;
     directMatrixVariableNames.value = getDefaultVariableNames(imported.matrixSize);
     ElMessage.success(`已导入 ${imported.matrixSize} 阶QUBO矩阵`);
   } catch (error) {
@@ -857,6 +857,36 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
 
 const startSolve = async () => {
   if (importing.value) return;
+  let preparedExpressionResult: {
+    matrix: number[][];
+    slackVariableNames: string[];
+    activeConstraints: ConstraintRow[];
+  };
+  try {
+    preparedExpressionResult = inputMode.value === "expression"
+      ? buildExpressionQubo()
+      : {
+        matrix: copyDirectQuboMatrix(),
+        slackVariableNames: [],
+        activeConstraints: [],
+      };
+  } catch (error) {
+    const message = getErrorMessage(error, "请检查输入内容");
+    stateClass.value = "state-warning";
+    stateText.value = "输入有误";
+    solveTime.value = "--";
+    candidates.value = [];
+    solveTaskResults.value = null;
+    resultExportContext.value = null;
+    currentTaskId.value = null;
+    resetSolveLogs(`输入校验未通过：${message}`);
+    ElMessage.warning({
+      message,
+      duration: 8000,
+      showClose: true,
+    });
+    return;
+  }
   const startedAt = Date.now();
   const taskName = customTaskName.value || `General_${startedAt}`;
   const token = solveScope.begin();
@@ -875,9 +905,7 @@ const startSolve = async () => {
     const submittedVariables = inputMode.value === "matrix"
       ? [...matrixVariableNames.value]
       : [...variableNames.value];
-    const expressionResult = inputMode.value === "expression"
-      ? buildExpressionQubo()
-      : { matrix: copyDirectQuboMatrix(), slackVariableNames: [], activeConstraints: [] };
+    const expressionResult = preparedExpressionResult;
     const submittedMatrix = expressionResult.matrix;
     const submittedMatrixSize = submittedMatrix.length;
     if (submittedMatrixSize < 1 || submittedMatrixSize > 10 || submittedMatrix.some((row) => row.length !== submittedMatrixSize || row.some((value) => !Number.isFinite(value)))) {
@@ -912,7 +940,7 @@ const startSolve = async () => {
       problemType: "general",
       modelType: submittedModelType,
       matrixSize: submittedMatrixSize,
-      quboMatrix: submittedMatrix,
+      adjacencyMatrix: submittedMatrix,
       generalInput,
     };
     addLog("提交任务中");
@@ -1207,7 +1235,7 @@ onBeforeUnmount(() => {
 .solve-area :deep(.el-button) { height: 48px; }
 .solve-state { display: flex; align-items: center; gap: 12px; padding: 16px; background: #f6f7fa; border-radius: 12px; margin-bottom: 12px; }
 .state-icon { width: 16px; height: 16px; border-radius: 50%; flex: 0 0 auto; }
-.state-idle { background: #8c8fa3; } .state-running { background: #f88818; animation: pulse 1.5s infinite; } .state-success { background: #40c878; } .state-fail { background: #e57550; }
+.state-idle { background: #8c8fa3; } .state-warning { background: #f0a12f; } .state-running { background: #f88818; animation: pulse 1.5s infinite; } .state-success { background: #40c878; } .state-fail { background: #e57550; }
 @keyframes pulse { 50% { opacity: 0.5; } }
 .state-text { color: #292929; font-weight: 500; }
 .solve-time { color: #8c8fa3; font-size: 14px; margin-bottom: 20px; }

@@ -146,20 +146,10 @@ interface TaskSubmitRequestBase {
   problemType: ProblemType;
   modelType: ModelType;
   matrixSize: number;
+  adjacencyMatrix: number[] | number[][];
 }
 
-export type TaskSubmitRequest = TaskSubmitRequestBase & (
-  | {
-      problemType: "general";
-      quboMatrix: number[][];
-      adjacencyMatrix?: never;
-    }
-  | {
-      problemType: Exclude<ProblemType, "general">;
-      adjacencyMatrix: number[] | number[][];
-      quboMatrix?: never;
-    }
-) & Record<string, unknown>;
+export type TaskSubmitRequest = TaskSubmitRequestBase & Record<string, unknown>;
 
 export type MatrixImportData<
   T extends MatrixImportTemplateProblemType = MatrixImportTemplateProblemType,
@@ -167,7 +157,7 @@ export type MatrixImportData<
   ? {
       problemType: "general";
       matrixSize: number;
-      quboMatrix: number[][];
+      adjacencyMatrix: number[][];
     }
   : {
       problemType: MatrixImportProblemType;
@@ -291,7 +281,6 @@ export interface TaskInfo {
   modelType: ModelType;
   matrixSize: number;
   adjacencyMatrix?: number[] | number[][];
-  quboMatrix?: number[][];
   createdAt: number;
   extra?: Record<string, unknown>;
 }

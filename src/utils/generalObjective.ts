@@ -63,6 +63,15 @@ interface Token {
   value: string;
 }
 
+const SCALAR_EXPRESSION_INPUT_ERROR = "标量表达式填写有误";
+const VECTOR_MATRIX_INPUT_ERROR = "向量/矩阵形式填写有误";
+
+const assertScalarExpressionFormat = (source: string) => {
+  if (/^\s*\[/.test(source)) {
+    throw new Error(SCALAR_EXPRESSION_INPUT_ERROR);
+  }
+};
+
 const cleanNumber = (value: number) => {
   if (Math.abs(value) <= 1e-12 || Object.is(value, -0)) return 0;
   return value;
@@ -135,7 +144,7 @@ const tokenize = (source: string): Token[] => {
       index += operator.length;
       continue;
     }
-    throw new Error(`表达式包含不支持的字符：${rest[0]}`);
+    throw new Error(SCALAR_EXPRESSION_INPUT_ERROR);
   }
   tokens.push({ type: "eof", value: "" });
   return tokens;
@@ -279,14 +288,14 @@ export const parseGeneralMatrix = (source: string, size: number) => {
   try {
     parsed = JSON.parse(stripAssignment(source, ["W", "Q"]));
   } catch {
-    throw new Error("权重矩阵 W 格式不正确，请使用 JSON 二维数字数组");
+    throw new Error(VECTOR_MATRIX_INPUT_ERROR);
   }
   if (!Array.isArray(parsed) || parsed.length !== size || parsed.some((row) => !Array.isArray(row) || row.length !== size)) {
-    throw new Error(`权重矩阵 W 必须是 ${size} × ${size} 方阵`);
+    throw new Error(VECTOR_MATRIX_INPUT_ERROR);
   }
   return (parsed as unknown[][]).map((row) => row.map((value) => {
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      throw new Error("权重矩阵 W 只能包含有限数字");
+      throw new Error(VECTOR_MATRIX_INPUT_ERROR);
     }
     return value;
   }));
@@ -295,18 +304,18 @@ export const parseGeneralMatrix = (source: string, size: number) => {
 export const parseGeneralVector = (
   source: string,
   size: number,
-  fieldLabel = "线性向量 c",
+  _fieldLabel = "线性向量 c",
 ) => {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stripAssignment(source, ["c"]));
   } catch {
-    throw new Error(`${fieldLabel}格式不正确，请使用 JSON 数字数组`);
+    throw new Error(VECTOR_MATRIX_INPUT_ERROR);
   }
-  if (!Array.isArray(parsed) || parsed.length !== size) throw new Error(`${fieldLabel}必须包含 ${size} 个元素`);
+  if (!Array.isArray(parsed) || parsed.length !== size) throw new Error(VECTOR_MATRIX_INPUT_ERROR);
   return parsed.map((value) => {
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      throw new Error(`${fieldLabel}只能包含有限数字`);
+      throw new Error(VECTOR_MATRIX_INPUT_ERROR);
     }
     return value;
   });
@@ -314,7 +323,7 @@ export const parseGeneralVector = (
 
 export const parseGeneralConstant = (source: string) => {
   const value = Number(stripAssignment(source, ["k"]));
-  if (!Number.isFinite(value)) throw new Error("常数 k 必须是有限数字");
+  if (!Number.isFinite(value)) throw new Error(VECTOR_MATRIX_INPUT_ERROR);
   return value;
 };
 
@@ -325,6 +334,7 @@ export const convertScalarObjectiveToQubo = (options: {
   sense: GeneralObjectiveSense;
 }) => {
   if (!options.expression.trim()) throw new Error("请输入标量目标函数");
+  assertScalarExpressionFormat(options.expression);
   const polynomial = new PolynomialParser(options.expression, options.variableNames, options.domain).parse();
   return polynomialToQubo(polynomial, options.variableNames.length, options.domain, options.sense);
 };
@@ -385,6 +395,7 @@ const parseScalarLinearExpression = (
   label: string,
 ) => {
   if (!source.trim()) throw new Error(`${label}不能为空`);
+  assertScalarExpressionFormat(source);
   const polynomial = new PolynomialParser(source, variableNames, domain).parse();
   const coefficients = Array(variableNames.length).fill(0) as number[];
   let constant = 0;
