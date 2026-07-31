@@ -17,7 +17,7 @@
               <span class="ctrl-label">问题规模：</span>
               <el-input-number
                 v-model="activeMatrixSize"
-                :min="1"
+                :min="2"
                 :max="10"
                 :disabled="solving || importing"
                 style="width: 130px"
@@ -908,7 +908,7 @@ const startSolve = async () => {
     const expressionResult = preparedExpressionResult;
     const submittedMatrix = expressionResult.matrix;
     const submittedMatrixSize = submittedMatrix.length;
-    if (submittedMatrixSize < 1 || submittedMatrixSize > 10 || submittedMatrix.some((row) => row.length !== submittedMatrixSize || row.some((value) => !Number.isFinite(value)))) {
+    if (submittedMatrixSize < 2 || submittedMatrixSize > 10 || submittedMatrix.some((row) => row.length !== submittedMatrixSize || row.some((value) => !Number.isFinite(value)))) {
       throw new Error("QUBO矩阵数据不完整");
     }
     if (submittedMatrix.some((row) => row.some((value) => Math.abs(value) > 100000))) {
