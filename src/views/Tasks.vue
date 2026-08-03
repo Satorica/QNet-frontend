@@ -434,14 +434,10 @@ import {
   isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task";
-import { formatCandidateValue } from "../utils/format";
+import { formatCandidateValue, toFiniteNumber } from "../utils/format";
 import { createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadTaskResultExport } from "../utils/resultExport";
-import {
-  extractGeneralInputSnapshot,
-  restoreGeneralTaskResults,
-} from "../utils/generalObjective";
 import type {
   ModelType,
   ProblemType,
@@ -672,24 +668,22 @@ const viewTask = async (task: TaskHistoryItem) => {
       ) {
         return;
       }
-      const detailGeneralInput = extractGeneralInputSnapshot(taskDetail.input);
-      taskDetailResults.value = taskDetail.results && detailGeneralInput
-        ? restoreGeneralTaskResults(taskDetail.results, detailGeneralInput)
-        : taskDetail.results || null;
+      taskDetailResults.value = taskDetail.results || null;
       taskDetailInput.value = taskDetail.input;
-      const restoredBestValue = taskDetailResults.value?.candidates?.[0]?.value;
+      const resultBestValue = toFiniteNumber(
+        taskDetailResults.value?.candidates?.[0]?.value,
+      );
       if (
         task.problemType === "general"
-        && typeof restoredBestValue === "number"
-        && Number.isFinite(restoredBestValue)
+        && resultBestValue !== null
         && selectedTask.value
       ) {
         selectedTask.value = {
           ...selectedTask.value,
-          bestValue: restoredBestValue,
+          bestValue: resultBestValue,
         };
         const historyItem = tasks.value.find((item) => item.taskId === task.taskId);
-        if (historyItem) historyItem.bestValue = restoredBestValue;
+        if (historyItem) historyItem.bestValue = resultBestValue;
       }
     }
   } catch (error) {

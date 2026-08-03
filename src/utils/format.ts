@@ -1,4 +1,17 @@
 /**
+ * 将 API 返回的有限数值统一为 number。
+ * 部分计算节点会把数值序列化为字符串；空字符串、布尔值和非有限值不接受。
+ */
+export function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+/**
  * 任务历史表格等场景：最优值至多保留两位小数；整数不补小数位。
  */
 export function formatBestValue(value: unknown): string {

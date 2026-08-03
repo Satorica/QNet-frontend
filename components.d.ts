@@ -49,6 +49,7 @@ declare module 'vue' {
     Sidebar: typeof import('./src/components/Sidebar.vue')['default']
     TopBar: typeof import('./src/components/TopBar.vue')['default']
     TSPGraph: typeof import('./src/components/TSPGraph.vue')['default']
+    VirtualMatrixEditor: typeof import('./src/components/VirtualMatrixEditor.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

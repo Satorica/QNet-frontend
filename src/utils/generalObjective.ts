@@ -1,5 +1,3 @@
-import type { TaskCandidate, TaskResults } from "../types/api";
-
 export type GeneralVariableDomain = "binary" | "spin";
 export type GeneralObjectiveSense = "minimize" | "maximize";
 export type GeneralMatrixObjectiveKind = "quadratic" | "maxcut";
@@ -28,33 +26,6 @@ export interface GeneralInputSnapshot {
   };
   constraints: GeneralConstraintInput[];
 }
-
-export const isGeneralInputSnapshot = (value: unknown): value is GeneralInputSnapshot => {
-  if (!value || typeof value !== "object") return false;
-  const input = value as Partial<GeneralInputSnapshot>;
-  const matrixObjective = input.matrixObjective as Partial<GeneralInputSnapshot["matrixObjective"]> | undefined;
-  return (
-    ["expression", "matrix"].includes(String(input.source))
-    && ["scalar", "vector"].includes(String(input.expressionForm))
-    && Array.isArray(input.variables) && input.variables.every((name) => typeof name === "string")
-    && Array.isArray(input.slackVariables) && input.slackVariables.every((name) => typeof name === "string")
-    && ["binary", "spin"].includes(String(input.domain))
-    && ["minimize", "maximize"].includes(String(input.sense))
-    && typeof input.expression === "string"
-    && Boolean(matrixObjective)
-    && ["quadratic", "maxcut"].includes(String(matrixObjective?.kind))
-    && typeof matrixObjective?.weightMatrix === "string"
-    && typeof matrixObjective?.linearVector === "string"
-    && typeof matrixObjective?.constant === "string"
-    && Array.isArray(input.constraints)
-  );
-};
-
-export const extractGeneralInputSnapshot = (value: unknown): GeneralInputSnapshot | null => {
-  if (!value || typeof value !== "object") return null;
-  const snapshot = (value as { generalInput?: unknown }).generalInput;
-  return isGeneralInputSnapshot(snapshot) ? snapshot : null;
-};
 
 type Polynomial = Map<string, number>;
 
@@ -589,7 +560,7 @@ export const applyGeneralConstraintsToQubo = (options: {
 
   const matrix = options.matrix.map((row) => row.map(Number));
   const slackVariableNames: string[] = [];
-  const maxSize = options.maxSize ?? 10;
+  const maxSize = options.maxSize ?? 50;
 
   const reservedVariableNames = new Set(options.variableNames);
   let nextSlackVariableIndex = originalSize + 1;
@@ -665,121 +636,6 @@ export const applyGeneralConstraintsToQubo = (options: {
     matrix: matrix.map((row) => row.map(cleanNumber)),
     slackVariableNames,
   };
-};
-
-const evaluatePolynomial = (polynomial: Polynomial, values: number[]) => {
-  let result = 0;
-  for (const [key, coefficient] of polynomial) {
-    if (!key) {
-      result += coefficient;
-      continue;
-    }
-    const product = key
-      .split(",")
-      .map(Number)
-      .reduce((value, variableIndex) => value * values[variableIndex], 1);
-    result += coefficient * product;
-  }
-  return cleanNumber(result);
-};
-
-const buildOriginalObjectiveEvaluator = (input: GeneralInputSnapshot) => {
-  if (input.expressionForm === "scalar") {
-    const polynomial = new PolynomialParser(
-      input.expression,
-      input.variables,
-      input.domain,
-    ).parse();
-    return (domainValues: number[]) => evaluatePolynomial(polynomial, domainValues);
-  }
-
-  const size = input.variables.length;
-  const weightMatrix = parseGeneralMatrix(input.matrixObjective.weightMatrix, size);
-  const linearVector = parseGeneralVector(input.matrixObjective.linearVector, size);
-  const constant = parseGeneralConstant(input.matrixObjective.constant);
-  if (input.matrixObjective.kind === "maxcut") {
-    return (domainValues: number[]) => {
-      let result = constant;
-      const linearValues = input.domain === "spin"
-        ? domainValues.map((value) => (value + 1) / 2)
-        : domainValues;
-      for (let index = 0; index < size; index += 1) {
-        result += linearVector[index] * linearValues[index];
-      }
-      for (let left = 0; left < size; left += 1) {
-        for (let right = left + 1; right < size; right += 1) {
-          if (domainValues[left] !== domainValues[right]) {
-            result += (weightMatrix[left][right] + weightMatrix[right][left]) / 2;
-          }
-        }
-      }
-      return cleanNumber(result);
-    };
-  }
-
-  return (domainValues: number[]) => {
-    let result = constant;
-    for (let row = 0; row < size; row += 1) {
-      result += linearVector[row] * domainValues[row];
-      for (let column = 0; column < size; column += 1) {
-        result += domainValues[row] * weightMatrix[row][column] * domainValues[column];
-      }
-    }
-    return cleanNumber(result);
-  };
-};
-
-export const restoreGeneralTaskResults = (
-  results: TaskResults,
-  input: GeneralInputSnapshot,
-): TaskResults => {
-  if (input.source !== "expression" || !Array.isArray(results.candidates)) {
-    return results;
-  }
-
-  const withoutUnrestoredValue = (candidate: TaskCandidate): TaskCandidate => ({
-    ...candidate,
-    rawValue: candidate.value,
-    rawSolution: candidate.solution,
-    value: null,
-  });
-  let evaluateObjective: (domainValues: number[]) => number;
-  try {
-    evaluateObjective = buildOriginalObjectiveEvaluator(input);
-  } catch {
-    // generalInput 只是用于恢复展示语义的辅助快照。旧数据或外部客户端
-    // 写入的快照即使不完整，也不能把 QUBO 能量显示成原始目标值。
-    return {
-      ...results,
-      candidates: results.candidates.map(withoutUnrestoredValue),
-    };
-  }
-  const originalSize = input.variables.length;
-  const candidates = results.candidates.map((candidate): TaskCandidate => {
-    if (!Array.isArray(candidate.solution) || candidate.solution.length < originalSize) {
-      return withoutUnrestoredValue(candidate);
-    }
-    const rawValues = candidate.solution.slice(0, originalSize).map(Number);
-    if (rawValues.some((value) => !Number.isFinite(value) || (value !== 0 && value !== 1))) {
-      return withoutUnrestoredValue(candidate);
-    }
-    const domainValues = input.domain === "spin"
-      ? rawValues.map((value) => 2 * value - 1)
-      : rawValues;
-    try {
-      return {
-        ...candidate,
-        rawValue: candidate.value,
-        rawSolution: candidate.solution,
-        value: evaluateObjective(domainValues),
-        solution: domainValues,
-      };
-    } catch {
-      return withoutUnrestoredValue(candidate);
-    }
-  });
-
-  return { ...results, candidates };
 };
 
 export const formatGeneralMatrix = (matrix: number[][], name = "W") => {

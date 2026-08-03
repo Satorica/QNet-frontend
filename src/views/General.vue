@@ -18,7 +18,7 @@
               <el-input-number
                 v-model="activeMatrixSize"
                 :min="2"
-                :max="10"
+                :max="50"
                 :disabled="solving || importing"
                 style="width: 130px"
                 @change="resizeActiveMatrix"
@@ -156,45 +156,15 @@
             </el-tabs>
 
             <div v-show="inputMode === 'matrix'" class="qubo-matrix-section">
-              <div class="matrix-title-row" :style="{ width: `min(100%, ${matrixDisplayWidth}px)` }">
+              <div class="matrix-title-row">
                 <span>{{ directMatrixSize }} × {{ directMatrixSize }}</span>
               </div>
-              <div class="matrix-scroll" :style="{ width: `min(100%, ${matrixDisplayWidth}px)` }">
-                <table class="qubo-table" :style="{ minWidth: `${matrixDisplayWidth}px` }">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th
-                        v-for="(name, j) in matrixVariableNames"
-                        :key="name"
-                        :class="{ 'is-axis-hovered': hoveredCell?.column === j }"
-                      >{{ name }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(row, i) in matrix" :key="i">
-                      <th :class="{ 'is-axis-hovered': hoveredCell?.row === i }">{{ matrixVariableNames[i] }}</th>
-                      <td
-                        v-for="(_, j) in row"
-                        :key="j"
-                        :class="{ 'is-cell-hovered': hoveredCell?.row === i && hoveredCell?.column === j }"
-                        @mouseenter="hoveredCell = { row: i, column: j }"
-                        @mouseleave="hoveredCell = null"
-                        @focusin="hoveredCell = { row: i, column: j }"
-                        @focusout="hoveredCell = null"
-                      >
-                        <el-input-number
-                          v-model="matrix[i][j]"
-                          :controls="false"
-                          :precision="3"
-                          :disabled="solving || importing"
-                          aria-label="QUBO矩阵元素"
-                        />
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <VirtualMatrixEditor
+                :matrix="matrix"
+                :labels="matrixVariableNames"
+                :disabled="solving || importing"
+                @update-cell="handleDirectMatrixCellUpdate"
+              />
               <div class="matrix-description">此页直接输入已经形成的 QUBO 矩阵，按 f(x)=xᵀQx 解释；数学表达页的 W 是一般权重矩阵，会先自动转成 QUBO。</div>
             </div>
           </el-card>
@@ -434,22 +404,26 @@ import {
   parseProblemImportFile,
   submitTask,
 } from "../api";
+import VirtualMatrixEditor from "../components/VirtualMatrixEditor.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { downloadMatrixTemplate } from "../utils/dataImport";
 import { getErrorMessage } from "../utils/error";
-import { formatBestValue, formatCandidateValue, formatSolveTime } from "../utils/format";
+import {
+  formatBestValue,
+  formatCandidateValue,
+  formatSolveTime,
+  toFiniteNumber,
+} from "../utils/format";
 import {
   applyGeneralConstraintsToQubo,
   convertMatrixObjectiveToQubo,
   convertScalarObjectiveToQubo,
-  extractGeneralInputSnapshot,
   formatGeneralMatrix,
   formatGeneralVector,
   parseGeneralConstant,
   parseGeneralMatrix,
   parseGeneralVector,
-  restoreGeneralTaskResults,
   type GeneralInputSnapshot,
   type GeneralMatrixObjectiveKind,
 } from "../utils/generalObjective";
@@ -515,7 +489,6 @@ const matrix = ref<number[][]>([
   [1, 0, 1, -2],
 ]);
 const directMatrixVariableNames = ref(["x1", "x2", "x3", "x4"]);
-const hoveredCell = ref<{ row: number; column: number } | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 
 const importing = ref(false);
@@ -576,11 +549,6 @@ const matrixVariableNames = computed(() =>
     : getDefaultVariableNames(directMatrixSize.value),
 );
 
-const matrixDisplayWidth = computed(() => {
-  const cellWidth = Math.max(60, 92 - Math.max(0, directMatrixSize.value - 4) * 5);
-  return 40 + directMatrixSize.value * cellWidth;
-});
-
 const constraintHint = computed(() => {
   const domainText = variableDomain.value === "spin" ? "-1/+1变量" : "0/1变量";
   return expressionForm.value === "vector"
@@ -602,6 +570,12 @@ const resizeActiveMatrix = () => {
   variableText.value = Array.from({ length: size }, (_, index) => `x${index + 1}`).join(",");
   weightMatrixText.value = formatGeneralMatrix(Array.from({ length: size }, () => Array(size).fill(0)));
   linearVectorText.value = formatGeneralVector(size);
+};
+
+const handleDirectMatrixCellUpdate = (payload: { row: number; column: number; value: number }) => {
+  const row = matrix.value[payload.row];
+  if (!row || payload.column < 0 || payload.column >= row.length) return;
+  row[payload.column] = payload.value;
 };
 
 const addConstraint = () => {
@@ -665,7 +639,7 @@ const buildExpressionQubo = () => {
     variableNames: names,
     expressionForm: expressionForm.value,
     domain: variableDomain.value,
-    maxSize: 10,
+    maxSize: 50,
   });
 
   return { ...constrainedResult, activeConstraints };
@@ -824,12 +798,8 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
     if (response.state === "completed") {
       const runtime = response.results?.runtime;
       solveTime.value = typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : formatSolveTime(`${(Date.now() - startedAt) / 1000}s`);
-      const generalInput = resultExportContext.value?.input.generalInput;
-      const restoredResults = response.results && generalInput
-        ? restoreGeneralTaskResults(response.results, generalInput)
-        : response.results;
-      candidates.value = restoredResults?.candidates || [];
-      solveTaskResults.value = restoredResults || null;
+      candidates.value = response.results?.candidates || [];
+      solveTaskResults.value = response.results || null;
       stateClass.value = "state-success";
       stateText.value = "求解成功";
       solving.value = false;
@@ -908,7 +878,7 @@ const startSolve = async () => {
     const expressionResult = preparedExpressionResult;
     const submittedMatrix = expressionResult.matrix;
     const submittedMatrixSize = submittedMatrix.length;
-    if (submittedMatrixSize < 2 || submittedMatrixSize > 10 || submittedMatrix.some((row) => row.length !== submittedMatrixSize || row.some((value) => !Number.isFinite(value)))) {
+    if (submittedMatrixSize < 2 || submittedMatrixSize > 50 || submittedMatrix.some((row) => row.length !== submittedMatrixSize || row.some((value) => !Number.isFinite(value)))) {
       throw new Error("QUBO矩阵数据不完整");
     }
     if (submittedMatrix.some((row) => row.some((value) => Math.abs(value) > 100000))) {
@@ -1096,14 +1066,8 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
       || selectedTask.value?.taskId !== row.taskId
     ) return;
     const detailRuntime = taskDetail.runtime ?? taskDetail.resultSummary.runtime;
-    const detailGeneralInput = extractGeneralInputSnapshot(taskDetail.input);
-    const restoredDetailResults = taskDetail.results && detailGeneralInput
-      ? restoreGeneralTaskResults(taskDetail.results, detailGeneralInput)
-      : taskDetail.results;
-    const restoredBestValue = restoredDetailResults?.candidates?.[0]?.value;
-    const summaryBestValue = detailGeneralInput?.source === "matrix"
-      ? taskDetail.resultSummary.bestValue
-      : selectedTask.value.bestValue;
+    const detailResults = taskDetail.results || null;
+    const resultBestValue = toFiniteNumber(detailResults?.candidates?.[0]?.value);
     selectedTask.value = {
       ...selectedTask.value,
       problemType: taskDetail.taskInfo.problemType,
@@ -1112,15 +1076,15 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
       status: taskDetail.state,
       message: taskDetail.message,
       solveTime: typeof detailRuntime === "number" ? `${detailRuntime}s` : selectedTask.value.solveTime,
-      bestValue: typeof restoredBestValue === "number" && Number.isFinite(restoredBestValue)
-        ? restoredBestValue
-        : summaryBestValue,
+      bestValue: resultBestValue !== null
+        ? resultBestValue
+        : taskDetail.resultSummary.bestValue,
     };
-    taskDetailResults.value = restoredDetailResults || null;
+    taskDetailResults.value = detailResults;
     taskDetailInput.value = taskDetail.input;
-    if (typeof restoredBestValue === "number" && Number.isFinite(restoredBestValue)) {
+    if (resultBestValue !== null) {
       const historyItem = taskHistory.value.find((item) => item.taskId === row.taskId);
-      if (historyItem) historyItem.bestValue = restoredBestValue;
+      if (historyItem) historyItem.bestValue = resultBestValue;
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
@@ -1191,13 +1155,54 @@ onBeforeUnmount(() => {
 .solve-type-group :deep(.el-radio-button__inner) { border: 1px solid #dcdfe6; padding: 8px 10px; font-size: 13px; white-space: nowrap; }
 .solve-type-group :deep(.el-radio-button:not(.is-active) .el-radio-button__inner) { background: #fff; border-color: #dcdfe6; }
 .model-card { margin-top: 16px; }
+.input-tabs > :deep(.el-tabs__header) { margin: 0 0 18px; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap::after) { display: none; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__nav) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  box-sizing: border-box;
+  float: none;
+  width: 100%;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: #f3f6fa;
+}
+.input-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap.is-scrollable) { padding: 0; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__nav-prev),
+.input-tabs > :deep(.el-tabs__header .el-tabs__nav-next) { display: none; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__active-bar) { display: none; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__item) {
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 6px;
+  color: #526174;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.input-tabs > :deep(.el-tabs__header .el-tabs__item:hover) {
+  color: #3156d9;
+  background: rgba(49, 86, 217, 0.04);
+}
+.input-tabs > :deep(.el-tabs__header .el-tabs__item.is-active) {
+  color: #3156d9;
+  background: #eaf0ff;
+  box-shadow: inset 0 0 0 1px #d6e1ff;
+  font-weight: 600;
+}
 .matrix-title-row, .result-header, .history-header, .constraint-heading { justify-content: space-between; }
 .form-row { display: grid; gap: 12px; }
 .three-columns { grid-template-columns: 1.4fr 1fr 1fr; }
 .expression-form :deep(.el-form-item) { margin-bottom: 14px; }
 .expression-options { display: grid; grid-template-columns: minmax(112px, 1fr) minmax(102px, 0.85fr) auto; gap: 12px; align-items: end; }
 .expression-options .example-button { margin-bottom: 14px; white-space: nowrap; }
-.expression-type-tabs { margin-top: 2px; }
+.expression-type-tabs { margin: 2px 0 18px; }
+.expression-type-tabs > :deep(.el-tabs__header) { margin: 0 0 15px; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item) { height: 38px; padding: 0 16px; color: #667085; font-size: 13px; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item.is-active) { color: #4050f8; font-weight: 600; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__active-bar) { height: 2px; background: #4050f8; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap::after) { height: 1px; background: #e4e9f1; }
 .expression-tip { margin-top: -3px; margin-bottom: 14px; }
 .matrix-formula { padding: 10px 12px; margin-bottom: 14px; border-left: 3px solid #409eff; background: #f3f8ff; color: #4050f8; font-size: 13px; line-height: 1.6; }
 .matrix-kind-select { width: min(100%, 300px); }
@@ -1212,23 +1217,6 @@ onBeforeUnmount(() => {
 .qubo-matrix-section, .qubo-matrix-section :deep(*) { animation: none !important; transition: none !important; }
 .matrix-title-row { justify-content: flex-end; padding: 8px 0; color: #292929; font-weight: 600; }
 .matrix-title-row span:last-child { color: #8c8fa3; font-size: 12px; font-weight: 400; }
-.matrix-scroll { overflow-x: auto; overflow-y: hidden; border: 1px solid #dbe3f0; border-radius: 10px; }
-.qubo-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.qubo-table th { height: 31px; background: #f1f6ff; color: #526176; font-size: 12px; font-weight: 600; transition: background-color 160ms ease, color 160ms ease !important; }
-.qubo-table th:first-child { width: 40px; }
-.qubo-table th, .qubo-table td { border-right: 1px solid #dbe3f0; border-bottom: 1px solid #dbe3f0; text-align: center; }
-.qubo-table tr:last-child th, .qubo-table tr:last-child td { border-bottom: 0; }
-.qubo-table th:last-child, .qubo-table td:last-child { border-right: 0; }
-.qubo-table td { position: relative; height: 31px; min-width: 58px; background: #fff; transition: background-color 160ms ease !important; }
-.qubo-table td::after { content: ""; position: absolute; inset: 0; z-index: 1; border: 1px solid #409eff; border-radius: 3px; opacity: 0; pointer-events: none; transition: opacity 160ms ease, box-shadow 160ms ease !important; }
-.qubo-table td.is-cell-hovered, .qubo-table td:hover, .qubo-table td:focus-within { background: #f0f7ff; }
-.qubo-table td.is-cell-hovered::after, .qubo-table td:hover::after, .qubo-table td:focus-within::after { opacity: 1; box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.10); }
-.qubo-table th.is-axis-hovered { background: #e3f0ff; color: #2878c8; }
-.qubo-table :deep(.el-input-number) { width: 100%; min-width: 0; height: 31px; }
-.qubo-table :deep(.el-input__wrapper) { min-height: 31px; background: transparent; box-shadow: none; border-radius: 0; padding: 0 3px; transition: background-color 160ms ease !important; }
-.qubo-table td:hover :deep(.el-input__wrapper), .qubo-table td:focus-within :deep(.el-input__wrapper) { background: #f0f7ff; cursor: text; }
-.qubo-table :deep(.el-input__inner) { text-align: center; font-family: "SFMono-Regular", Consolas, monospace; }
-@media (prefers-reduced-motion: reduce) { .qubo-table th, .qubo-table td, .qubo-table td::after, .qubo-table :deep(.el-input__wrapper) { transition: none !important; } }
 .tip { color: #8c8fa3; font-size: 12px; line-height: 1.6; margin-top: 8px; }
 .solve-area { display: flex; gap: 10px; margin-bottom: 20px; }
 .solve-btn { width: 120px; height: 48px; font-size: 16px; font-weight: 600; }
@@ -1274,5 +1262,14 @@ onBeforeUnmount(() => {
 .candidates-list .solution-label { min-width: 60px; flex-shrink: 0; }
 .candidates-list .solution-value { padding: 4px 8px; border-radius: 4px; }
 @media (max-width: 1180px) { .card-content { grid-template-columns: 1fr; } .right-column { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } .solve-area, .solve-state, .solve-time { grid-column: 1 / -1; } }
-@media (max-width: 780px) { .controls-top { align-items: flex-start; flex-direction: column; } .solve-type-group { flex-wrap: wrap; } .three-columns, .right-column, .expression-options, .vector-fields { grid-template-columns: 1fr; } .expression-options .example-button { width: 100%; } .log-card, .result-card { grid-column: 1; } .history-header { align-items: flex-start; flex-direction: column; gap: 12px; } }
+@media (max-width: 780px) {
+  .controls-top { align-items: flex-start; flex-direction: column; }
+  .solve-type-group { flex-wrap: wrap; }
+  .three-columns, .right-column, .expression-options, .vector-fields { grid-template-columns: 1fr; }
+  .expression-options .example-button { width: 100%; }
+  .input-tabs > :deep(.el-tabs__header .el-tabs__item) { height: 40px; padding: 0 10px; }
+  .expression-type-tabs > :deep(.el-tabs__header .el-tabs__item) { padding: 0 12px; }
+  .log-card, .result-card { grid-column: 1; }
+  .history-header { align-items: flex-start; flex-direction: column; gap: 12px; }
+}
 </style>
