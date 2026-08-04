@@ -671,13 +671,7 @@ const handleInputModeBeforeLeave = (
       ...slackVariableNames,
     ];
     return true;
-  } catch (error) {
-    const message = getErrorMessage(error, "数学表达式转换为 QUBO 矩阵失败");
-    ElMessage.warning({
-      message: `表达式未转换：${message}。已切换到 QUBO 矩阵输入，并保留原矩阵内容。`,
-      duration: 8000,
-      showClose: true,
-    });
+  } catch {
     return true;
   }
 };
