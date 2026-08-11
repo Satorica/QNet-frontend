@@ -1,4 +1,29 @@
-export type ModelType = "classic" | "sim" | "cloud";
+export type ModelType = "classic" | "quantum";
+export type MethodType =
+  | "sa"
+  | "tabu"
+  | "genetic"
+  | "hill_climb"
+  | "ils"
+  | "random_search";
+
+export const METHOD_TYPE_OPTIONS: ReadonlyArray<{
+  value: MethodType;
+  label: string;
+}> = [
+  { value: "sa", label: "模拟退火" },
+  { value: "tabu", label: "禁忌搜索" },
+  { value: "genetic", label: "遗传算法" },
+  { value: "hill_climb", label: "随机重启爬山" },
+  { value: "ils", label: "迭代局部搜索" },
+  { value: "random_search", label: "随机搜索" },
+];
+
+export const getMethodTypeText = (
+  methodType: MethodType | string | null | undefined,
+): string => METHOD_TYPE_OPTIONS.find(({ value }) => value === methodType)?.label
+  || methodType
+  || "--";
 export type ProblemType = "maxcut" | "number_partition" | "coloring" | "tsp" | "general";
 export type MatrixImportProblemType = "maxcut" | "coloring" | "tsp";
 export type MatrixImportTemplateProblemType = MatrixImportProblemType | "general";
@@ -145,6 +170,7 @@ interface TaskSubmitRequestBase {
   taskName: string;
   problemType: ProblemType;
   modelType: ModelType;
+  methodType: MethodType;
   matrixSize: number;
   adjacencyMatrix: number[] | number[][];
 }
@@ -188,7 +214,6 @@ export interface TaskSubmitResponse extends ApiResponse {
   taskId: string;
   queuePosition?: number;
   quotaSummary?: QuotaSummary;
-  serverType: "cloud";
   usePolling: true;
 }
 
@@ -222,6 +247,7 @@ export interface TaskHistoryItem {
   taskName: string;
   problemType: ProblemType;
   modelType: ModelType;
+  methodType: MethodType;
   status: TaskStatus;
   matrixSize: number;
   timestamp: string | null;
@@ -253,6 +279,7 @@ export interface TaskHistoryParams {
   pageSize?: number;
   taskName?: string;
   modelType?: ModelType | "" | null;
+  methodType?: MethodType | "" | null;
   problemType?: ProblemType | "" | null;
   status?: TaskStatusFilter | null;
 }
@@ -260,6 +287,7 @@ export interface TaskHistoryParams {
 export interface TaskDeleteFilters {
   taskName?: string;
   modelType?: ModelType;
+  methodType?: MethodType;
   problemType?: ProblemType;
   status?: TaskStatusFilter;
 }
@@ -279,6 +307,7 @@ export interface TaskInfo {
   taskName: string;
   problemType: ProblemType;
   modelType: ModelType;
+  methodType: MethodType;
   matrixSize: number;
   adjacencyMatrix?: number[] | number[][];
   createdAt: number;

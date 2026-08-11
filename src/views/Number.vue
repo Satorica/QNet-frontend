@@ -8,9 +8,20 @@
             <span class="label">求解模型选择：</span>
             <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
               <el-radio-button label="classic">经典计算</el-radio-button>
-              <el-radio-button label="sim">量子芯片模拟计算</el-radio-button>
-              <el-radio-button label="cloud">量子云服务计算</el-radio-button>
+              <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
             </el-radio-group>
+          </div>
+
+          <div class="controls-top algorithm-control">
+            <span class="label">算法类型：</span>
+            <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+              <el-option
+                v-for="option in METHOD_TYPE_OPTIONS"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
           </div>
 
           <!-- 规模控制 -->
@@ -276,6 +287,9 @@
             {{ getModelTypeText(row.modelType) }}
           </template>
         </el-table-column>
+        <el-table-column prop="methodType" label="算法类型" min-width="140">
+          <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
+        </el-table-column>
         <el-table-column prop="timestamp" label="提交时间" min-width="170">
           <template #default="{ row }">
             {{ formatDate(row.timestamp) }}
@@ -381,6 +395,10 @@
               <span class="detail-value">{{
                 getModelTypeText(selectedTask.modelType)
               }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">算法类型：</span>
+              <span class="detail-value">{{ getMethodTypeText(selectedTask.methodType) }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">问题规模：</span>
@@ -553,8 +571,10 @@ import {
   assertSafeIntegerSum,
   parsePositiveSafeInteger,
 } from "../utils/validation";
+import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
   CandidateDisplay,
+  MethodType,
   ModelType,
   NumberPartitionResult,
   TaskDeleteFilters,
@@ -581,6 +601,7 @@ const numberInput = ref("");
 const numbers = ref<number[]>([]);
 const numberSize = ref(NUMBER_DEFAULT_SIZE);
 const solveType = ref<ModelType>("classic");
+const methodType = ref<MethodType>("sa");
 const solving = ref(false);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
@@ -782,6 +803,7 @@ const startSolve = async () => {
       taskName: submittedTaskName,
       problemType: "number_partition",
       modelType: solveType.value,
+      methodType: methodType.value,
       matrixSize: submittedNumbers.length,
       timestamp: new Date(submittedAt).toISOString(),
       status: "completed",
@@ -799,7 +821,8 @@ const startSolve = async () => {
     const taskData: TaskSubmitRequest = {
       taskName: submittedTaskName,
       problemType: "number_partition",
-      modelType: solveType.value, // classic | sim | cloud
+      modelType: solveType.value,
+      methodType: methodType.value,
       matrixSize: parsedNumbers.length,
       adjacencyMatrix: parsedNumbers,
     };
@@ -1126,8 +1149,7 @@ const handleHistoryCurrentChange = (page: number) => {
 const getModelTypeText = (type: ModelType) => {
   const types = {
     classic: "经典计算",
-    sim: "量子芯片模拟计算",
-    cloud: "量子云服务计算",
+    quantum: "量子芯片模拟计算",
   };
   return types[type] || type;
 };
@@ -1331,6 +1353,7 @@ const exportTaskDetail = () => {
       taskName: selectedTask.value.taskName,
       problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
+      methodType: selectedTask.value.methodType,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,

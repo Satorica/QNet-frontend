@@ -175,11 +175,11 @@ export const checkServerStatus = async () => {
 export const submitTask = async (
   taskData: TaskSubmitRequest,
 ): Promise<TaskSubmitResponse> => {
-  const response = await cloudApi.post<Omit<TaskSubmitResponse, "serverType" | "usePolling">>(
+  const response = await cloudApi.post<Omit<TaskSubmitResponse, "usePolling">>(
     "/api/submit-task",
     taskData,
   );
-  return { ...response.data, serverType: "cloud", usePolling: true };
+  return { ...response.data, usePolling: true };
 };
 
 export const getProblemImportTemplate = async (
@@ -257,6 +257,7 @@ export const getTaskHistory = async (
     pageSize = 10,
     taskName = "",
     modelType = null,
+    methodType = null,
     problemType = null,
     status = null,
   } = params;
@@ -267,6 +268,7 @@ export const getTaskHistory = async (
     ...(problemType ? { problemType } : {}),
     ...(taskName ? { taskName } : {}),
     ...(modelType ? { modelType } : {}),
+    ...(methodType ? { methodType } : {}),
     ...(status ? { status } : {}),
   };
 

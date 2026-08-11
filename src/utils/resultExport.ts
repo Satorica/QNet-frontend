@@ -1,14 +1,17 @@
 import type {
+  MethodType,
   ModelType,
   ProblemType,
   TaskStatus,
 } from "../types/api";
+import { getMethodTypeText } from "../types/api";
 
 export interface TaskResultExportInfo {
   taskId: string;
   taskName: string;
   problemType: ProblemType;
   modelType: ModelType;
+  methodType: MethodType;
   matrixSize: number;
   timestamp: string | null;
   status: TaskStatus;
@@ -86,6 +89,7 @@ export const downloadTaskResultExport = <T>(
 ) => {
   const normalizedTaskInfo = {
     ...taskInfo,
+    methodTypeText: getMethodTypeText(taskInfo.methodType),
     timestamp: formatExportDateTime(taskInfo.timestamp),
   };
   const data = {

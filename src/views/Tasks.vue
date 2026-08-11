@@ -38,6 +38,19 @@
                 :value="option"
               />
             </el-select>
+            <el-select
+              v-model="methodType"
+              placeholder="请选择算法类型"
+              style="width: 180px"
+              clearable
+            >
+              <el-option
+                v-for="option in METHOD_TYPE_OPTIONS"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
             <el-button type="primary" @click="handleSearchConfirm"
               >确定</el-button
             >
@@ -99,6 +112,9 @@
           <template #default="{ row }">
             {{ getModelTypeText(row.modelType) }}
           </template>
+        </el-table-column>
+        <el-table-column prop="methodType" label="算法类型" min-width="140">
+          <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
         </el-table-column>
         <el-table-column
           prop="timestamp"
@@ -282,6 +298,10 @@
               }}</span>
             </div>
             <div class="detail-row">
+              <span class="detail-label">算法类型：</span>
+              <span class="detail-value">{{ getMethodTypeText(selectedTask.methodType) }}</span>
+            </div>
+            <div class="detail-row">
               <span class="detail-label">问题规模：</span>
               <span class="detail-value"
                 >{{ selectedTask.matrixSize }}
@@ -438,7 +458,9 @@ import { formatCandidateValue, toFiniteNumber } from "../utils/format";
 import { createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadTaskResultExport } from "../utils/resultExport";
+import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
+  MethodType,
   ModelType,
   ProblemType,
   QuotaSummary,
@@ -454,11 +476,13 @@ const tasks = ref<TaskHistoryItem[]>([]);
 interface TaskFilterState {
   taskName: string;
   modelType: ModelType | "";
+  methodType: MethodType | "";
   problemType: ProblemType | "";
 }
 
 const taskName = ref("");
 const modelType = ref<ModelType | "">("");
+const methodType = ref<MethodType | "">("");
 const problemType = ref<ProblemType | "">("");
 const currentPage = ref(1);
 const pageSize = ref(10);
@@ -473,9 +497,10 @@ const cancelingTaskId = ref<string | null>(null);
 const appliedTaskFilters = ref<TaskFilterState>({
   taskName: "",
   modelType: "",
+  methodType: "",
   problemType: "",
 });
-const modelTypeOptions: ModelType[] = ["classic", "sim", "cloud"];
+const modelTypeOptions: ModelType[] = ["classic", "quantum"];
 const quotaSummary = ref<QuotaSummary | null>(null);
 const quotaLoading = ref(false);
 const quotaError = ref("");
@@ -494,14 +519,14 @@ const problemTypeOptions = [
 ];
 const quotaColorMap: Record<ModelType, Array<{ color: string; percentage: number }>> = {
   classic: [{ color: "#ff9966", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
-  sim: [{ color: "#5b6ef6", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
-  cloud: [{ color: "#ffb85c", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
+  quantum: [{ color: "#5b6ef6", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
 };
 
 // 方法
 const normalizeTaskFilters = (filters: Partial<TaskFilterState> = {}): TaskFilterState => ({
   taskName: (filters.taskName ?? "").trim(),
   modelType: (filters.modelType ?? "") as ModelType | "",
+  methodType: (filters.methodType ?? "") as MethodType | "",
   problemType: (filters.problemType ?? "") as ProblemType | "",
 });
 
@@ -524,6 +549,9 @@ const loadTasks = async (params: TaskHistoryParams = {}) => {
     modelType: hasOwnFilter(params, "modelType")
       ? params.modelType ?? ""
       : appliedTaskFilters.value.modelType,
+    methodType: hasOwnFilter(params, "methodType")
+      ? params.methodType ?? ""
+      : appliedTaskFilters.value.methodType,
     problemType: hasOwnFilter(params, "problemType")
       ? params.problemType ?? ""
       : appliedTaskFilters.value.problemType,
@@ -634,6 +662,7 @@ const handleSearchConfirm = () => {
     page: 1,
     taskName: (taskName.value ?? "").trim(),
     modelType: modelType.value,
+    methodType: methodType.value,
     problemType: problemType.value,
   });
 };
@@ -641,12 +670,14 @@ const handleSearchConfirm = () => {
 const handleResetSearch = () => {
   taskName.value = "";
   modelType.value = "";
+  methodType.value = "";
   problemType.value = "";
   loadTasks({
     page: currentPage.value,
     pageSize: pageSize.value,
     taskName: "",
     modelType: "",
+    methodType: "",
     problemType: "",
   });
 };
@@ -835,8 +866,7 @@ const problemTypeMap = {
 
 const modelTypeMap = {
   classic: "经典计算",
-  sim: "量子芯片模拟计算",
-  cloud: "量子云服务计算",
+  quantum: "量子芯片模拟计算",
 };
 
 // 与 backend.models.task Task.task_status 枚举一致
@@ -959,6 +989,7 @@ const exportTaskDetail = () => {
       taskName: selectedTask.value.taskName,
       problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
+      methodType: selectedTask.value.methodType,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,

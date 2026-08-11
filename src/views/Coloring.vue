@@ -9,9 +9,19 @@
             <span class="label">求解模型选择：</span>
             <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
               <el-radio-button label="classic">经典计算</el-radio-button>
-              <el-radio-button label="sim">量子芯片模拟计算</el-radio-button>
-              <el-radio-button label="cloud">量子云服务计算</el-radio-button>
+              <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
             </el-radio-group>
+          </div>
+          <div class="controls-top algorithm-control">
+            <span class="label">算法类型：</span>
+            <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+              <el-option
+                v-for="option in METHOD_TYPE_OPTIONS"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
           </div>
           <!-- 图结构设置 -->
           <div class="controls-row">
@@ -317,6 +327,9 @@
             {{ getModelTypeText(row.modelType) }}
           </template>
         </el-table-column>
+        <el-table-column prop="methodType" label="算法类型" min-width="140">
+          <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
+        </el-table-column>
         <el-table-column prop="timestamp" label="提交时间" min-width="170">
           <template #default="{ row }">
             {{ formatDate(row.timestamp) }}
@@ -422,6 +435,10 @@
               <span class="detail-value">{{
                 getModelTypeText(selectedTask.modelType)
               }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">算法类型：</span>
+              <span class="detail-value">{{ getMethodTypeText(selectedTask.methodType) }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">问题规模：</span>
@@ -594,9 +611,11 @@ import {
   downloadTaskResultExport,
   type TaskResultExportInfo,
 } from "../utils/resultExport";
+import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
   GraphEdge,
   GraphNode,
+  MethodType,
   ModelType,
   TaskCandidate,
   TaskDeleteFilters,
@@ -670,6 +689,7 @@ const selectedNodes = ref<number[]>([]);
 
 // 求解相关
 const solveType = ref<ModelType>("classic");
+const methodType = ref<MethodType>("sa");
 const solving = ref(false);
 const solveTime = ref("--");
 const currentTaskId = ref<string | null>(null);
@@ -1219,6 +1239,7 @@ const exportTaskDetail = () => {
       taskName: selectedTask.value.taskName,
       problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
+      methodType: selectedTask.value.methodType,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,
@@ -1266,6 +1287,7 @@ const submitSolve = async () => {
       taskName: submittedTaskName,
       problemType: "coloring",
       modelType: solveType.value,
+      methodType: methodType.value,
       matrixSize: submittedNodeCount,
       timestamp: new Date(submittedAt).toISOString(),
       status: "completed",
@@ -1294,6 +1316,7 @@ const submitSolve = async () => {
     const taskData: TaskSubmitRequest = {
       taskName: submittedTaskName,
       modelType: solveType.value,
+      methodType: methodType.value,
       problemType: "coloring",
       matrixSize: nodeCount.value,
       adjacencyMatrix: adjacencyMatrix.value,
@@ -1677,8 +1700,7 @@ const handleHistoryCurrentChange = (page: number) => {
 const getModelTypeText = (type: ModelType) => {
   const types = {
     classic: "经典计算",
-    sim: "量子芯片模拟计算",
-    cloud: "量子云服务计算",
+    quantum: "量子芯片模拟计算",
   };
   return types[type] || type;
 };

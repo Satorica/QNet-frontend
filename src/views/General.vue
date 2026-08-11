@@ -7,9 +7,20 @@
             <span class="label">求解模型选择：</span>
             <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
               <el-radio-button label="classic">经典计算</el-radio-button>
-              <el-radio-button label="sim">量子芯片模拟计算</el-radio-button>
-              <el-radio-button label="cloud">量子云服务计算</el-radio-button>
+              <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
             </el-radio-group>
+          </div>
+
+          <div class="controls-top algorithm-control">
+            <span class="label">算法类型：</span>
+            <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+              <el-option
+                v-for="option in METHOD_TYPE_OPTIONS"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
           </div>
 
           <div class="controls-row">
@@ -243,6 +254,9 @@
         <el-table-column prop="modelType" label="模型" min-width="150">
           <template #default="{ row }">{{ getModelTypeText(row.modelType) }}</template>
         </el-table-column>
+        <el-table-column prop="methodType" label="算法类型" min-width="140">
+          <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
+        </el-table-column>
         <el-table-column prop="timestamp" label="提交时间" min-width="170">
           <template #default="{ row }">{{ formatDate(row.timestamp) }}</template>
         </el-table-column>
@@ -305,6 +319,10 @@
             <div class="detail-row">
               <span class="detail-label">求解模型：</span>
               <span class="detail-value">{{ getModelTypeText(selectedTask.modelType) }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">算法类型：</span>
+              <span class="detail-value">{{ getMethodTypeText(selectedTask.methodType) }}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">问题规模：</span>
@@ -433,7 +451,9 @@ import {
 } from "../utils/resultExport";
 import { createSolveLogController, SOLVE_LOG_IDLE_MESSAGE } from "../utils/solveLog";
 import { getDeleteAllResultMessage, isDialogDismissed, isTaskDeletable } from "../utils/task";
+import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
+  MethodType,
   ModelType,
   TaskCandidate,
   TaskHistoryItem,
@@ -464,6 +484,7 @@ interface GeneralResultExportContext {
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 const solveType = ref<ModelType>("classic");
+const methodType = ref<MethodType>("sa");
 const matrixSize = ref(4);
 const directMatrixSize = ref(4);
 const inputMode = ref<InputMode>("expression");
@@ -775,7 +796,7 @@ const clearMatrix = () => {
   );
 };
 
-const getModelTypeText = (type: ModelType) => ({ classic: "经典计算", sim: "量子芯片模拟计算", cloud: "量子云服务计算" }[type] || type);
+const getModelTypeText = (type: ModelType) => ({ classic: "经典计算", quantum: "量子芯片模拟计算" }[type] || type);
 const getStatusText = (status: TaskStatus) => ({ queued: "计算中", processing: "计算中", completed: "已完成", failed: "已失败", cancelled: "已取消" }[status] || status);
 const getStatusType = (status: TaskStatus): TagType => ({ queued: "warning", processing: "warning", completed: "success", failed: "danger", cancelled: "info" }[status] as TagType);
 const formatDate = (timestamp: string | null) => {
@@ -906,6 +927,7 @@ const startSolve = async () => {
       taskName: submittedTaskName,
       problemType: "general",
       modelType: submittedModelType,
+      methodType: methodType.value,
       matrixSize: submittedMatrixSize,
       adjacencyMatrix: submittedMatrix,
       generalInput,
@@ -922,6 +944,7 @@ const startSolve = async () => {
         taskName: submittedTaskName,
         problemType: "general",
         modelType: submittedModelType,
+        methodType: methodType.value,
         matrixSize: submittedMatrixSize,
         timestamp: new Date(startedAt).toISOString(),
         status: "completed",
@@ -1110,6 +1133,7 @@ const exportTaskDetail = () => {
       taskName: selectedTask.value.taskName,
       problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
+      methodType: selectedTask.value.methodType,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,
