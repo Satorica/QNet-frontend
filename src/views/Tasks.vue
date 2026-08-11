@@ -233,9 +233,6 @@
             <div class="quota-card-label">
               <div class="quota-card-name">{{ card.label }}</div>
               <div class="quota-card-type">剩余额度</div>
-              <div v-if="card.pending > 0" class="quota-card-pending">
-                进行中 {{ card.pending }}
-              </div>
             </div>
 
             <el-progress
@@ -915,14 +912,12 @@ const quotaCards = computed(() =>
     const total = quotaData?.default || quotaSummary.value?.defaultQuota || 50;
     const hasAvailable = Number.isFinite(Number(quotaData?.available));
     const available = hasAvailable ? Number(quotaData?.available) : "--";
-    const pending = quotaData?.pending ?? 0;
 
     return {
       key: type,
       label: quotaData?.label || getModelTypeText(type),
       total,
       available,
-      pending,
       percentage:
         hasAvailable && total > 0
           ? Math.min(Math.max(Math.round((Number(available) / total) * 100), 0), 100)
@@ -1185,17 +1180,6 @@ onBeforeUnmount(() => {
 .quota-card-type {
   color: #6b7280;
   font-size: 13px;
-}
-
-.quota-card-pending {
-  margin-top: 6px;
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #f0f4ff;
-  color: var(--quota-accent);
-  font-size: 12px;
-  font-weight: 500;
 }
 
 .quota-progress-text {
