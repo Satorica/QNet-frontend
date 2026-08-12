@@ -2,17 +2,13 @@
   <div class="coloring-page">
     <el-card class="main-card">
       <div class="card-content">
-        <!-- 左列：矩阵和图 -->
-        <div class="left-column">
-          <!-- 求解模型选择 -->
-          <div class="controls-top">
-            <span class="label">求解模型选择：</span>
-            <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
-              <el-radio-button label="classic">经典计算</el-radio-button>
-              <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
-            </el-radio-group>
-          </div>
-          <div class="controls-top algorithm-control">
+        <div class="controls-top algorithm-control">
+          <span class="label">求解模型：</span>
+          <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+            <el-radio-button label="classic">经典计算</el-radio-button>
+            <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
+          </el-radio-group>
+          <div class="algorithm-field">
             <span class="label">算法类型：</span>
             <el-select v-model="methodType" :disabled="solving" style="width: 220px">
               <el-option
@@ -23,6 +19,9 @@
               />
             </el-select>
           </div>
+        </div>
+        <!-- 左列：矩阵和图 -->
+        <div class="left-column">
           <!-- 图结构设置 -->
           <div class="controls-row">
             <div class="control-item">
@@ -1308,7 +1307,7 @@ const submitSolve = async () => {
 
   const startTime = Date.now();
   resetSolveLogs(
-    `开始求解图着色问题（求解模型：${getModelTypeText(solveType.value)}，${nodeCount.value}个节点，${edges.value.length}条边）`
+    `开始求解图着色问题（求解模型：${getModelTypeText(solveType.value)}，算法类型：${getMethodTypeText(methodType.value)}，${nodeCount.value}个节点，${edges.value.length}条边）`
   );
 
   try {
@@ -1808,7 +1807,7 @@ onBeforeUnmount(() => {
 .card-content {
   display: grid;
   grid-template-columns: 1fr 400px;
-  gap: 32px;
+  gap: 20px 32px;
 }
 
 /***** 矩阵样式 *****/
@@ -1932,6 +1931,16 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.algorithm-control {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+.algorithm-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .solve-type-group {
   display: flex;
@@ -2183,4 +2192,10 @@ onBeforeUnmount(() => {
   font-size: 14px;
   flex-shrink: 0;
 }
-</style> 
+@media (max-width: 780px) {
+  .algorithm-control {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+</style>

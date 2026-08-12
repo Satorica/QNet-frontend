@@ -3,18 +3,13 @@
     <!-- 主求解卡片 -->
     <el-card class="main-card">
       <div class="card-content">
-        <!-- 左列：矩阵和图 -->
-        <div class="left-column">
-          <!-- 求解模型选择 -->
-          <div class="controls-top">
-            <span class="label">求解模型选择：</span>
-            <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
-              <el-radio-button label="classic">经典计算</el-radio-button>
-              <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
-            </el-radio-group>
-          </div>
-
-          <div class="controls-top algorithm-control">
+        <div class="controls-top algorithm-control">
+          <span class="label">求解模型：</span>
+          <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+            <el-radio-button label="classic">经典计算</el-radio-button>
+            <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
+          </el-radio-group>
+          <div class="algorithm-field">
             <span class="label">算法类型：</span>
             <el-select v-model="methodType" :disabled="solving" style="width: 220px">
               <el-option
@@ -25,7 +20,9 @@
               />
             </el-select>
           </div>
-
+        </div>
+        <!-- 左列：矩阵和图 -->
+        <div class="left-column">
           <!-- 规模控制 -->
           <div class="controls-row">
             <div class="control-item">
@@ -886,7 +883,7 @@ const startSolve = async () => {
 
   const startTime = Date.now();
   resetSolveLogs(
-    `开始求解图分割问题（求解模型：${getModelTypeText(solveType.value)}，${matrixSize.value}个节点，${edgeCount.value}条边）`
+    `开始求解图分割问题（求解模型：${getModelTypeText(solveType.value)}，算法类型：${getMethodTypeText(methodType.value)}，${matrixSize.value}个节点，${edgeCount.value}条边）`
   );
 
   try {
@@ -1425,7 +1422,7 @@ onBeforeUnmount(() => {
 .card-content {
   display: grid;
   grid-template-columns: 1fr 400px;
-  gap: 32px;
+  gap: 20px 32px;
 }
 
 .controls-top {
@@ -1433,6 +1430,18 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.algorithm-control {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.algorithm-field {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .controls-row {
@@ -1825,4 +1834,10 @@ onBeforeUnmount(() => {
   padding: 4px 8px;
   border-radius: 4px;
 }
-</style> 
+@media (max-width: 780px) {
+  .algorithm-control {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+</style>

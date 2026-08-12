@@ -2,16 +2,13 @@
   <div class="general-page">
     <el-card class="main-card">
       <div class="card-content">
-        <div class="left-column">
-          <div class="controls-top">
-            <span class="label">求解模型选择：</span>
-            <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
-              <el-radio-button label="classic">经典计算</el-radio-button>
-              <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
-            </el-radio-group>
-          </div>
-
-          <div class="controls-top algorithm-control">
+        <div class="controls-top algorithm-control">
+          <span class="label">求解模型：</span>
+          <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+            <el-radio-button label="classic">经典计算</el-radio-button>
+            <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
+          </el-radio-group>
+          <div class="algorithm-field">
             <span class="label">算法类型：</span>
             <el-select v-model="methodType" :disabled="solving" style="width: 220px">
               <el-option
@@ -22,6 +19,8 @@
               />
             </el-select>
           </div>
+        </div>
+        <div class="left-column">
 
           <div class="controls-row">
             <div class="control-item">
@@ -886,7 +885,7 @@ const startSolve = async () => {
   solveTaskResults.value = null;
   resultExportContext.value = null;
   currentTaskId.value = null;
-  resetSolveLogs(`开始求解一般优化问题（${getModelTypeText(solveType.value)}，${activeMatrixSize.value}个变量）`);
+  resetSolveLogs(`开始求解一般优化问题（求解模型：${getModelTypeText(solveType.value)}，算法类型：${getMethodTypeText(methodType.value)}，${activeMatrixSize.value}个变量）`);
   try {
     const submittedTaskName = taskName;
     const submittedModelType = solveType.value;
@@ -1165,10 +1164,12 @@ onBeforeUnmount(() => {
 <style scoped>
 .general-page { padding-bottom: 8px; }
 .main-card, .history-card { background: #fff; border: 1px solid #e6eaf5; border-radius: 20px; box-shadow: 0 10px 20px rgba(9, 30, 66, 0.04); }
-.card-content { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 32px; }
+.card-content { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px 32px; }
 .left-column { min-width: 0; }
 .controls-top, .controls-row, .control-item, .matrix-title-row, .result-header, .history-header, .history-actions, .constraint-heading { display: flex; align-items: center; }
-.controls-top { gap: 12px; margin-bottom: 20px; }
+.controls-top { gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+.algorithm-control { grid-column: 1 / -1; margin-bottom: 0; }
+.algorithm-field { display: flex; align-items: center; gap: 12px; }
 .controls-row { gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
 .control-item { gap: 8px; }
 .label, .ctrl-label { color: #8c8fa3; font-size: 14px; }

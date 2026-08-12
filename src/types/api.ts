@@ -131,7 +131,7 @@ export interface QuotaModelSummary {
 }
 
 export interface QuotaSummary {
-  defaultQuota: number;
+  defaultQuotas: Record<ModelType, number>;
   models: Record<ModelType, QuotaModelSummary>;
 }
 
