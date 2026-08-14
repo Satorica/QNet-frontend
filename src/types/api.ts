@@ -136,7 +136,7 @@ export interface QuotaSummary {
 }
 
 export interface UserInfo {
-  id: number;
+  id: string;
   username: string;
   maskedEmail?: string | null;
   maskedPhone?: string | null;
