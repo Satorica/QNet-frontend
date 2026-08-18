@@ -93,7 +93,7 @@ export interface FeedbackSubmitRequest {
   category: FeedbackCategory;
   content: string;
   contact?: string;
-  clientInfo?: FeedbackClientInfo;
+  clientInfo: FeedbackClientInfo;
 }
 
 export interface FeedbackSubmitData {

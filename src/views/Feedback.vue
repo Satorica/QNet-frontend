@@ -59,18 +59,6 @@
               <div class="field-help">仅在需要进一步了解问题时使用。</div>
             </el-form-item>
 
-            <div class="client-info-row" @click="form.includeClientInfo = !form.includeClientInfo">
-              <el-checkbox
-                v-model="form.includeClientInfo"
-                aria-label="附带系统信息"
-                @click.stop
-              />
-              <div>
-                <div class="client-info-title">附带系统信息</div>
-                <div class="client-info-desc">包含浏览器、操作系统、当前页面和应用版本，帮助排查问题；可取消勾选。</div>
-              </div>
-            </div>
-
             <div class="form-actions">
               <el-button
                 type="primary"
@@ -128,7 +116,6 @@ interface FeedbackFormModel {
   category: FeedbackCategory | "";
   content: string;
   contact: string;
-  includeClientInfo: boolean;
 }
 
 const router = useRouter();
@@ -149,7 +136,6 @@ const createInitialForm = (): FeedbackFormModel => ({
   category: "",
   content: "",
   contact: "",
-  includeClientInfo: true,
 });
 
 const form = reactive<FeedbackFormModel>(createInitialForm());
@@ -197,7 +183,7 @@ const handleSubmit = async () => {
       category: form.category,
       content: form.content.trim(),
       ...(form.contact.trim() ? { contact: form.contact.trim() } : {}),
-      ...(form.includeClientInfo ? { clientInfo: collectClientInfo() } : {}),
+      clientInfo: collectClientInfo(),
     });
     Object.assign(form, createInitialForm());
     formRef.value?.clearValidate();
@@ -377,36 +363,8 @@ const goToHistory = () => {
   line-height: 1.5;
 }
 
-.client-info-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  width: fit-content;
-  margin-top: -2px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.client-info-row :deep(.el-checkbox) {
-  height: 22px;
-}
-
-.client-info-title {
-  color: #303447;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 22px;
-}
-
-.client-info-desc {
-  margin-top: 3px;
-  color: #8c8fa3;
-  font-size: 12px;
-  line-height: 1.55;
-}
-
 .form-actions {
-  margin-top: 28px;
+  margin-top: 2px;
 }
 
 .form-actions .el-button {
