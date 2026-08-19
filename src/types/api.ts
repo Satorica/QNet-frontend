@@ -135,6 +135,35 @@ export interface QuotaSummary {
   models: Record<ModelType, QuotaModelSummary>;
 }
 
+export type QuotaRequestStatus = "pending" | "approved" | "rejected";
+
+export interface QuotaRequestItem {
+  id: string;
+  source: "web" | "miniprogram" | "unknown";
+  amounts: Record<ModelType, number>;
+  reason: string;
+  status: QuotaRequestStatus;
+  adminNote: string;
+  revision: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  reviewedAt?: string | null;
+}
+
+export interface QuotaRequestStatusData {
+  pendingRequest: QuotaRequestItem | null;
+  latestRejectedRequest: QuotaRequestItem | null;
+}
+
+export interface QuotaRequestSubmitRequest {
+  amounts: Record<ModelType, number>;
+  reason: string;
+}
+
+export interface QuotaRequestSubmitData {
+  request: QuotaRequestItem;
+}
+
 export interface UserInfo {
   id: string;
   username: string;

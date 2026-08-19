@@ -9,6 +9,9 @@ import type {
   MatrixImportData,
   MatrixImportTemplateProblemType,
   QuotaData,
+  QuotaRequestStatusData,
+  QuotaRequestSubmitData,
+  QuotaRequestSubmitRequest,
   TaskDeleteFilters,
   TaskDetail,
   TaskHistoryData,
@@ -289,6 +292,23 @@ export const cleanupTasks = async (retentionDays = 30): Promise<ApiResponse> => 
 
 export const deleteTask = async (taskId: string): Promise<DeleteTaskResponse> => {
   const response = await cloudApi.post<DeleteTaskResponse>("/api/tasks/delete", { taskId });
+  return response.data;
+};
+
+export const getQuotaRequestStatus = async (): Promise<ApiResponse<QuotaRequestStatusData>> => {
+  const response = await cloudApi.get<ApiResponse<QuotaRequestStatusData>>(
+    "/api/quota-requests/status",
+  );
+  return response.data;
+};
+
+export const submitQuotaRequest = async (
+  payload: QuotaRequestSubmitRequest,
+): Promise<ApiResponse<QuotaRequestSubmitData>> => {
+  const response = await cloudApi.post<ApiResponse<QuotaRequestSubmitData>>(
+    "/api/quota-requests",
+    payload,
+  );
   return response.data;
 };
 

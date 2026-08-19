@@ -193,31 +193,43 @@
         <div class="quota-panel-header">
           <div class="quota-panel-heading">
             <div class="quota-panel-title">计算额度</div>
-            <div
-              class="quota-panel-status"
-              :class="{
-                'is-updating': quotaLoading,
-                'is-error': quotaError && !quotaLoading,
-              }"
-              aria-live="polite"
-              data-testid="quota-refresh-status"
-            >
-              <span class="quota-status-dot"></span>
-              <span>{{ quotaStatusText }}</span>
+            <div class="quota-panel-meta">
+              <div
+                class="quota-panel-status"
+                :class="{
+                  'is-updating': quotaLoading,
+                  'is-error': quotaError && !quotaLoading,
+                }"
+                aria-live="polite"
+                data-testid="quota-refresh-status"
+              >
+                <span class="quota-status-dot"></span>
+                <span>{{ quotaStatusText }}</span>
+              </div>
+              <span class="quota-meta-divider" aria-hidden="true"></span>
+              <el-button
+                class="quota-refresh-button"
+                text
+                type="primary"
+                :loading="quotaLoading"
+                :disabled="quotaLoading"
+                data-testid="quota-refresh-button"
+                @click="loadQuotaSummary(true)"
+              >
+                <el-icon v-if="!quotaLoading"><Refresh /></el-icon>
+                <span>{{ quotaLoading ? "刷新中" : "刷新" }}</span>
+              </el-button>
             </div>
           </div>
           <el-button
-            class="quota-refresh-button"
+            class="quota-request-button"
             type="primary"
-            :loading="quotaLoading"
-            :disabled="quotaLoading"
-            data-testid="quota-refresh-button"
-            @click="loadQuotaSummary(true)"
+            data-testid="quota-request-button"
+            @click="openQuotaRequestDialog"
           >
-            <el-icon v-if="!quotaLoading"><Refresh /></el-icon>
-            <span>{{ quotaLoading ? "刷新中" : "刷新额度" }}</span>
-          </el-button
-          >
+            <el-icon><Plus /></el-icon>
+            <span>申请额度</span>
+          </el-button>
         </div>
 
         <div
@@ -251,6 +263,121 @@
         </div>
       </div>
     </el-card>
+
+    <el-dialog
+      v-model="quotaRequestDialogVisible"
+      class="quota-request-dialog"
+      title="申请额度"
+      width="560px"
+      :close-on-click-modal="false"
+    >
+      <div
+        v-loading="quotaRequestLoading"
+        class="quota-request-content"
+        :class="{ 'is-pending': pendingQuotaRequest }"
+      >
+        <template v-if="pendingQuotaRequest">
+          <section class="quota-pending-card" aria-labelledby="quota-pending-title">
+            <div class="quota-pending-head">
+              <div class="quota-pending-heading">
+                <span class="quota-pending-mark" aria-hidden="true"></span>
+                <div>
+                  <strong id="quota-pending-title">等待管理员审批</strong>
+                </div>
+              </div>
+              <span class="quota-pending-status">待审批</span>
+            </div>
+
+            <div class="quota-pending-amounts">
+              <div class="quota-pending-amount">
+                <span>经典计算</span>
+                <div><strong>+{{ pendingQuotaRequest.amounts.classic }}</strong><small>次</small></div>
+              </div>
+              <div class="quota-pending-amount">
+                <span>量子芯片模拟计算</span>
+                <div><strong>+{{ pendingQuotaRequest.amounts.quantum }}</strong><small>次</small></div>
+              </div>
+            </div>
+
+            <div class="quota-pending-reason">
+              <span>申请原因</span>
+              <p>{{ pendingQuotaRequest.reason }}</p>
+            </div>
+
+            <div class="quota-pending-meta">
+              <span>提交时间</span>
+              <time>{{ formatDate(pendingQuotaRequest.createdAt || null) }}</time>
+            </div>
+          </section>
+        </template>
+
+        <template v-else>
+          <el-alert
+            v-if="latestRejectedQuotaRequest"
+            class="quota-request-result"
+            title="上次申请未通过"
+            type="info"
+            :closable="false"
+            show-icon
+          >
+            <template #default>
+              <span v-if="latestRejectedQuotaRequest.adminNote">审批备注：{{ latestRejectedQuotaRequest.adminNote }}</span>
+              <span v-else>请根据当前需要调整后重新提交申请。</span>
+            </template>
+          </el-alert>
+
+          <el-form label-position="top" @submit.prevent>
+            <div class="quota-request-grid">
+              <el-form-item label="经典计算额度（次）">
+                <el-input-number
+                  v-model="quotaRequestForm.classic"
+                  :min="0"
+                  :max="100000"
+                  :precision="0"
+                  :step="10"
+                  :controls="false"
+                />
+              </el-form-item>
+              <el-form-item label="量子芯片模拟计算额度（次）">
+                <el-input-number
+                  v-model="quotaRequestForm.quantum"
+                  :min="0"
+                  :max="100000"
+                  :precision="0"
+                  :step="10"
+                  :controls="false"
+                />
+              </el-form-item>
+            </div>
+            <el-form-item label="申请原因">
+              <el-input
+                v-model="quotaRequestForm.reason"
+                type="textarea"
+                :rows="4"
+                :maxlength="200"
+                show-word-limit
+                placeholder="请说明使用场景、课题或项目需求（至少 5 个字符）"
+              />
+            </el-form-item>
+            <div class="quota-request-note">
+              申请提交后将由管理员审批，通过后额度会自动增加。
+            </div>
+          </el-form>
+        </template>
+      </div>
+      <template #footer>
+        <el-button @click="quotaRequestDialogVisible = false">关闭</el-button>
+        <el-button
+          v-if="!pendingQuotaRequest"
+          type="primary"
+          :loading="quotaRequestSubmitting"
+          :disabled="quotaRequestLoading"
+          @click="handleSubmitQuotaRequest"
+        >
+          提交
+        </el-button>
+      </template>
+    </el-dialog>
 
     <!-- 任务详情对话框 -->
     <el-dialog
@@ -436,7 +563,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Refresh } from "@element-plus/icons-vue";
+import { Plus, Refresh } from "@element-plus/icons-vue";
 import {
   getTaskHistory,
   getTaskQuota,
@@ -444,6 +571,8 @@ import {
   deleteTask as deleteTaskAPI,
   deleteTasksByFilter as deleteTasksByFilterAPI,
   getTaskDetail,
+  getQuotaRequestStatus,
+  submitQuotaRequest,
 } from "../api";
 import {
   getDeleteAllResultMessage,
@@ -461,6 +590,7 @@ import type {
   ModelType,
   ProblemType,
   QuotaSummary,
+  QuotaRequestItem,
   TaskHistoryItem,
   TaskHistoryParams,
   TaskResults,
@@ -502,6 +632,12 @@ const quotaSummary = ref<QuotaSummary | null>(null);
 const quotaLoading = ref(false);
 const quotaError = ref("");
 const quotaLastUpdatedAt = ref<Date | null>(null);
+const quotaRequestDialogVisible = ref(false);
+const quotaRequestLoading = ref(false);
+const quotaRequestSubmitting = ref(false);
+const pendingQuotaRequest = ref<QuotaRequestItem | null>(null);
+const latestRejectedQuotaRequest = ref<QuotaRequestItem | null>(null);
+const quotaRequestForm = ref({ classic: 0, quantum: 0, reason: "" });
 let quotaRefreshPromise: Promise<boolean> | null = null;
 let quotaRefreshQueued = false;
 let quotaFeedbackRequested = false;
@@ -721,6 +857,71 @@ const viewTask = async (task: TaskHistoryItem) => {
     if (taskDetailRequestGuard.isLatest(requestId)) {
       taskDetailLoading.value = false;
     }
+  }
+};
+
+const loadQuotaRequestStatus = async () => {
+  quotaRequestLoading.value = true;
+  try {
+    const response = await getQuotaRequestStatus();
+    if (response.success && response.data) {
+      pendingQuotaRequest.value = response.data.pendingRequest || null;
+      latestRejectedQuotaRequest.value = response.data.latestRejectedRequest || null;
+      return;
+    }
+    throw new Error(response.message || "加载申请状态失败");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "加载申请状态失败"));
+  } finally {
+    quotaRequestLoading.value = false;
+  }
+};
+
+const openQuotaRequestDialog = () => {
+  quotaRequestForm.value = { classic: 0, quantum: 0, reason: "" };
+  quotaRequestDialogVisible.value = true;
+  loadQuotaRequestStatus();
+};
+
+const handleSubmitQuotaRequest = async () => {
+  const { classic, quantum } = quotaRequestForm.value;
+  const reason = quotaRequestForm.value.reason.trim();
+  const amounts = [classic, quantum];
+  if (!amounts.every((amount) => Number.isFinite(amount) && Number.isInteger(amount))) {
+    ElMessage.warning("申请额度必须是整数");
+    return;
+  }
+  if (amounts.some((amount) => amount < 0 || amount > 100000)) {
+    ElMessage.warning("单项申请额度须在 0-100000 之间");
+    return;
+  }
+  if (classic + quantum <= 0) {
+    ElMessage.warning("请至少申请一项计算额度");
+    return;
+  }
+  if (reason.length < 5) {
+    ElMessage.warning("请填写至少 5 个字符的申请原因");
+    return;
+  }
+
+  quotaRequestSubmitting.value = true;
+  try {
+    const response = await submitQuotaRequest({
+      amounts: { classic, quantum },
+      reason,
+    });
+    if (!response.success || !response.data?.request) {
+      throw new Error(response.message || "额度申请提交失败");
+    }
+    pendingQuotaRequest.value = response.data.request;
+    latestRejectedQuotaRequest.value = null;
+    quotaRequestDialogVisible.value = false;
+    ElMessage.success("额度申请已提交，请等待管理员审批");
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, "额度申请提交失败"));
+    await loadQuotaRequestStatus();
+  } finally {
+    quotaRequestSubmitting.value = false;
   }
 };
 
@@ -1060,6 +1261,7 @@ onBeforeUnmount(() => {
 }
 
 .quota-panel-heading {
+  flex: 1;
   min-width: 0;
 }
 
@@ -1073,11 +1275,24 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-top: 7px;
   color: #7b879c;
   font-size: 12px;
   line-height: 1.4;
   transition: color 0.2s ease;
+}
+
+.quota-panel-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  margin-top: 5px;
+}
+
+.quota-meta-divider {
+  width: 1px;
+  height: 12px;
+  background: #dce3ed;
 }
 
 .quota-status-dot {
@@ -1109,11 +1324,303 @@ onBeforeUnmount(() => {
 }
 
 .quota-refresh-button {
-  min-width: 112px;
+  min-width: 0;
+  height: 24px;
+  margin-left: 0;
+  padding: 0 5px;
+  border-radius: 7px;
+  color: #54708f;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .quota-refresh-button :deep(.el-icon) {
-  margin-right: 6px;
+  margin-right: 4px;
+}
+
+.quota-request-content {
+  min-height: 238px;
+}
+
+.quota-request-content.is-pending {
+  min-height: 0;
+}
+
+.quota-request-result {
+  margin-bottom: 22px;
+  border-radius: 10px;
+}
+
+.quota-pending-card {
+  overflow: hidden;
+  border: 1px solid #e1e7ef;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.quota-pending-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #edf2f7;
+  background: #f8fafc;
+}
+
+.quota-pending-heading {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.quota-pending-mark {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #e9a23b;
+  box-shadow: 0 0 0 4px rgba(233, 162, 59, 0.14);
+}
+
+.quota-pending-heading strong {
+  color: #26364a;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 22px;
+}
+
+.quota-pending-status {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border: 1px solid rgba(225, 148, 35, 0.2);
+  border-radius: 999px;
+  background: #fff7e8;
+  color: #b66d08;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 20px;
+}
+
+.quota-pending-amounts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px 18px 0;
+}
+
+.quota-pending-amount {
+  padding: 13px 14px;
+  border: 1px solid #e7ecf3;
+  border-radius: 9px;
+  background: #fafbfd;
+}
+
+.quota-pending-amount > span {
+  display: block;
+  overflow: hidden;
+  margin-bottom: 5px;
+  color: #6f7c8f;
+  font-size: 12px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quota-pending-amount div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.quota-pending-amount strong {
+  color: #25364c;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 30px;
+}
+
+.quota-request-content .quota-pending-amount small {
+  color: #8a96a7;
+  font-size: 11px;
+}
+
+.quota-pending-reason {
+  padding: 16px 18px 14px;
+}
+
+.quota-pending-reason > span,
+.quota-pending-meta > span {
+  color: #8995a6;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.quota-request-content .quota-pending-reason p {
+  margin: 7px 0 0;
+  color: #455468;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.quota-pending-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 18px;
+  border-top: 1px solid #edf2f7;
+  background: #fafbfd;
+}
+
+.quota-pending-meta time {
+  color: #738196;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.quota-request-content p {
+  margin: 6px 0;
+  color: #5d6472;
+  line-height: 1.65;
+}
+
+.quota-request-content small {
+  color: #9098a8;
+}
+
+.quota-request-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.quota-request-grid :deep(.el-input-number) {
+  width: 100%;
+}
+
+.quota-request-note {
+  padding: 9px 12px;
+  border-radius: 6px;
+  background: #f5f7fa;
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+:global(.el-dialog.quota-request-dialog) {
+  overflow: hidden;
+  border: 1px solid rgba(210, 221, 236, 0.9);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow:
+    0 24px 60px rgba(25, 47, 77, 0.18),
+    0 6px 18px rgba(25, 47, 77, 0.08);
+}
+
+:global(.quota-request-dialog .el-dialog__header) {
+  margin-right: 0;
+  padding: 22px 24px 17px;
+  border-bottom: 1px solid #edf1f7;
+}
+
+:global(.quota-request-dialog .el-dialog__title) {
+  color: #1f2d3d;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  line-height: 28px;
+}
+
+:global(.quota-request-dialog .el-dialog__headerbtn) {
+  top: 17px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+:global(.quota-request-dialog .el-dialog__headerbtn:hover) {
+  background: #f1f6fc;
+}
+
+:global(.quota-request-dialog .el-dialog__headerbtn .el-dialog__close) {
+  color: #7a8798;
+  font-size: 17px;
+}
+
+:global(.quota-request-dialog .el-dialog__body) {
+  padding: 23px 24px 20px;
+}
+
+:global(.quota-request-dialog .el-dialog__footer) {
+  padding: 16px 24px 20px;
+  border-top: 1px solid #edf1f7;
+  background: #fbfcfe;
+}
+
+.quota-request-content :deep(.el-form-item) {
+  margin-bottom: 20px;
+}
+
+.quota-request-content :deep(.el-form-item__label) {
+  height: auto;
+  margin-bottom: 8px;
+  padding: 0;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+.quota-request-content :deep(.el-input__wrapper),
+.quota-request-content :deep(.el-textarea__inner) {
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px #d9e1ec inset;
+  transition: box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.quota-request-content :deep(.el-input__wrapper) {
+  min-height: 42px;
+  padding-right: 14px;
+  padding-left: 14px;
+  background: #fbfcfe;
+}
+
+.quota-request-content :deep(.el-input__wrapper:hover),
+.quota-request-content :deep(.el-textarea__inner:hover) {
+  box-shadow: 0 0 0 1px #9fc7f6 inset;
+}
+
+.quota-request-content :deep(.el-input__wrapper.is-focus),
+.quota-request-content :deep(.el-textarea__inner:focus) {
+  box-shadow:
+    0 0 0 1px #409eff inset,
+    0 0 0 3px rgba(64, 158, 255, 0.1);
+}
+
+.quota-request-content :deep(.el-textarea__inner) {
+  min-height: 112px !important;
+  padding: 12px 14px 28px;
+  background: #fbfcfe;
+  color: #27364a;
+  line-height: 1.65;
+  resize: none;
+}
+
+.quota-request-content :deep(.el-input__count) {
+  right: 12px;
+  bottom: 8px;
+  padding: 0;
+  background: transparent;
+  color: #9aa6b5;
+  font-size: 12px;
 }
 
 .quota-row {
@@ -1237,6 +1744,25 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 620px) {
+  :global(.el-dialog.quota-request-dialog) {
+    width: calc(100% - 28px) !important;
+    margin-top: 7vh;
+  }
+
+  :global(.quota-request-dialog .el-dialog__header) {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  :global(.quota-request-dialog .el-dialog__body) {
+    padding: 20px;
+  }
+
+  :global(.quota-request-dialog .el-dialog__footer) {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
   .quota-panel-header {
     align-items: flex-start;
   }
@@ -1245,13 +1771,26 @@ onBeforeUnmount(() => {
     max-width: 210px;
   }
 
-  .quota-refresh-button {
-    min-width: 104px;
-  }
-
   .quota-item {
     flex-basis: 100%;
     min-width: 0;
+  }
+
+  .quota-request-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .quota-pending-head,
+  .quota-pending-amounts,
+  .quota-pending-reason,
+  .quota-pending-meta {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .quota-pending-amounts {
+    grid-template-columns: 1fr;
   }
 }
 
