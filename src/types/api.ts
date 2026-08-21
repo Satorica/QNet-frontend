@@ -126,6 +126,7 @@ export interface QuotaModelSummary {
   remaining: number;
   pending: number;
   available: number;
+  total: number;
   default: number;
   label: string;
 }

@@ -1111,9 +1111,10 @@ const quotaCards = computed(() =>
   modelTypeOptions.map((type) => {
     const quotaData = quotaSummary.value?.models?.[type];
     const fallbackTotal = type === "classic" ? 200 : 100;
-    const total = quotaData?.default
-      || quotaSummary.value?.defaultQuotas?.[type]
-      || fallbackTotal;
+    const total = quotaData?.total
+      ?? quotaData?.default
+      ?? quotaSummary.value?.defaultQuotas?.[type]
+      ?? fallbackTotal;
     const hasAvailable = Number.isFinite(Number(quotaData?.available));
     const available = hasAvailable ? Number(quotaData?.available) : "--";
 
