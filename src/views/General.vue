@@ -265,7 +265,7 @@
         </el-table-column>
         <el-table-column prop="taskId" label="操作" width="190" align="center">
           <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleViewTaskDetail(row)">查看详情</el-button>
+            <el-button type="primary" size="small" @click="handleViewTaskDetail(row)">查看</el-button>
             <el-button type="danger" size="small" :disabled="!isTaskDeletable(row.status)" @click="handleDeleteTask(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -289,7 +289,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="detailDialogVisible" title="任务详细信息" width="800px" :close-on-click-modal="false" @closed="handleTaskDetailClosed">
+    <el-dialog v-model="detailDialogVisible" class="task-detail-dialog" title="任务详细信息" width="800px" :close-on-click-modal="false" @closed="handleTaskDetailClosed">
       <div
         v-if="selectedTask"
         v-loading="taskDetailLoading"

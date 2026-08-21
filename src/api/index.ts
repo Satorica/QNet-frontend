@@ -9,6 +9,7 @@ import type {
   MatrixImportData,
   MatrixImportTemplateProblemType,
   QuotaData,
+  QuotaRequestHistoryData,
   QuotaRequestStatusData,
   QuotaRequestSubmitData,
   QuotaRequestSubmitRequest,
@@ -298,6 +299,17 @@ export const deleteTask = async (taskId: string): Promise<DeleteTaskResponse> =>
 export const getQuotaRequestStatus = async (): Promise<ApiResponse<QuotaRequestStatusData>> => {
   const response = await cloudApi.get<ApiResponse<QuotaRequestStatusData>>(
     "/api/quota-requests/status",
+  );
+  return response.data;
+};
+
+export const getQuotaRequestHistory = async (params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<ApiResponse<QuotaRequestHistoryData>> => {
+  const response = await cloudApi.get<ApiResponse<QuotaRequestHistoryData>>(
+    "/api/quota-requests",
+    { params },
   );
   return response.data;
 };

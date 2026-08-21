@@ -318,7 +318,7 @@
               type="primary"
               size="small"
               @click="handleViewTaskDetail(row)"
-              >查看详情</el-button
+              >查看</el-button
             >
             <el-button
               v-if="isTaskCancellable(row.status)"
@@ -368,6 +368,7 @@
     <!-- 任务详情弹窗 -->
     <el-dialog
       v-model="detailDialogVisible"
+      class="task-detail-dialog"
       title="任务详细信息"
       width="800px"
       :close-on-click-modal="false"

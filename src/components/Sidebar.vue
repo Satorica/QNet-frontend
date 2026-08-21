@@ -56,6 +56,10 @@
           <el-icon><List /></el-icon>
           <span>任务情况</span>
         </el-menu-item>
+        <el-menu-item index="/quota-requests">
+          <el-icon><Tickets /></el-icon>
+          <span>我的申请</span>
+        </el-menu-item>
         <el-menu-item index="/feedback">
           <el-icon><ChatDotRound /></el-icon>
           <span>问题反馈</span>
@@ -71,14 +75,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { TrendCharts, Odometer, MagicStick, Location, DataAnalysis, List, ChatDotRound, SwitchButton } from '@element-plus/icons-vue'
+import { TrendCharts, Odometer, MagicStick, Location, DataAnalysis, List, Tickets, ChatDotRound, SwitchButton } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { userManager } from '../utils/auth'
 
 const router = useRouter()
 const route = useRoute()
-const activeMenu = computed(() => route.path.startsWith('/feedback') ? '/feedback' : route.path)
+const activeMenu = computed(() => {
+  if (route.path.startsWith('/feedback')) return '/feedback'
+  return route.path
+})
 
 const handleLogout = async () => {
   try {

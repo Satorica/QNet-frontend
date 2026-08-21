@@ -156,6 +156,14 @@ export interface QuotaRequestStatusData {
   latestRejectedRequest: QuotaRequestItem | null;
 }
 
+export interface QuotaRequestHistoryData {
+  items: QuotaRequestItem[];
+  page: number;
+  pageSize: number;
+  total: number;
+  pendingRequest: QuotaRequestItem | null;
+}
+
 export interface QuotaRequestSubmitRequest {
   amounts: Record<ModelType, number>;
   reason: string;

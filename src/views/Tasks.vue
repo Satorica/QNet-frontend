@@ -312,20 +312,6 @@
         </template>
 
         <template v-else>
-          <el-alert
-            v-if="latestRejectedQuotaRequest"
-            class="quota-request-result"
-            title="上次申请未通过"
-            type="info"
-            :closable="false"
-            show-icon
-          >
-            <template #default>
-              <span v-if="latestRejectedQuotaRequest.adminNote">审批备注：{{ latestRejectedQuotaRequest.adminNote }}</span>
-              <span v-else>请根据当前需要调整后重新提交申请。</span>
-            </template>
-          </el-alert>
-
           <el-form label-position="top" @submit.prevent>
             <div class="quota-request-grid">
               <el-form-item label="经典计算额度（次）">
@@ -356,7 +342,7 @@
                 :rows="4"
                 :maxlength="200"
                 show-word-limit
-                placeholder="请说明使用场景、课题或项目需求（至少 5 个字符）"
+                placeholder="请说明使用场景、课题或项目需求（至少 2 个字符）"
               />
             </el-form-item>
             <div class="quota-request-note">
@@ -382,6 +368,7 @@
     <!-- 任务详情对话框 -->
     <el-dialog
       v-model="taskDetailVisible"
+      class="task-detail-dialog"
       title="任务详情"
       width="800px"
       :close-on-click-modal="false"
@@ -636,7 +623,6 @@ const quotaRequestDialogVisible = ref(false);
 const quotaRequestLoading = ref(false);
 const quotaRequestSubmitting = ref(false);
 const pendingQuotaRequest = ref<QuotaRequestItem | null>(null);
-const latestRejectedQuotaRequest = ref<QuotaRequestItem | null>(null);
 const quotaRequestForm = ref({ classic: 0, quantum: 0, reason: "" });
 let quotaRefreshPromise: Promise<boolean> | null = null;
 let quotaRefreshQueued = false;
@@ -866,7 +852,6 @@ const loadQuotaRequestStatus = async () => {
     const response = await getQuotaRequestStatus();
     if (response.success && response.data) {
       pendingQuotaRequest.value = response.data.pendingRequest || null;
-      latestRejectedQuotaRequest.value = response.data.latestRejectedRequest || null;
       return;
     }
     throw new Error(response.message || "加载申请状态失败");
@@ -899,8 +884,8 @@ const handleSubmitQuotaRequest = async () => {
     ElMessage.warning("请至少申请一项计算额度");
     return;
   }
-  if (reason.length < 5) {
-    ElMessage.warning("请填写至少 5 个字符的申请原因");
+  if (reason.length < 2) {
+    ElMessage.warning("请填写至少 2 个字符的申请原因");
     return;
   }
 
@@ -914,7 +899,6 @@ const handleSubmitQuotaRequest = async () => {
       throw new Error(response.message || "额度申请提交失败");
     }
     pendingQuotaRequest.value = response.data.request;
-    latestRejectedQuotaRequest.value = null;
     quotaRequestDialogVisible.value = false;
     ElMessage.success("额度申请已提交，请等待管理员审批");
   } catch (error) {
@@ -1345,11 +1329,6 @@ onBeforeUnmount(() => {
 
 .quota-request-content.is-pending {
   min-height: 0;
-}
-
-.quota-request-result {
-  margin-bottom: 22px;
-  border-radius: 10px;
 }
 
 .quota-pending-card {
