@@ -285,12 +285,6 @@ export const getTaskQuota = async (): Promise<ApiResponse<QuotaData>> => {
   return response.data;
 };
 
-// 清理任务（管理员功能）
-export const cleanupTasks = async (retentionDays = 30): Promise<ApiResponse> => {
-  const response = await cloudApi.post<ApiResponse>("/api/tasks/cleanup", { retentionDays });
-  return response.data;
-};
-
 export const deleteTask = async (taskId: string): Promise<DeleteTaskResponse> => {
   const response = await cloudApi.post<DeleteTaskResponse>("/api/tasks/delete", { taskId });
   return response.data;

@@ -105,7 +105,6 @@
               :total="total"
               :disabled="loading"
               :hide-on-single-page="false"
-              background
               layout="total, sizes, prev, pager, next, jumper"
               @size-change="handlePageSizeChange"
               @current-change="handlePageChange"
