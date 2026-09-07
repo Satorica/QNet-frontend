@@ -174,6 +174,9 @@ export interface QuotaRequestSubmitData {
 }
 
 export interface UserInfo {
+  emailVerified?: boolean;
+  needsEmailBinding?: boolean;
+  hasPassword?: boolean;
   id: string;
   username: string;
   maskedEmail?: string | null;
@@ -202,6 +205,7 @@ export interface RegisterRequest {
 export interface ResetCodeData {
   resetToken: string;
   maskedEmail?: string;
+  isInitialSetup?: boolean;
 }
 
 interface TaskSubmitRequestBase {

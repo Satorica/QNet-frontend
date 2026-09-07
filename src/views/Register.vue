@@ -15,7 +15,6 @@
           <div class="logo-icon">Q</div>
           <h1 class="system-title">创建新账户</h1>
         </div>
-        <p class="subtitle">加入量子Ising求解系统</p>
       </div>
 
       <!-- 注册方式切换（手机号注册暂未启用） -->
@@ -237,7 +236,7 @@ import { useRouter } from "vue-router";
 import { ElMessage, type FormInstance } from "element-plus";
 import { authApi } from "../api/auth";
 import { EMAIL_REGEX } from "../utils/validation";
-import { getErrorMessage } from "../utils/error";
+import { getErrorCode, getErrorMessage } from "../utils/error";
 import type { RegisterRequest } from "../types/api";
 // import { notificationManager } from "../utils/auth"; // 手机号注册暂未启用
 
@@ -544,7 +543,7 @@ const handleRegister = async () => {
         const response = await authApi.register(registerData);
 
         if (response.success) {
-          ElMessage.success("注册成功！即将跳转到登录页面...");
+          ElMessage.success(response.message || "账号已准备就绪，即将跳转到登录页面");
 
           // 跳转到登录页
           setTimeout(() => {
@@ -554,6 +553,11 @@ const handleRegister = async () => {
           ElMessage.error(response.message || "注册失败");
         }
       } catch (error) {
+        if (getErrorCode(error) === "SCAN_LOGIN_REQUIRED") {
+          ElMessage.info(getErrorMessage(error, "小程序账号请扫码登录"));
+          goToQrLogin();
+          return;
+        }
         ElMessage.error(getErrorMessage(error, "注册失败，请检查网络连接"));
       } finally {
         loading.value = false;
@@ -568,6 +572,9 @@ const handleRegister = async () => {
 // 跳转到登录页面
 const goToLogin = () => {
   router.push("/login");
+};
+const goToQrLogin = () => {
+  router.push({ path: "/login", query: { mode: "qr" } });
 };
 </script>
 
@@ -688,12 +695,6 @@ const goToLogin = () => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: #8492a6;
-  margin: 0;
 }
 
 /* 注册方式切换 */

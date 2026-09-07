@@ -44,6 +44,7 @@ declare module 'vue' {
     ElTag: typeof import('element-plus/es')['ElTag']
     ElUpload: typeof import('element-plus/es')['ElUpload']
     MaxCutGraph: typeof import('./src/components/MaxCutGraph.vue')['default']
+    QrLoginPanel: typeof import('./src/components/QrLoginPanel.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Sidebar: typeof import('./src/components/Sidebar.vue')['default']

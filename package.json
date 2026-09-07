@@ -4,6 +4,7 @@
   "description": "量子Ising求解系统 Vue重构版",
   "type": "module",
   "scripts": {
+    "test": "node --test tests/*.test.js",
     "dev": "vite",
     "type-check": "vue-tsc --noEmit -p tsconfig.json",
     "build": "npm run type-check && vite build",

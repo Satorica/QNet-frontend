@@ -2,7 +2,7 @@ import axios from "axios";
 
 interface ApiErrorData {
   message?: string;
-  code?: number;
+  code?: string | number;
 }
 
 export const getErrorMessage = (
@@ -18,7 +18,7 @@ export const getErrorMessage = (
     : fallbackMessage;
 };
 
-export const getErrorCode = (error: unknown): number | undefined =>
+export const getErrorCode = (error: unknown): string | number | undefined =>
   axios.isAxiosError<ApiErrorData>(error)
     ? error.response?.data?.code
     : undefined;

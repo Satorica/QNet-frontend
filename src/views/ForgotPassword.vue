@@ -10,9 +10,8 @@
       <div class="forgot-password-header">
         <div class="logo-section">
           <div class="logo-icon">Q</div>
-          <h1 class="system-title">找回密码</h1>
+          <h1 class="system-title">{{ isInitialSetup ? "设置登录密码" : "找回密码" }}</h1>
         </div>
-        <p class="subtitle">安全验证后重置您的登录密码</p>
       </div>
 
       <el-steps
@@ -22,13 +21,13 @@
         class="step-bar"
       >
         <el-step title="身份核验" />
-        <el-step title="设置新密码" />
+        <el-step :title="isInitialSetup ? '设置登录密码' : '设置新密码'" />
         <el-step title="完成" />
       </el-steps>
 
       <div v-if="step === 'verify'" class="step-content">
         <el-alert
-          title="请输入邮箱和验证码完成身份核验；"
+          title="请输入绑定或注册邮箱和验证码完成身份核验"
           type="info"
           :closable="false"
           show-icon
@@ -45,7 +44,7 @@
           <el-form-item prop="email">
             <el-input
               v-model="verifyForm.email"
-              placeholder="请输入注册邮箱"
+              placeholder="请输入绑定或注册邮箱"
               size="large"
               clearable
             >
@@ -122,7 +121,7 @@
             <el-input
               v-model="resetForm.newPassword"
               type="password"
-              placeholder="请输入新密码"
+              :placeholder="isInitialSetup ? '请设置登录密码' : '请输入新密码'"
               size="large"
               show-password
               clearable
@@ -153,7 +152,7 @@
             <el-input
               v-model="resetForm.confirmPassword"
               type="password"
-              placeholder="请再次输入新密码"
+              :placeholder="isInitialSetup ? '请再次输入登录密码' : '请再次输入新密码'"
               size="large"
               show-password
               clearable
@@ -173,15 +172,11 @@
               :disabled="!canSubmitReset"
               @click="handleResetPassword"
             >
-              确认重置
+              {{ isInitialSetup ? "确认设置" : "确认重置" }}
             </el-button>
           </el-form-item>
 
-          <div class="secondary-link-row between">
-            <el-link type="primary" :underline="false" @click="backToVerify">
-              <el-icon class="link-icon"><ArrowLeft /></el-icon>
-              返回上一步
-            </el-link>
+          <div class="secondary-link-row">
             <el-link type="primary" :underline="false" @click="goToLogin">
               返回登录
             </el-link>
@@ -191,8 +186,8 @@
 
       <div v-else class="success-view">
         <el-icon class="success-icon"><CircleCheckFilled /></el-icon>
-        <p class="success-title">密码重置成功</p>
-        <p>请妥善保管新密码，并使用新密码重新登录。</p>
+        <p class="success-title">{{ isInitialSetup ? "登录密码设置成功" : "密码重置成功" }}</p>
+        <p>请妥善保管密码，并使用绑定邮箱和密码登录。</p>
         <el-button
           type="primary"
           size="large"
@@ -241,6 +236,7 @@ const resetLoading = ref(false);
 const sendCodeCountdown = ref(0);
 const resetToken = ref("");
 const maskedEmail = ref("");
+const isInitialSetup = ref(false);
 
 const verifyForm = reactive({
   email: "",
@@ -440,6 +436,7 @@ const handleVerify = async () => {
       if (response.success && response.data?.resetToken) {
         resetToken.value = response.data.resetToken;
         maskedEmail.value = response.data.maskedEmail || verifyForm.email;
+        isInitialSetup.value = Boolean(response.data.isInitialSetup);
         step.value = "reset";
         ElMessage.success("身份核验成功");
       } else {
@@ -448,6 +445,11 @@ const handleVerify = async () => {
         );
       }
     } catch (error) {
+      if (getErrorCode(error) === "SCAN_LOGIN_REQUIRED") {
+        ElMessage.info(getErrorMessage(error, "小程序账号请扫码登录"));
+        goToQrLogin();
+        return;
+      }
       ElMessage.error(
         getErrorMessage(error, "身份核验失败")
       );
@@ -461,6 +463,7 @@ const backToVerify = () => {
   step.value = "verify";
   resetToken.value = "";
   maskedEmail.value = "";
+  isInitialSetup.value = false;
   verifyForm.code = "";
   resetForm.newPassword = "";
   resetForm.confirmPassword = "";
@@ -491,13 +494,18 @@ const handleResetPassword = async () => {
       if (response.success) {
         step.value = "success";
         resetToken.value = "";
-        ElMessage.success("密码重置成功");
+        ElMessage.success(isInitialSetup.value ? "登录密码设置成功" : "密码重置成功");
       } else {
         ElMessage.error(
           response.message || "密码重置失败"
         );
       }
     } catch (error) {
+      if (getErrorCode(error) === "SCAN_LOGIN_REQUIRED") {
+        ElMessage.info(getErrorMessage(error, "小程序账号请扫码登录"));
+        goToQrLogin();
+        return;
+      }
       const message = getErrorMessage(
         error,
         "密码重置失败"
@@ -514,6 +522,9 @@ const handleResetPassword = async () => {
 
 const goToLogin = () => {
   router.push("/login");
+};
+const goToQrLogin = () => {
+  router.push({ path: "/login", query: { mode: "qr" } });
 };
 
 onBeforeUnmount(() => {
@@ -621,12 +632,6 @@ onBeforeUnmount(() => {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: #8492a6;
-  margin: 0;
 }
 
 .step-bar {
@@ -784,10 +789,6 @@ onBeforeUnmount(() => {
   margin-top: 12px;
 }
 
-.secondary-link-row.between {
-  justify-content: space-between;
-}
-
 .link-icon {
   margin-right: 4px;
 }
@@ -855,11 +856,6 @@ onBeforeUnmount(() => {
 
   .send-code-btn {
     width: 100%;
-  }
-
-  .secondary-link-row.between {
-    flex-direction: column;
-    gap: 12px;
   }
 
   .footer-info {

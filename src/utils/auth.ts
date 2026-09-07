@@ -5,7 +5,7 @@ import type { UserInfo } from '../types/api'
 
 export type SafeUserInfo = Pick<
     UserInfo,
-    'id' | 'username' | 'maskedEmail' | 'maskedPhone' | 'is_verified' | 'status'
+    'id' | 'username' | 'maskedEmail' | 'maskedPhone' | 'is_verified' | 'status' | 'emailVerified' | 'needsEmailBinding' | 'hasPassword'
 >
 
 const USER_INFO_STORAGE_KEY = 'userInfo'
@@ -44,6 +44,9 @@ const toSafeUserInfo = (userInfo: UserInfo): SafeUserInfo => ({
     maskedPhone: userInfo.maskedPhone,
     is_verified: userInfo.is_verified,
     status: userInfo.status,
+    emailVerified: userInfo.emailVerified,
+    needsEmailBinding: userInfo.needsEmailBinding,
+    hasPassword: userInfo.hasPassword,
 })
 
 const removeAuthState = (storage: Storage): void => {
