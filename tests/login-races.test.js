@@ -61,6 +61,7 @@ function loginFixture(mode = 'password') {
     '../utils/auth': { userManager: { setUserInfo: user => saved.push(user) } },
     '../utils/error': { getErrorMessage: (_error, fallback) => fallback },
     '../components/QrLoginPanel.vue': {},
+    '../components/LoginBackground.vue': {},
   }).state;
   login.loginFormRef.value = { validate: () => validation.promise };
   return { login, validation, passwordResponse, calls, saved, navigation, canLeave: () => leave() };
