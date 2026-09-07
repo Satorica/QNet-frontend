@@ -1,32 +1,62 @@
 <template>
   <div class="history-page">
-    <el-card class="history-card" shadow="never">
-      <div class="history-workspace">
-        <section class="history-main">
-          <header class="history-header">
-            <div>
-              <h2>我的反馈</h2>
-              <p>查看已经提交的内容和当前处理状态。</p>
-            </div>
-            <div class="history-header-actions">
-              <span v-if="loaded" class="history-total">共 {{ total }} 条</span>
-              <el-button class="new-feedback-button" type="primary" @click="goToFeedback">
-                <el-icon><EditPen /></el-icon>
-                提交新反馈
+    <el-card class="history-card">
+      <template #header>
+        <div class="history-header">
+          <h3>我的反馈</h3>
+          <el-button class="new-feedback-button" type="primary" @click="goToFeedback">
+            <el-icon><EditPen /></el-icon>
+            提交新反馈
+          </el-button>
+        </div>
+      </template>
+
+      <div v-if="loadError && !loading" class="load-error" role="alert">
+        <el-icon><Warning /></el-icon>
+        <p>{{ loadError }}</p>
+        <el-button type="primary" plain @click="loadFeedbacks">重新加载</el-button>
+      </div>
+
+      <div v-else>
+        <el-table
+          v-loading="loading"
+          class="feedback-table"
+          :data="feedbacks"
+          row-key="id"
+          table-layout="fixed"
+          stripe
+          size="large"
+        >
+          <el-table-column label="反馈类型" prop="category" min-width="120">
+            <template #default="{ row }">{{ getCategoryLabel(row.category) }}</template>
+          </el-table-column>
+          <el-table-column label="反馈内容" prop="content" min-width="280" show-overflow-tooltip />
+          <el-table-column label="状态" prop="status" min-width="110">
+            <template #default="{ row }">
+              <el-tag class="status-tag" :type="getStatusType(row.status)" effect="light" size="small">
+                {{ getStatusLabel(row.status) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="管理员回复" min-width="240" show-overflow-tooltip>
+            <template #default="{ row }">
+              <span :class="{ 'reply-placeholder': !row.adminReply }">
+                {{ row.adminReply || '暂无回复' }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="提交时间" prop="createdAt" min-width="170">
+            <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="110" align="center">
+            <template #default="{ row }">
+              <el-button type="primary" size="small" @click.stop="openFeedbackDetail(row)">
+                查看
               </el-button>
-            </div>
-          </header>
-
-          <div class="history-divider"></div>
-
-          <div v-loading="loading" class="history-content">
-            <div v-if="loadError && !loading" class="load-error" role="alert">
-              <el-icon><Warning /></el-icon>
-              <p>{{ loadError }}</p>
-              <el-button type="primary" plain @click="loadFeedbacks">重新加载</el-button>
-            </div>
-
-            <div v-else-if="loaded && !feedbacks.length" class="history-empty">
+            </template>
+          </el-table-column>
+          <template #empty>
+            <div class="history-empty">
               <div class="empty-icon">
                 <el-icon><ChatDotRound /></el-icon>
               </div>
@@ -34,48 +64,22 @@
               <p>遇到问题或有改进建议，提交后可在这里持续查看处理状态。</p>
               <el-button type="primary" @click="goToFeedback">提交反馈</el-button>
             </div>
+          </template>
+        </el-table>
 
-            <div v-else class="feedback-list">
-              <article v-for="item in feedbacks" :key="item.id" class="feedback-item">
-                <div class="feedback-summary">
-                  <div class="feedback-summary-main">
-                    <div class="feedback-meta">
-                      <span class="category-label">{{ getCategoryLabel(item.category) }}</span>
-                      <span class="feedback-time">{{ formatDate(item.createdAt) }}</span>
-                    </div>
-                    <p class="feedback-preview">{{ buildPreview(item.content) }}</p>
-                  </div>
-                  <div class="feedback-summary-state">
-                    <el-tag class="status-tag" :type="getStatusType(item.status)" effect="light" round>
-                      {{ getStatusLabel(item.status) }}
-                    </el-tag>
-                    <button
-                      class="detail-action"
-                      type="button"
-                      :aria-label="`查看${getCategoryLabel(item.category)}反馈详情`"
-                      @click="openFeedbackDetail(item)"
-                    >
-                      查看详情
-                      <el-icon><ArrowRight /></el-icon>
-                    </button>
-                  </div>
-                </div>
-              </article>
-            </div>
-          </div>
-
-          <div v-if="total > pageSize" class="pagination-container">
-            <el-pagination
-              :current-page="page"
-              :page-size="pageSize"
-              :total="total"
-              :disabled="loading"
-              layout="total, prev, pager, next"
-              @current-change="handlePageChange"
-            />
-          </div>
-        </section>
-
+        <div class="pagination-container">
+          <el-pagination
+            :current-page="page"
+            :page-size="pageSize"
+            :page-sizes="[10, 20, 30]"
+            :total="total"
+            :disabled="loading"
+            :hide-on-single-page="false"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handlePageSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
       </div>
     </el-card>
 
@@ -157,7 +161,6 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
-  ArrowRight,
   ChatDotRound,
   EditPen,
   Service,
@@ -171,10 +174,9 @@ import type { FeedbackCategory, FeedbackHistoryItem } from "../types/api";
 const router = useRouter();
 const feedbacks = ref<FeedbackHistoryItem[]>([]);
 const loading = ref(false);
-const loaded = ref(false);
 const loadError = ref("");
 const page = ref(1);
-const pageSize = 10;
+const pageSize = ref(10);
 const total = ref(0);
 const detailDialogVisible = ref(false);
 const selectedFeedback = ref<FeedbackHistoryItem | null>(null);
@@ -218,30 +220,25 @@ const formatDate = (value?: string | null) => {
   }).format(date).replaceAll("/", "-");
 };
 
-const buildPreview = (content: string) => {
-  const normalized = content.replace(/\s+/g, " ").trim();
-  return normalized.length > 72 ? `${normalized.slice(0, 72)}...` : normalized;
-};
-
 const loadFeedbacks = async () => {
   const requestId = ++historyRequestId;
   loading.value = true;
   loadError.value = "";
   try {
-    const response = await getFeedbackHistory({ page: page.value, pageSize });
+    const response = await getFeedbackHistory({ page: page.value, pageSize: pageSize.value });
     if (requestId !== historyRequestId) return;
     const data = response.data;
     if (!data) throw new Error(response.message || "反馈记录响应缺少数据");
     feedbacks.value = data.feedbacks;
     total.value = data.total;
+    page.value = data.page;
+    pageSize.value = data.pageSize;
     detailDialogVisible.value = false;
     selectedFeedback.value = null;
-    loaded.value = true;
   } catch (error) {
     if (requestId !== historyRequestId) return;
     feedbacks.value = [];
     total.value = 0;
-    loaded.value = true;
     loadError.value = error instanceof Error && error.message
       ? error.message
       : "获取反馈历史失败，请稍后重试";
@@ -264,6 +261,12 @@ const handlePageChange = (nextPage: number) => {
   loadFeedbacks();
 };
 
+const handlePageSizeChange = (nextPageSize: number) => {
+  pageSize.value = nextPageSize;
+  page.value = 1;
+  loadFeedbacks();
+};
+
 const goToFeedback = () => router.push("/feedback");
 
 onMounted(loadFeedbacks);
@@ -277,78 +280,35 @@ onMounted(loadFeedbacks);
 }
 
 .history-card {
-  width: 100%;
-  min-height: 100%;
-  box-sizing: border-box;
-  margin: 0 auto;
-  border: 1px solid #e6eaf0;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  background: #ffffff;
+  border: 1px solid #e6eaf5;
+  border-radius: 20px;
+  box-shadow: 0 10px 20px rgba(9, 30, 66, 0.04);
 }
 
-.history-card :deep(.el-card__body) {
-  min-height: 100%;
-  box-sizing: border-box;
-  padding: 0;
-}
-
-.history-workspace {
-  min-height: 100%;
-}
-
-.history-main {
-  max-width: 1120px;
-  min-width: 0;
-  margin: 0;
-  padding: 28px 32px 32px;
-}
-
-.history-header,
-.history-header-actions {
+.history-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
+  gap: 16px;
 }
 
-.history-header h2 {
+.history-header h3 {
   margin: 0;
-  color: #20232d;
-  font-size: 20px;
-  line-height: 1.35;
+  color: #292929;
+  font-weight: 600;
 }
 
-.history-header p {
-  margin: 6px 0 0;
-  color: #8c8fa3;
-  font-size: 13px;
-  line-height: 1.6;
+.new-feedback-button .el-icon {
+  margin-right: 4px;
 }
 
-.history-divider {
-  height: 1px;
-  margin-top: 20px;
-  background: #edf0f4;
+.feedback-table {
+  width: 100%;
 }
 
-.history-total {
-  padding: 4px 9px;
-  border-radius: 999px;
-  background: #f3f5f8;
-  color: #8c8fa3;
-  font-size: 12px;
-}
-
-.new-feedback-button {
-  height: 32px;
-  padding: 0 14px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-
-.history-content {
-  min-height: 340px;
-  padding-top: 20px;
+.reply-placeholder {
+  color: #a1a8b4;
 }
 
 .history-empty {
@@ -358,9 +318,6 @@ onMounted(loadFeedbacks);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 1px solid #edf0f4;
-  border-radius: 10px;
-  background: #fbfcfe;
   text-align: center;
 }
 
@@ -399,115 +356,9 @@ onMounted(loadFeedbacks);
   font-weight: 600;
 }
 
-.feedback-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.feedback-item {
-  overflow: hidden;
-  border: 1px solid #e4e9f0;
-  border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.025);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
-}
-
-.feedback-item:hover {
-  border-color: #bfd5ec;
-  box-shadow: 0 5px 16px rgba(51, 126, 204, 0.06);
-}
-
-.feedback-summary {
-  display: flex;
-  width: 100%;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 18px 20px;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-
-.feedback-summary-main {
-  min-width: 0;
-  flex: 1;
-}
-
-.feedback-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.category-label {
-  padding: 3px 8px;
-  border-radius: 5px;
-  background: #edf6ff;
-  color: #337ecc;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.feedback-time {
-  color: #a0a5b4;
-  font-size: 12px;
-}
-
-.feedback-preview {
-  overflow: hidden;
-  margin: 10px 0 0;
-  color: #3f4654;
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.65;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.feedback-summary-state {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: 14px;
-}
-
 .status-tag {
   animation: none !important;
   transition: none !important;
-}
-
-.detail-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 2px;
-  border: 0;
-  background: transparent;
-  color: #337ecc;
-  cursor: pointer;
-  font: inherit;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.detail-action:focus-visible {
-  border-radius: 4px;
-  outline: 2px solid #4050f8;
-  outline-offset: 2px;
-}
-
-.detail-action .el-icon {
-  transition: transform 0.18s ease;
-}
-
-.detail-action:hover .el-icon {
-  transform: translateX(2px);
 }
 
 :global(.feedback-detail-dialog) {
@@ -768,38 +619,20 @@ onMounted(loadFeedbacks);
 
 .pagination-container {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 24px;
-  padding-top: 18px;
-  border-top: 1px solid #eef0f5;
+  justify-content: center;
+  min-height: 72px;
+  box-sizing: border-box;
+  padding: 20px 0;
+}
+
+@media (max-width: 920px) {
+  .pagination-container {
+    overflow-x: auto;
+    justify-content: flex-start;
+  }
 }
 
 @media (max-width: 820px) {
-  .history-header {
-    align-items: flex-start;
-  }
-
-  .history-header-actions {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-  }
-
-  .feedback-summary {
-    align-items: flex-start;
-    gap: 16px;
-  }
-
-  .feedback-summary-state {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 8px;
-  }
-
-  .history-main {
-    padding: 24px 20px 28px;
-  }
-
   :global(.feedback-detail-dialog) {
     width: calc(100vw - 32px) !important;
     max-height: calc(100vh - 32px);
