@@ -5,7 +5,7 @@ import type { UserInfo } from '../types/api'
 
 export type SafeUserInfo = Pick<
     UserInfo,
-    'id' | 'username' | 'nickname' | 'maskedEmail' | 'maskedPhone' | 'is_verified' | 'status' | 'emailVerified' | 'needsEmailBinding' | 'hasPassword'
+    'id' | 'nickname' | 'maskedEmail' | 'maskedPhone' | 'is_verified' | 'status' | 'emailVerified' | 'needsEmailBinding' | 'hasPassword'
 >
 
 const USER_INFO_STORAGE_KEY = 'userInfo'
@@ -39,7 +39,6 @@ export const serverSessionManager = {
 
 const toSafeUserInfo = (userInfo: UserInfo): SafeUserInfo => ({
     id: userInfo.id,
-    username: userInfo.username,
     nickname: userInfo.nickname,
     maskedEmail: userInfo.maskedEmail,
     maskedPhone: userInfo.maskedPhone,

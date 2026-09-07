@@ -178,7 +178,6 @@ export interface UserInfo {
   needsEmailBinding?: boolean;
   hasPassword?: boolean;
   id: string;
-  username: string;
   nickname?: string;
   maskedEmail?: string | null;
   maskedPhone?: string | null;

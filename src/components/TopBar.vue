@@ -92,7 +92,7 @@ const { setCustomTaskName, customTaskName, clearCustomTaskName } =
 
 // 获取用户信息和登录状态
 const userInfo = computed(() => userManager.getUserInfo());
-const displayName = computed(() => userInfo.value?.nickname?.trim() || userInfo.value?.username || '未登录');
+const displayName = computed(() => userInfo.value?.nickname?.trim() || userInfo.value?.id || '未登录');
 const isLoggedIn = computed(() => userManager.isLoggedIn());
 
 const updateClock = () => {
