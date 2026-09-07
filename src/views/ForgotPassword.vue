@@ -1,206 +1,213 @@
 <template>
-  <div class="forgot-password-container">
-    <div class="background-decoration">
-      <div class="circle circle-1"></div>
-      <div class="circle circle-2"></div>
-      <div class="circle circle-3"></div>
-    </div>
+  <div class="auth-page">
+    <div class="forgot-password-container auth-container">
+      <LoginBackground />
 
-    <el-card class="forgot-password-card">
-      <div class="forgot-password-header">
-        <div class="logo-section">
-          <div class="logo-icon">Q</div>
-          <h1 class="system-title">{{ isInitialSetup ? "设置登录密码" : "找回密码" }}</h1>
+      <el-card class="forgot-password-card auth-card">
+        <div class="forgot-password-header auth-header">
+          <p class="brand-eyebrow">QUANTUM COMPUTING</p>
+          <div class="logo-section">
+            <img class="logo-icon" :src="brandLogo" alt="量子Ising" width="44" height="44" />
+            <h1 class="system-title">{{ isInitialSetup ? "设置登录密码" : "找回密码" }}</h1>
+          </div>
         </div>
-      </div>
 
-      <el-steps
-        :active="activeStepIndex"
-        finish-status="success"
-        align-center
-        class="step-bar"
-      >
-        <el-step title="身份核验" />
-        <el-step :title="isInitialSetup ? '设置登录密码' : '设置新密码'" />
-        <el-step title="完成" />
-      </el-steps>
-
-      <div v-if="step === 'verify'" class="step-content">
-        <el-alert
-          title="请输入绑定或注册邮箱和验证码完成身份核验"
-          type="info"
-          :closable="false"
-          show-icon
-          class="info-alert"
-        />
-
-        <el-form
-          ref="verifyFormRef"
-          :model="verifyForm"
-          :rules="verifyRules"
-          class="forgot-password-form"
-          @submit.prevent="handleVerify"
+        <el-steps
+          :active="activeStepIndex"
+          finish-status="success"
+          align-center
+          class="step-bar"
         >
-          <el-form-item prop="email">
-            <el-input
-              v-model="verifyForm.email"
-              placeholder="请输入绑定或注册邮箱"
-              size="large"
-              clearable
-            >
-              <template #prefix>
-                <el-icon><Message /></el-icon>
-              </template>
-            </el-input>
-          </el-form-item>
+          <el-step title="身份核验" />
+          <el-step :title="isInitialSetup ? '设置登录密码' : '设置新密码'" />
+          <el-step title="完成" />
+        </el-steps>
 
-          <el-form-item prop="code">
-            <div class="code-input-wrapper">
+        <div v-if="step === 'verify'" class="step-content">
+          <el-alert
+            title="请输入绑定或注册邮箱和验证码完成身份核验"
+            type="info"
+            :closable="false"
+            show-icon
+            class="info-alert"
+          />
+
+          <el-form
+            ref="verifyFormRef"
+            :model="verifyForm"
+            :rules="verifyRules"
+            class="forgot-password-form auth-form"
+            @submit.prevent="handleVerify"
+          >
+            <el-form-item prop="email">
+              <label class="field-label" for="forgot-password-email">邮箱</label>
               <el-input
-                v-model="verifyForm.code"
-                placeholder="请输入6位验证码"
+                id="forgot-password-email"
+                v-model="verifyForm.email"
+                placeholder="请输入绑定或注册邮箱"
                 size="large"
-                maxlength="6"
                 clearable
               >
                 <template #prefix>
-                  <el-icon><Key /></el-icon>
+                  <el-icon><Message /></el-icon>
                 </template>
               </el-input>
+            </el-form-item>
+
+            <el-form-item prop="code">
+              <label class="field-label" for="forgot-password-code">邮箱验证码</label>
+              <div class="code-input-wrapper">
+                <el-input
+                  id="forgot-password-code"
+                  v-model="verifyForm.code"
+                  placeholder="请输入6位验证码"
+                  size="large"
+                  maxlength="6"
+                  clearable
+                >
+                  <template #prefix>
+                    <el-icon><Key /></el-icon>
+                  </template>
+                </el-input>
+                <el-button
+                  type="primary"
+                  size="large"
+                  class="send-code-btn"
+                  :loading="sendCodeLoading"
+                  :disabled="sendCodeDisabled"
+                  @click="sendResetCode"
+                >
+                  {{ sendCodeText }}
+                </el-button>
+              </div>
+            </el-form-item>
+
+            <el-form-item>
               <el-button
                 type="primary"
                 size="large"
-                class="send-code-btn"
-                :loading="sendCodeLoading"
-                :disabled="sendCodeDisabled"
-                @click="sendResetCode"
+                class="primary-button auth-button"
+                :loading="verifyLoading"
+                @click="handleVerify"
               >
-                {{ sendCodeText }}
+                下一步
               </el-button>
+            </el-form-item>
+
+            <div class="secondary-link-row auth-link-row">
+              <el-link type="primary" :underline="false" @click="goToLogin">
+                <el-icon class="link-icon"><ArrowLeft /></el-icon>
+                返回登录
+              </el-link>
             </div>
-          </el-form-item>
+          </el-form>
+        </div>
 
-          <el-form-item>
-            <el-button
-              type="primary"
-              size="large"
-              class="primary-button"
-              :loading="verifyLoading"
-              @click="handleVerify"
-            >
-              下一步
-            </el-button>
-          </el-form-item>
+        <div v-else-if="step === 'reset'" class="step-content">
+          <el-alert
+            :title="'已验证账号：' + (maskedEmail || verifyForm.email)"
+            type="success"
+            :closable="false"
+            show-icon
+            class="info-alert"
+          />
 
-          <div class="secondary-link-row">
-            <el-link type="primary" :underline="false" @click="goToLogin">
-              <el-icon class="link-icon"><ArrowLeft /></el-icon>
-              返回登录
-            </el-link>
-          </div>
-        </el-form>
-      </div>
+          <el-form
+            ref="resetFormRef"
+            :model="resetForm"
+            :rules="resetRules"
+            class="forgot-password-form auth-form"
+            @submit.prevent="handleResetPassword"
+          >
+            <el-form-item prop="newPassword">
+              <label class="field-label" for="forgot-password-newPassword">新密码</label>
+              <el-input
+                id="forgot-password-newPassword"
+                v-model="resetForm.newPassword"
+                type="password"
+                :placeholder="isInitialSetup ? '请设置登录密码' : '请输入新密码'"
+                size="large"
+                show-password
+                clearable
+              >
+                <template #prefix>
+                  <el-icon><Lock /></el-icon>
+                </template>
+              </el-input>
+            </el-form-item>
 
-      <div v-else-if="step === 'reset'" class="step-content">
-        <el-alert
-          :title="'已验证账号：' + (maskedEmail || verifyForm.email)"
-          type="success"
-          :closable="false"
-          show-icon
-          class="info-alert"
-        />
-
-        <el-form
-          ref="resetFormRef"
-          :model="resetForm"
-          :rules="resetRules"
-          class="forgot-password-form"
-          @submit.prevent="handleResetPassword"
-        >
-          <el-form-item prop="newPassword">
-            <el-input
-              v-model="resetForm.newPassword"
-              type="password"
-              :placeholder="isInitialSetup ? '请设置登录密码' : '请输入新密码'"
-              size="large"
-              show-password
-              clearable
-            >
-              <template #prefix>
-                <el-icon><Lock /></el-icon>
-              </template>
-            </el-input>
-          </el-form-item>
-
-          <div class="password-strength-panel">
-            <div class="strength-header">
-              <span>密码强度</span>
-              <span :style="{ color: passwordStrength.color }">
-                {{ passwordStrength.text }}
-              </span>
+            <div class="password-strength-panel">
+              <div class="strength-header">
+                <span>密码强度</span>
+                <span :style="{ color: passwordStrength.color }">
+                  {{ passwordStrength.text }}
+                </span>
+              </div>
+              <el-progress
+                :percentage="passwordStrength.percentage"
+                :show-text="false"
+                :stroke-width="8"
+                :color="passwordStrength.color"
+              />
+              <p class="strength-tip">密码需为8-16位，且必须包含字母和数字。</p>
             </div>
-            <el-progress
-              :percentage="passwordStrength.percentage"
-              :show-text="false"
-              :stroke-width="8"
-              :color="passwordStrength.color"
-            />
-            <p class="strength-tip">密码需为8-16位，且必须包含字母和数字。</p>
-          </div>
 
-          <el-form-item prop="confirmPassword">
-            <el-input
-              v-model="resetForm.confirmPassword"
-              type="password"
-              :placeholder="isInitialSetup ? '请再次输入登录密码' : '请再次输入新密码'"
-              size="large"
-              show-password
-              clearable
-            >
-              <template #prefix>
-                <el-icon><Lock /></el-icon>
-              </template>
-            </el-input>
-          </el-form-item>
+            <el-form-item prop="confirmPassword">
+              <label class="field-label" for="forgot-password-confirmPassword">确认密码</label>
+              <el-input
+                id="forgot-password-confirmPassword"
+                v-model="resetForm.confirmPassword"
+                type="password"
+                :placeholder="isInitialSetup ? '请再次输入登录密码' : '请再次输入新密码'"
+                size="large"
+                show-password
+                clearable
+              >
+                <template #prefix>
+                  <el-icon><Lock /></el-icon>
+                </template>
+              </el-input>
+            </el-form-item>
 
-          <el-form-item>
-            <el-button
-              type="primary"
-              size="large"
-              class="primary-button"
-              :loading="resetLoading"
-              :disabled="!canSubmitReset"
-              @click="handleResetPassword"
-            >
-              {{ isInitialSetup ? "确认设置" : "确认重置" }}
-            </el-button>
-          </el-form-item>
+            <el-form-item>
+              <el-button
+                type="primary"
+                size="large"
+                class="primary-button auth-button"
+                :loading="resetLoading"
+                :disabled="!canSubmitReset"
+                @click="handleResetPassword"
+              >
+                {{ isInitialSetup ? "确认设置" : "确认重置" }}
+              </el-button>
+            </el-form-item>
 
-          <div class="secondary-link-row">
-            <el-link type="primary" :underline="false" @click="goToLogin">
-              返回登录
-            </el-link>
-          </div>
-        </el-form>
+            <div class="secondary-link-row auth-link-row">
+              <el-link type="primary" :underline="false" @click="goToLogin">
+                返回登录
+              </el-link>
+            </div>
+          </el-form>
+        </div>
+
+        <div v-else class="success-view">
+          <el-icon class="success-icon"><CircleCheckFilled /></el-icon>
+          <p class="success-title">{{ isInitialSetup ? "登录密码设置成功" : "密码重置成功" }}</p>
+          <p>请妥善保管密码，并使用绑定邮箱和密码登录。</p>
+          <el-button
+            type="primary"
+            size="large"
+            class="primary-button auth-button"
+            @click="goToLogin"
+          >
+            立即登录
+          </el-button>
+        </div>
+      </el-card>
+
+      <div class="footer-info">
+        <p>© {{ new Date().getFullYear() }} 量子Ising求解系统 | 现代化量子优化平台</p>
       </div>
-
-      <div v-else class="success-view">
-        <el-icon class="success-icon"><CircleCheckFilled /></el-icon>
-        <p class="success-title">{{ isInitialSetup ? "登录密码设置成功" : "密码重置成功" }}</p>
-        <p>请妥善保管密码，并使用绑定邮箱和密码登录。</p>
-        <el-button
-          type="primary"
-          size="large"
-          class="primary-button"
-          @click="goToLogin"
-        >
-          立即登录
-        </el-button>
-      </div>
-    </el-card>
-
-    <div class="footer-info">
-      <p>© {{ new Date().getFullYear() }} 量子Ising求解系统 | 现代化量子优化平台</p>
     </div>
   </div>
 </template>
@@ -216,6 +223,8 @@ import {
   Lock,
   Message,
 } from "@element-plus/icons-vue";
+import LoginBackground from "../components/LoginBackground.vue";
+import brandLogo from "../assets/brand-logo.svg";
 import { authApi } from "../api/auth";
 import { getErrorCode, getErrorMessage } from "../utils/error";
 import { EMAIL_REGEX } from "../utils/validation";
@@ -532,335 +541,27 @@ onBeforeUnmount(() => {
 });
 </script>
 
+<style scoped src="../styles/auth.css"></style>
+
 <style scoped>
-.forgot-password-container {
-  position: relative;
-  width: 100%;
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 24px 0;
-  box-sizing: border-box;
-}
-
-.background-decoration {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  opacity: 0.1;
-}
-
-.circle {
-  position: absolute;
-  border-radius: 50%;
-  background: white;
-}
-
-.circle-1 {
-  width: 300px;
-  height: 300px;
-  top: -100px;
-  left: -100px;
-}
-
-.circle-2 {
-  width: 500px;
-  height: 500px;
-  bottom: -150px;
-  right: -150px;
-}
-
-.circle-3 {
-  width: 200px;
-  height: 200px;
-  top: 50%;
-  right: 10%;
-}
-
-.forgot-password-card {
-  position: relative;
-  z-index: 10;
-  width: 520px;
-  max-width: calc(100vw - 32px);
-  padding: 44px 40px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
-}
-
-.forgot-password-card :deep(.el-card__body) {
-  padding: 0;
-}
-
-.forgot-password-header {
-  text-align: center;
-  margin-bottom: 28px;
-}
-
-.logo-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 15px;
-  margin-bottom: 10px;
-}
-
-.logo-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  font-size: 28px;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-}
-
-.system-title {
-  font-size: 28px;
-  font-weight: 600;
-  color: #2c3e50;
-  margin: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.step-bar {
-  padding: 0 8px;
-}
-
-.step-bar :deep(.el-step__head.is-process) {
-  color: #667eea;
-  border-color: #667eea;
-}
-
-.step-bar :deep(.el-step__title.is-process) {
-  color: #667eea;
-  font-weight: 600;
-}
-
-.step-bar :deep(.el-step__description.is-process) {
-  color: #8492a6;
-}
-
-.step-bar :deep(.el-step__head.is-success) {
-  color: #67c23a;
-  border-color: #67c23a;
-}
-
-.step-bar :deep(.el-step__title.is-success) {
-  color: #67c23a;
-  font-weight: 600;
-}
-
-.step-bar :deep(.el-step.is-center .el-step__line) {
-  left: calc(50% + 22px);
-  right: calc(-50% + 22px);
-  height: 2px;
-  background-color: #e4e7ed;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.step-bar :deep(.el-step__line-inner) {
-  border-width: 2px !important;
-  border-color: #e4e7ed !important;
-  border-radius: 999px;
-  opacity: 0;
-}
-
-.step-bar :deep(.el-step__head.is-success + .el-step__main .el-step__title) {
-  color: #67c23a;
-}
-
-.step-bar :deep(.el-step__icon) {
-  background: #ffffff;
-  transition: all 0.3s ease;
-}
-
-.step-bar :deep(.el-step__head.is-process .el-step__icon) {
-  background: rgba(102, 126, 234, 0.12);
-  box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.08);
-}
-
-.step-bar :deep(.el-step__head.is-success .el-step__icon) {
-  background: rgba(103, 194, 58, 0.12);
-}
-
-.step-content {
-  margin-top: 28px;
-}
-
-.info-alert {
-  margin-bottom: 24px;
-  border-radius: 12px;
-}
-
-.forgot-password-form :deep(.el-input__wrapper) {
-  border-radius: 10px;
-  padding: 12px 15px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.forgot-password-form :deep(.el-input__inner) {
-  font-size: 15px;
-}
-
-.code-input-wrapper {
-  display: flex;
-  gap: 10px;
-  width: 100%;
-}
-
-.code-input-wrapper .el-input {
-  flex: 1;
-}
-
-.send-code-btn,
-.primary-button {
-  border-radius: 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  overflow: hidden;
-}
-
-.send-code-btn {
-  width: 140px;
-  white-space: nowrap;
-}
-
-.send-code-btn:disabled,
-.send-code-btn.is-disabled,
-.send-code-btn.is-disabled:hover {
-  background: #c0c4cc !important;
-  border-color: #c0c4cc !important;
-  color: #ffffff !important;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.primary-button {
-  width: 100%;
-  height: 50px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.password-strength-panel {
-  margin: -6px 0 18px;
-  width: calc(100% - 28px);
-  max-width: 100%;
-  margin-left: auto;
-  margin-right: auto;
-  padding: 10px 12px;
-  background: #f7f8fc;
-  border-radius: 12px;
-}
-
-.strength-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: #606266;
-}
-
-.strength-tip {
-  margin: 8px 0 0;
-  font-size: 12px;
-  color: #909399;
-}
-
-.secondary-link-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.link-icon {
-  margin-right: 4px;
-}
-
-.success-view {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 20px 0 8px;
-}
-
-.success-icon {
-  font-size: 72px;
-  color: #67c23a;
-  margin-bottom: 20px;
-}
-
-.success-title {
-  font-size: 22px;
-  font-weight: 500;
-}
-
-.success-view h2 {
-  margin: 0 0 10px;
-  color: #303133;
-  font-size: 28px;
-}
-
-.success-view p {
-  margin: 0 0 12px;
-  color: #606266;
-}
-
-.footer-info {
-  position: absolute;
-  bottom: 30px;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 13px;
-}
-
-.footer-info p {
-  margin: 0;
-}
-
-@media (max-width: 768px) {
-  .forgot-password-container {
-    justify-content: flex-start;
-    padding: 24px 16px 72px;
-  }
-
-  .forgot-password-card {
-    width: 100%;
-    padding: 36px 24px;
-  }
-
-  .system-title {
-    font-size: 24px;
-  }
-
-  .code-input-wrapper {
-    flex-direction: column;
-  }
-
-  .send-code-btn {
-    width: 100%;
-  }
-
-  .footer-info {
-    position: static;
-    margin-top: 24px;
-  }
-}
+.step-bar { padding: 0 4px; }
+.step-bar :deep(.el-step__head.is-process),
+.step-bar :deep(.el-step__title.is-process) { color: #087eaa; border-color: #087eaa; }
+.step-bar :deep(.el-step__title) { font-size: 13px; }
+.step-bar :deep(.el-step__head.is-wait),
+.step-bar :deep(.el-step__title.is-wait) { color: #7893a3; border-color: #a8c0ce; }
+.step-bar :deep(.el-step__icon) { background: #f7fcfe; }
+.step-bar :deep(.el-step__head.is-process .el-step__icon) { background: #e0edf2; box-shadow: 0 0 0 5px #087eaa12; }
+.step-bar :deep(.el-step__line) { background: #cddfe6; }
+.step-content { margin-top: 28px; }
+.info-alert { margin-bottom: 24px; border-radius: 10px; }
+.info-alert.el-alert--info { background: #e0edf2; color: #405e70; }
+.password-strength-panel { box-sizing: border-box; margin: -6px 0 18px; width: 100%; padding: 10px 12px; background: #e0edf2; border-radius: 10px; }
+.strength-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; color: #405e70; }
+.strength-tip { margin: 8px 0 0; font-size: 12px; color: #587384; }
+.link-icon { margin-right: 4px; }
+.success-view { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 28px 0 8px; }
+.success-icon { font-size: 64px; color: var(--el-color-success); margin-bottom: 20px; }
+.success-view p { margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #587384; }
+.success-view .success-title { font-size: 22px; font-weight: 500; color: #173c50; }
 </style>

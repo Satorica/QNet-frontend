@@ -24,11 +24,9 @@
       <!-- 用户信息和菜单 -->
       <el-dropdown v-if="isLoggedIn" @command="handleCommand" trigger="click">
         <div class="user-info">
-          <div class="avatar">
-            {{ userInfo?.username?.charAt(0).toUpperCase() || "U" }}
-          </div>
+          <img class="avatar" :src="defaultAvatar" alt="用户头像" width="36" height="36" />
           <span class="username">{{
-            userInfo?.username || '未登录'
+            displayName
           }}</span>
         </div>
         <template #dropdown>
@@ -36,8 +34,8 @@
             <el-dropdown-item disabled>
               <div class="user-details">
                 <div>
-                  <strong>用户名:</strong>
-                  {{ userInfo?.username }}
+                  <strong>昵称:</strong>
+                  {{ displayName }}
                 </div>
                 <div v-if="userInfo?.maskedEmail">
                   <strong>邮箱:</strong>
@@ -76,6 +74,7 @@ import { SwitchButton } from "@element-plus/icons-vue";
 import { userManager } from "../utils/auth";
 import { checkTaskName } from "../api";
 import { useCustomTaskName } from "../stores/customTaskName";
+import defaultAvatar from "../assets/default-avatar.png";
 
 const router = useRouter();
 const route = useRoute();
@@ -93,6 +92,7 @@ const { setCustomTaskName, customTaskName, clearCustomTaskName } =
 
 // 获取用户信息和登录状态
 const userInfo = computed(() => userManager.getUserInfo());
+const displayName = computed(() => userInfo.value?.nickname?.trim() || userInfo.value?.username || '未登录');
 const isLoggedIn = computed(() => userManager.isLoggedIn());
 
 const updateClock = () => {
@@ -284,13 +284,9 @@ onUnmounted(() => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #4050f8, #7848e8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 600;
-  font-size: 14px;
+  background: #e3f2fd;
+  display: block;
+  object-fit: cover;
   flex-shrink: 0;
 }
 

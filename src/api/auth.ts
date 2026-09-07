@@ -9,10 +9,10 @@ import type {
 // 用户认证相关API
 // Token 由 HttpOnly Cookie 承载，所有接口不再手动传递 Authorization header
 export const authApi = {
-  // 用户登录（remember 传给后端，决定 Cookie 是否持久化）
-  login: async (account: string, password: string, remember = false) => {
+  // 邮箱密码登录（remember 传给后端，决定 Cookie 是否持久化）
+  login: async (email: string, password: string, remember = false) => {
     const response = await cloudApi.post<ApiResponse<AuthUserData>>("/auth/login", {
-      account,
+      account: email.trim().toLowerCase(),
       password,
       remember,
     });

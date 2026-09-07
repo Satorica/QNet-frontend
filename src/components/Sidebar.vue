@@ -3,9 +3,9 @@
     <div class="sidebar-top">
       <!-- 品牌区域 -->
       <div class="brand">
-        <div class="logo">Q</div>
+        <img class="logo" :src="brandLogo" alt="量子Ising" width="44" height="44" />
         <div>
-          <div class="title">量子Ising求解系统</div>
+          <div class="title">量子 Ising 求解系统</div>
           <div class="subtitle">可视化求解与任务管理</div>
         </div>
       </div>
@@ -79,6 +79,7 @@ import { TrendCharts, Odometer, MagicStick, Location, DataAnalysis, List, Ticket
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { userManager } from '../utils/auth'
+import brandLogo from '../assets/brand-logo.svg'
 
 const router = useRouter()
 const route = useRoute()
@@ -114,23 +115,20 @@ const handleLogout = async () => {
 }
 
 .logo {
-  width: 44px;
-  height: 44px;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #4050F8, #7848E8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: 18px;
-  box-shadow: 0 6px 18px rgba(64, 80, 248, 0.12);
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  display: block;
+  object-fit: contain;
+  border-radius: 50%;
+  box-shadow: 0 3px 8px rgba(64, 80, 248, 0.06);
 }
 
 .title {
-  font-weight: 700;
-  font-size: 15px;
-  color: #292929;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #263b52;
 }
 
 .subtitle {

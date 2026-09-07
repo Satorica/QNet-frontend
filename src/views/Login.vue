@@ -1,23 +1,23 @@
 <template>
-  <div class="login-page">
-    <div class="login-container">
+  <div class="login-page auth-page">
+    <div class="login-container auth-container">
       <!-- 背景装饰 -->
       <LoginBackground />
 
       <!-- 登录卡片 -->
-      <el-card class="login-card">
+      <el-card class="login-card auth-card">
         <!-- Logo 和标题 -->
-        <div class="login-header">
+        <div class="login-header auth-header">
           <p class="brand-eyebrow">QUANTUM COMPUTING</p>
           <div class="logo-section">
-            <div class="logo-icon">Q</div>
-            <h1 class="system-title">量子Ising求解系统</h1>
+            <img class="logo-icon" :src="brandLogo" alt="量子Ising" width="44" height="44" />
+            <h1 class="system-title">量子 <span class="brand-latin">Ising</span> 求解系统</h1>
           </div>
           <p class="subtitle">现代化量子优化问题求解平台</p>
         </div>
 
         <div class="login-modes" role="tablist" aria-label="登录方式">
-          <button role="tab" :disabled="loginPending" :aria-selected="loginMode === 'password'" :class="{ active: loginMode === 'password' }" @click="switchLoginMode('password')">账号密码登录</button>
+          <button role="tab" :disabled="loginPending" :aria-selected="loginMode === 'password'" :class="{ active: loginMode === 'password' }" @click="switchLoginMode('password')">邮箱密码登录</button>
           <button role="tab" :disabled="loginPending" :aria-selected="loginMode === 'qr'" :class="{ active: loginMode === 'qr' }" @click="switchLoginMode('qr')">小程序扫码登录</button>
         </div>
         <QrLoginPanel v-if="loginMode === 'qr'" @redeeming="qrRedeeming = $event" @logged-in="finishQrLogin" />
@@ -27,20 +27,22 @@
           :model="loginForm"
           :rules="loginRules"
           :disabled="loginPending"
-          class="login-form"
+          class="login-form auth-form"
           @submit.prevent="handleLogin"
         >
           <el-form-item prop="account">
-            <label class="field-label" for="login-account">账号</label>
+            <label class="field-label" for="login-account">邮箱</label>
             <el-input
               id="login-account"
               v-model="loginForm.account"
-              placeholder="Web 账号用户名 / 邮箱"
+              placeholder="请输入注册或绑定的邮箱"
+              type="email"
+              autocomplete="username"
               size="large"
               clearable
             >
               <template #prefix>
-                <el-icon><User /></el-icon>
+                <el-icon><Message /></el-icon>
               </template>
             </el-input>
           </el-form-item>
@@ -51,6 +53,7 @@
               id="login-password"
               v-model="loginForm.password"
               type="password"
+              autocomplete="current-password"
               placeholder="密码"
               size="large"
               show-password
@@ -80,7 +83,7 @@
             <el-button
               type="primary"
               size="large"
-              class="login-button"
+              class="login-button auth-button"
               :loading="loading"
               @click="handleLogin"
             >
@@ -88,7 +91,7 @@
             </el-button>
           </el-form-item>
 
-          <div class="register-link">
+          <div class="register-link auth-link-row">
             还没有账号？
             <el-link type="primary" :underline="false" @click="goToRegister">
               立即注册
@@ -109,13 +112,15 @@
 import { ref, reactive, computed } from "vue";
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { ElMessage, type FormInstance } from "element-plus";
-import { User, Lock } from "@element-plus/icons-vue";
+import { Message, Lock } from "@element-plus/icons-vue";
 import { authApi } from "../api/auth";
 import { userManager } from "../utils/auth";
 import QrLoginPanel from "../components/QrLoginPanel.vue";
 import LoginBackground from "../components/LoginBackground.vue";
+import brandLogo from "../assets/brand-logo.svg";
 import type { UserInfo } from "../types/api";
 import { getErrorMessage } from "../utils/error";
+import { EMAIL_REGEX } from "../utils/validation";
 
 const router = useRouter();
 const loginMode = ref<"password" | "qr">(
@@ -154,9 +159,10 @@ const loginRules = computed(() => ({
   account: [
     {
       required: true,
-      message: "请输入用户名/邮箱/手机号",
+      message: "请输入邮箱地址",
       trigger: "blur",
     },
+    { pattern: EMAIL_REGEX, message: "请输入有效的邮箱地址", trigger: "blur" },
   ],
   password: [
     {
@@ -174,6 +180,7 @@ const handleLogin = async () => {
   // Lock before asynchronous validation as well as during the login request.
   loading.value = true;
   loginSucceeded.value = false;
+  loginForm.account = loginForm.account.trim().toLowerCase();
   try {
     const valid = await loginFormRef.value.validate().catch(() => false);
     if (!valid) {
@@ -228,190 +235,4 @@ const goToForgotPassword = () => {
 };
 </script>
 
-<style scoped>
-.login-page {
-  height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  background: #020c19;
-}
-.login-container {
-  position: relative;
-  isolation: isolate;
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 100%;
-  padding: 32px 24px 80px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-.login-card {
-  --el-color-primary: #087eaa;
-  --el-color-primary-light-3: #219cc0;
-  --el-color-primary-dark-2: #066888;
-  --el-text-color-regular: #405e70;
-  box-sizing: border-box;
-  position: relative;
-  z-index: 2;
-  width: 480px;
-  max-width: 100%;
-  padding: 28px 38px;
-  border-radius: 24px;
-  background: rgba(236, 246, 250, .96);
-  border: 1px solid rgba(199, 234, 246, .8);
-  box-shadow: 0 24px 80px #000b1880, inset 0 1px 0 #ffffff;
-  backdrop-filter: blur(24px);
-}
-.login-card :deep(.el-card__body) { padding: 0; }
-.login-header { text-align: center; margin-bottom: 22px; }
-.brand-eyebrow {
-  margin: 0 0 12px;
-  font: 500 10px/1.4 "Consolas", monospace;
-  letter-spacing: .24em;
-  color: #52798b;
-}
-.logo-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.logo-icon {
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: 13px;
-  background: #077fa4;
-  border: 1px solid #149ab9;
-  color: #fff;
-  font-size: 27px;
-  font-weight: 600;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 5px 14px #087eaa24, inset 0 1px 0 #ffffff30;
-}
-.system-title {
-  font-size: 25px;
-  font-weight: 600;
-  letter-spacing: -.035em;
-  color: #173c50;
-  margin: 0;
-}
-.subtitle { font-size: 13px; color: #587384; margin: 0; line-height: 1.6; }
-.login-modes {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  margin: 0 0 20px;
-  border: 1px solid #cddfe6;
-  background: #e0edf2;
-  border-radius: 11px;
-}
-.login-modes button {
-  flex: 1;
-  padding: 10px 2px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: #506b7b;
-  font: inherit;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color .18s, color .18s;
-}
-.login-modes button.active {
-  color: #066d91;
-  background: #f9fdff;
-  border-color: #d4e4eb;
-  box-shadow: 0 2px 5px #203f5110;
-  font-weight: 600;
-}
-.login-modes button:hover:not(.active):not(:disabled) { background: #edf6f9; }
-.login-modes button:disabled { cursor: wait; opacity: .65; }
-.login-modes button:focus-visible,
-.login-card :deep(.el-link:focus-visible),
-.login-button:focus-visible { outline: 3px solid #0795bd; outline-offset: 3px; }
-.login-form { margin-top: 0; }
-.field-label { display: block; width: 100%; color: #365669; font-size: 13px; line-height: 20px; margin-bottom: 8px; font-weight: 500; }
-.login-form :deep(.el-form-item) { margin-bottom: 18px; }
-.login-form :deep(.el-input__wrapper) {
-  border-radius: 10px;
-  padding: 4px 13px;
-  background: #f7fcfe;
-  box-shadow: 0 0 0 1px #bfd3df inset;
-  transition: box-shadow .18s, background-color .18s;
-}
-.login-form :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px #7baec2 inset; }
-.login-form :deep(.el-input__wrapper.is-focus) {
-  background: #fff;
-  box-shadow: 0 0 0 1.5px #087eaa inset, 0 0 0 3px #087eaa14;
-}
-.login-form :deep(.is-error .el-input__wrapper) { box-shadow: 0 0 0 1px var(--el-color-danger) inset; }
-.login-form :deep(.el-input__inner) { font-size: 14px; color: #214559; }
-.login-form :deep(.el-input__inner::placeholder) { color: #6b8290; }
-.login-form :deep(.el-input__prefix),
-.login-form :deep(.el-input__suffix) { color: #638397; }
-.login-form :deep(input:-webkit-autofill) {
-  -webkit-box-shadow: 0 0 0 1000px #f7fcfe inset;
-  -webkit-text-fill-color: #214559;
-  caret-color: #214559;
-}
-.form-options { width: 100%; display: flex; justify-content: space-between; align-items: center; }
-.form-options :deep(.el-checkbox__label) { font-size: 13px; color: #4c6879; }
-.form-options :deep(.el-checkbox__inner) { border-color: #91adbd; }
-.form-options :deep(.el-link) { font-size: 13px; }
-.login-button {
-  width: 100%;
-  height: 48px;
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: .16em;
-  border-radius: 10px;
-  background: #087fa8;
-  border: 1px solid #0e90b7;
-  box-shadow: 0 6px 16px #087fa823, inset 0 1px 0 #ffffff20;
-  transition: background-color .18s, box-shadow .18s;
-}
-.login-button:hover:not(:disabled) { background: #066d94; box-shadow: 0 8px 20px #087fa82e; }
-.login-button:active:not(:disabled) { background: #075a7b; }
-.register-link { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; color: #526e7e; margin-top: 4px; }
-.register-link :deep(.el-link) { font-size: 13px; font-weight: 600; }
-.footer-info {
-  position: absolute;
-  z-index: 1;
-  bottom: 26px;
-  left: 20px;
-  right: 20px;
-  text-align: center;
-  color: #9ab2c7;
-  font-size: 12px;
-  line-height: 1.7;
-}
-.footer-info p { margin: 0; }
-@media (max-width: 768px) {
-  .login-container { padding: 136px 20px 84px; }
-  .login-card { width: 440px; padding: 28px 24px; border-radius: 20px; }
-  .brand-eyebrow { margin-bottom: 17px; font-size: 9px; }
-  .system-title { font-size: clamp(18px, 5vw, 23px); }
-  .logo-section { gap: 10px; }
-  .logo-icon { width: 38px; height: 38px; font-size: 25px; border-radius: 11px; }
-  .login-header { margin-bottom: 24px; }
-  .subtitle { font-size: 12px; }
-  .login-modes button { font-size: 13px; }
-  .footer-info { font-size: 11px; }
-}
-@media (max-width: 360px) {
-  .login-container { padding-left: 14px; padding-right: 14px; }
-  .login-card { padding-left: 20px; padding-right: 20px; }
-}
-@media (max-height: 540px) and (min-width: 540px) {
-  .login-container { padding-top: 32px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .login-card *, .login-card :deep(*) { transition: none !important; }
-}
-</style>
+<style scoped src="../styles/auth.css"></style>

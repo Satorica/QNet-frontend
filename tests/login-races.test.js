@@ -8,6 +8,12 @@ import ts from 'typescript';
 import * as vue from 'vue';
 
 const require = createRequire(import.meta.url);
+const Schema = require('async-validator').default;
+const validationExports = {};
+const validationSource = readFileSync(new URL('../src/utils/validation.ts', import.meta.url), 'utf8');
+new Function('exports', ts.transpileModule(validationSource, {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+}).outputText)(validationExports);
 const compiled = new Map();
 const deferred = () => {
   let resolve, reject;
@@ -33,7 +39,7 @@ function setupComponent(relativePath, mocks, emit = () => {}) {
   runInNewContext(compiled.get(relativePath), {
     exports,
     require: name => name === 'vue'
-      ? { ...vue, onMounted: fn => mounted.push(fn), onUnmounted: fn => unmounted.push(fn) }
+      ? { ...vue, onMounted: fn => mounted.push(fn), onUnmounted: fn => unmounted.push(fn), onBeforeUnmount: fn => unmounted.push(fn) }
       : Object.hasOwn(mocks, name) ? mocks[name] : require(name),
     localStorage: { setItem() {}, removeItem() {} },
     setTimeout: fn => { timers.push(fn); return timers.length; },
@@ -42,6 +48,49 @@ function setupComponent(relativePath, mocks, emit = () => {}) {
   const state = exports.default.setup({}, { expose() {}, emit });
   return { state, mounted, unmounted, timers };
 }
+
+function registrationFixture() {
+  const calls = [];
+  const { state } = setupComponent('../src/views/Register.vue', {
+    '../components/LoginBackground.vue': {},
+    'vue-router': { useRouter: () => ({ push() {} }) },
+    'element-plus': { ElMessage: { success() {}, error() {} } },
+    '../api/auth': { authApi: { register: async payload => { calls.push(payload); return { success: true }; } } },
+    '../utils/validation': validationExports,
+    '../utils/error': { getErrorCode: () => '', getErrorMessage: (_error, fallback) => fallback },
+    '../assets/brand-logo.svg': 'brand-logo.svg',
+  });
+  Object.assign(state.registerForm, {
+    nickname: '  量子少年 🌟  ', email: 'user@example.com', emailCode: '123456',
+    password: 'Example123', confirmPassword: 'Example123', agree: true,
+  });
+  state.registerFormRef.value = {
+    validate: async callback => {
+      const valid = await new Schema(state.registerRules.value).validate(state.registerForm)
+        .then(() => true, () => false);
+      await callback(valid);
+    },
+  };
+  return { state, calls };
+}
+
+test('registration submits the trimmed nickname and email without a login username', async () => {
+  const f = registrationFixture();
+  await f.state.handleRegister();
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.calls[0].nickname, '量子少年 🌟');
+  assert.equal(f.calls[0].email, 'user@example.com');
+  assert.equal(Object.hasOwn(f.calls[0], 'username'), false);
+});
+
+test('registration accepts 1–30 Unicode characters and rejects empty or oversized nicknames', async () => {
+  for (const [nickname, accepted] of [['昵', true], ['🌟'.repeat(30), true], ['', false], ['  ', false], ['昵'.repeat(31), false], ['🌟'.repeat(31), false]]) {
+    const f = registrationFixture();
+    f.state.registerForm.nickname = nickname;
+    await f.state.handleRegister();
+    assert.equal(f.calls.length, accepted ? 1 : 0, nickname);
+  }
+});
 
 function loginFixture(mode = 'password') {
   const validation = deferred(), passwordResponse = deferred();
@@ -60,12 +109,50 @@ function loginFixture(mode = 'password') {
     '../api/auth': { authApi: { login: (...args) => { calls.push(args); return passwordResponse.promise; } } },
     '../utils/auth': { userManager: { setUserInfo: user => saved.push(user) } },
     '../utils/error': { getErrorMessage: (_error, fallback) => fallback },
+    '../utils/validation': validationExports,
     '../components/QrLoginPanel.vue': {},
     '../components/LoginBackground.vue': {},
+    '../assets/brand-logo.svg': 'brand-logo.svg',
   }).state;
   login.loginFormRef.value = { validate: () => validation.promise };
   return { login, validation, passwordResponse, calls, saved, navigation, canLeave: () => leave() };
 }
+
+test('email login rejects usernames, phone numbers, and malformed addresses before sending requests', async () => {
+  for (const account of ['web_user', 'wx_existing', '13800138000', 'a@b', '', '  ']) {
+    const f = loginFixture();
+    f.login.loginForm.account = account;
+    f.login.loginForm.password = 'Example123';
+    f.login.loginFormRef.value = {
+      validate: async () => {
+        await new Schema(f.login.loginRules.value).validate(f.login.loginForm);
+        return true;
+      },
+    };
+    await f.login.handleLogin();
+    assert.equal(f.calls.length, 0, account);
+    assert.equal(f.login.loading.value, false);
+  }
+});
+
+test('email login trims and normalizes the address while preserving password and remember choice', async () => {
+  const f = loginFixture();
+  f.login.loginForm.account = '  User@Example.COM  ';
+  f.login.loginForm.password = 'Example123';
+  f.login.loginForm.remember = true;
+  f.login.loginFormRef.value = {
+    validate: async () => {
+      await new Schema(f.login.loginRules.value).validate(f.login.loginForm);
+      return true;
+    },
+  };
+  const pending = f.login.handleLogin();
+  await flush();
+  assert.deepEqual(f.calls, [['user@example.com', 'Example123', true]]);
+  f.passwordResponse.resolve({ success: true, data: { user: { id: 'email-user' } } });
+  await pending;
+  assert.equal(f.saved[0].id, 'email-user');
+});
 
 test('password validation and submission block QR switching, duplicate login, and early navigation', async () => {
   const f = loginFixture();

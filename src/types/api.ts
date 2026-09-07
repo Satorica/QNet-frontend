@@ -179,6 +179,7 @@ export interface UserInfo {
   hasPassword?: boolean;
   id: string;
   username: string;
+  nickname?: string;
   maskedEmail?: string | null;
   maskedPhone?: string | null;
   is_verified: boolean;
@@ -195,7 +196,7 @@ export interface AuthUserData {
 }
 
 export interface RegisterRequest {
-  username: string;
+  nickname: string;
   password: string;
   register_type: "email";
   code: string;
