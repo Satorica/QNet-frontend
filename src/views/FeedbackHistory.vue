@@ -55,16 +55,7 @@
               </el-button>
             </template>
           </el-table-column>
-          <template #empty>
-            <div class="history-empty">
-              <div class="empty-icon">
-                <el-icon><ChatDotRound /></el-icon>
-              </div>
-              <h3>还没有反馈记录</h3>
-              <p>遇到问题或有改进建议，提交后可在这里持续查看处理状态。</p>
-              <el-button type="primary" @click="goToFeedback">提交反馈</el-button>
-            </div>
-          </template>
+          <template #empty>暂无反馈</template>
         </el-table>
 
         <div class="pagination-container">
@@ -161,7 +152,6 @@
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
-  ChatDotRound,
   EditPen,
   Service,
   User,
@@ -309,51 +299,6 @@ onMounted(loadFeedbacks);
 
 .reply-placeholder {
   color: #a1a8b4;
-}
-
-.history-empty {
-  display: flex;
-  min-height: 280px;
-  box-sizing: border-box;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-.empty-icon {
-  display: flex;
-  width: 44px;
-  height: 44px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: #eef6ff;
-  color: #409eff;
-  font-size: 22px;
-}
-
-.history-empty h3 {
-  margin: 16px 0 0;
-  color: #20232d;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.history-empty p {
-  max-width: 340px;
-  margin: 8px 0 18px;
-  color: #8b91a1;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.history-empty .el-button {
-  min-width: 96px;
-  height: 34px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .status-tag {

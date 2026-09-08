@@ -88,13 +88,7 @@
               </template>
             </el-table-column>
 
-            <template #empty>
-              <div class="table-empty">
-                <span class="state-icon"><el-icon><Tickets /></el-icon></span>
-                <h3>还没有额度申请</h3>
-                <p>提交申请后，可在这里查看审批进度和结果。</p>
-              </div>
-            </template>
+            <template #empty>暂无申请</template>
           </el-table>
 
           <div class="pagination-container" data-testid="quota-history-pagination">
@@ -178,7 +172,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
-import { Tickets, Warning } from "@element-plus/icons-vue";
+import { Warning } from "@element-plus/icons-vue";
 import type { TagProps } from "element-plus";
 import { getQuotaRequestHistory } from "../api";
 import type { QuotaRequestItem, QuotaRequestStatus } from "../types/api";
@@ -349,9 +343,8 @@ onMounted(loadRequests);
 .state-panel { display: flex; min-height: 340px; box-sizing: border-box; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #edf0f4; border-radius: 10px; background: #fbfcfe; text-align: center; }
 .state-icon { display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; background: #eef6ff; color: #409eff; font-size: 22px; }
 .state-icon.is-warning { background: #fff7e8; color: #e6a23c; }
-.state-panel h3, .table-empty h3 { margin: 15px 0 0; color: #20232d; font-size: 15px; }
-.state-panel p, .table-empty p { margin: 7px 0 18px; color: #8b91a1; font-size: 13px; line-height: 1.6; }
-.table-empty { display: flex; min-height: 290px; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.state-panel h3 { margin: 15px 0 0; color: #20232d; font-size: 15px; }
+.state-panel p { margin: 7px 0 18px; color: #8b91a1; font-size: 13px; line-height: 1.6; }
 
 :global(.el-dialog.quota-history-detail-dialog) {
   overflow: hidden;
