@@ -1,0 +1,11 @@
+:root {
+  --app-accent: var(--el-color-primary);
+  --app-accent-secondary: #426fb5;
+  --app-accent-rgb: 53, 100, 173;
+  --app-accent-soft: var(--el-color-primary-light-9);
+  --app-accent-gradient: linear-gradient(135deg, var(--app-accent), var(--app-accent-secondary));
+  --app-page-start: #f5f7fb;
+  --app-page-end: #fbfcfd;
+  --app-sidebar-start: #f1f5fa;
+  --app-border: #e0e7f0;
+}

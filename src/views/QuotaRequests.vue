@@ -17,14 +17,15 @@
         <div v-else>
           <el-table
             v-loading="loading"
-            class="request-table"
+            class="request-table app-data-table"
+            scrollbar-always-on
             :data="requests"
             row-key="id"
             table-layout="fixed"
             stripe
             size="large"
           >
-            <el-table-column label="申请编号" prop="id" min-width="190">
+            <el-table-column label="申请编号" prop="id" min-width="164" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-link
                   class="request-id"
@@ -37,21 +38,21 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="经典计算" min-width="110">
+            <el-table-column label="经典计算" width="100">
               <template #default="{ row }">
                 <span class="amount-cell"><strong>{{ row.amounts.classic }}</strong><small>次</small></span>
               </template>
             </el-table-column>
 
-            <el-table-column label="量子芯片模拟" min-width="140">
+            <el-table-column label="量子芯片模拟" width="124">
               <template #default="{ row }">
                 <span class="amount-cell"><strong>{{ row.amounts.quantum }}</strong><small>次</small></span>
               </template>
             </el-table-column>
 
-            <el-table-column label="申请原因" prop="reason" min-width="210" show-overflow-tooltip />
+            <el-table-column label="申请原因" prop="reason" min-width="160" show-overflow-tooltip />
 
-            <el-table-column label="状态" min-width="110">
+            <el-table-column label="状态" width="96">
               <template #default="{ row }">
                 <el-tag
                   class="status-tag"
@@ -64,7 +65,7 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="审批备注" min-width="190" show-overflow-tooltip>
+            <el-table-column label="审批备注" min-width="160" show-overflow-tooltip>
               <template #default="{ row }">
                 <span :class="['note-cell', { 'is-empty': !row.adminNote }]">
                   {{ row.adminNote || getEmptyNote(row.status) }}
@@ -72,11 +73,11 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="提交时间" min-width="170">
+            <el-table-column label="提交时间" width="176">
               <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
             </el-table-column>
 
-            <el-table-column label="操作" width="110" align="center">
+            <el-table-column label="操作" width="88" align="center" fixed="right" class-name="table-actions">
               <template #default="{ row }">
                 <el-button
                   type="primary"
@@ -303,7 +304,7 @@ onMounted(loadRequests);
   display: inline-block;
   width: 100%;
   overflow: hidden;
-  color: #409eff;
+  color: var(--el-color-primary);
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -311,7 +312,7 @@ onMounted(loadRequests);
 
 .request-id:hover,
 .request-id:focus {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .amount-cell { white-space: nowrap; }
@@ -341,7 +342,7 @@ onMounted(loadRequests);
 }
 
 .state-panel { display: flex; min-height: 340px; box-sizing: border-box; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #edf0f4; border-radius: 10px; background: #fbfcfe; text-align: center; }
-.state-icon { display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; background: #eef6ff; color: #409eff; font-size: 22px; }
+.state-icon { display: flex; width: 44px; height: 44px; align-items: center; justify-content: center; border-radius: 50%; background: var(--app-accent-soft); color: var(--el-color-primary); font-size: 22px; }
 .state-icon.is-warning { background: #fff7e8; color: #e6a23c; }
 .state-panel h3 { margin: 15px 0 0; color: #20232d; font-size: 15px; }
 .state-panel p { margin: 7px 0 18px; color: #8b91a1; font-size: 13px; line-height: 1.6; }
@@ -384,7 +385,7 @@ onMounted(loadRequests);
 .detail-identity { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 3px 0 14px; border-bottom: 1px solid #eef1f5; }
 .detail-identity > div { min-width: 0; }
 .detail-identity > div > span { display: block; color: #7c8494; font-size: 12px; line-height: 18px; }
-.detail-identity strong { display: block; overflow: hidden; margin-top: 3px; color: #2878db; font-size: 14px; font-weight: 500; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
+.detail-identity strong { display: block; overflow: hidden; margin-top: 3px; color: var(--app-accent); font-size: 14px; font-weight: 500; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .detail-amounts { display: grid; overflow: hidden; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 16px 0 20px; border-radius: 8px; background: #f8fafc; }
 .detail-amounts > div { padding: 15px 16px; }
 .detail-amounts > div + div { border-left: 1px solid #e8edf4; }
@@ -394,7 +395,7 @@ onMounted(loadRequests);
 .detail-section { margin: 0 0 18px; padding: 0 0 16px; border: 0; border-bottom: 1px solid #eef1f5; border-radius: 0; background: transparent; }
 .detail-section.is-empty p { color: #9298a7; }
 .detail-section h4 { position: relative; display: inline-flex; margin: 0; padding-bottom: 8px; color: #202737; font-size: 14px; font-weight: 600; }
-.detail-section h4::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: 999px; background: #409eff; content: ""; }
+.detail-section h4::after { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; border-radius: 999px; background: var(--el-color-primary); content: ""; }
 .detail-section p { margin: 10px 0 0; color: #303746; font-size: 14px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
 .timeline-meta { margin: -2px 0 0; padding: 0; }
 .timeline-meta div { display: flex; align-items: center; justify-content: space-between; min-height: 22px; padding: 10px 0; border-bottom: 1px solid #eef1f5; }

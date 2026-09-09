@@ -1,0 +1,30 @@
+/* Keep candidate vectors consistent in solver workspaces and task dialogs. */
+body :is(.solver-workspace, .task-detail-dialog) :is(.candidate-solution, .candidate-solution-main) {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+body :is(.solver-workspace, .task-detail-dialog) :is(.solution-label, .solution-label-main) {
+  flex: 0 0 56px;
+  color: #78879b;
+  white-space: nowrap;
+}
+
+body :is(.solver-workspace, .task-detail-dialog) :is(.solution-value, .solution-value-main) {
+  flex: 1;
+  min-width: 0;
+  color: #526782;
+  font-family: Consolas, "SFMono-Regular", "Liberation Mono", monospace;
+  font-size: inherit;
+  line-height: inherit;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}

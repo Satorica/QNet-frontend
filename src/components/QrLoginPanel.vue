@@ -186,10 +186,10 @@ onUnmounted(() => { disposed = true; generation += 1; stop(); cancel(requestId);
 .qr-placeholder { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 11px; padding: 12px; box-sizing: border-box; color: #64748b; font-size: 13px; line-height: 1.6; }
 .placeholder-message { color: #667085; font-weight: 400; letter-spacing: .01em; }
 
-.status-loader { width: 44px; height: 44px; color: #7083df; }
+.status-loader { width: 44px; height: 44px; color: var(--el-color-primary); }
 .status-loader svg { width: 100%; height: 100%; animation: loader-spin .9s linear infinite; }
 .status-loader__track, .status-loader__arc { stroke-width: 2.5; }
-.status-loader__track { stroke: #e8ebf6; }
+.status-loader__track { stroke: var(--el-color-primary-light-9); }
 .status-loader__arc { stroke: currentColor; stroke-linecap: round; }
 
 .state-icon { display: grid; place-items: center; width: 48px; height: 48px; color: #d49a4b; }
@@ -203,5 +203,5 @@ onUnmounted(() => { disposed = true; generation += 1; stop(); cancel(requestId);
 @keyframes loader-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .status-loader svg { animation: none; } }
 .qr-title { font-size: 17px; color: #1e293b; font-weight: 600; margin: 0 0 10px; }
-.qr-status { font-size: 12px; color: #2563eb; line-height: 1.7; }
+.qr-status { font-size: 12px; color: var(--el-color-primary); line-height: 1.7; }
 </style>

@@ -1,30 +1,37 @@
 <template>
   <div class="general-page">
-    <el-card class="main-card">
+    <el-card class="main-card solver-workspace">
       <div class="card-content">
-        <div class="controls-top algorithm-control">
-          <span class="label">求解模型：</span>
-          <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
-            <el-radio-button label="classic">经典计算</el-radio-button>
-            <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
-          </el-radio-group>
-          <div class="algorithm-field">
-            <span class="label">算法类型：</span>
-            <el-select v-model="methodType" :disabled="solving" style="width: 220px">
-              <el-option
-                v-for="option in METHOD_TYPE_OPTIONS"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
+        <section class="solver-configuration" aria-label="任务配置">
+          <div class="workspace-section-heading"><h2>任务配置</h2></div>
+          <TaskNameField ref="taskNameField" :disabled="solving" />
+          <div class="controls-top algorithm-control">
+            <div class="solver-model-field">
+              <span class="label">求解模型</span>
+              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+                <el-radio-button label="classic">经典计算</el-radio-button>
+                <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
+              </el-radio-group>
+            </div>
+            <div class="algorithm-field">
+              <span class="label">算法类型</span>
+              <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+                <el-option
+                  v-for="option in METHOD_TYPE_OPTIONS"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </div>
           </div>
-        </div>
+        </section>
         <div class="left-column">
+          <div class="workspace-section-heading"><h2>模型构建</h2></div>
 
           <div class="controls-row">
             <div class="control-item">
-              <span class="ctrl-label">问题规模：</span>
+              <span class="ctrl-label">问题规模</span>
               <el-input-number
                 v-model="activeMatrixSize"
                 :min="2"
@@ -42,7 +49,7 @@
               class="input-tabs"
               :before-leave="handleInputModeBeforeLeave"
             >
-              <el-tab-pane label="数学表达输入" name="expression">
+              <el-tab-pane label="数学表达" name="expression" :disabled="solving || importing">
                 <el-form label-position="top" class="expression-form">
                   <el-form-item label="变量">
                     <el-input v-model="variableText" :disabled="solving" placeholder="x1,x2,x3,x4" />
@@ -64,7 +71,7 @@
                   </div>
 
                   <el-tabs v-model="expressionForm" class="expression-type-tabs">
-                    <el-tab-pane label="标量表达式" name="scalar">
+                    <el-tab-pane label="标量表达式" name="scalar" :disabled="solving || importing">
                       <el-form-item label="标量目标函数（按所选变量域解释）">
                         <el-input
                           v-model="objectiveExpression"
@@ -77,7 +84,7 @@
                       <div class="tip expression-tip">标量式支持数字、变量以及 +、-、*、/、**。0/1域按 xᵢ²=xᵢ；±1域按 sᵢ²=1 后自动转 QUBO。</div>
                     </el-tab-pane>
 
-                    <el-tab-pane label="向量/矩阵形式" name="vector">
+                    <el-tab-pane label="向量/矩阵形式" name="vector" :disabled="solving || importing">
                       <div class="matrix-formula">矩阵目标：输入 W 是一般权重矩阵，不是 QUBO；程序自动生成 QUBO</div>
                       <el-form-item label="矩阵类型">
                         <el-select v-model="matrixObjectiveKind" :disabled="solving" class="matrix-kind-select">
@@ -108,13 +115,13 @@
                   </el-tabs>
 
                   <div class="constraint-heading">
-                    <span>多约束与独立惩罚系数</span>
+                    <span>约束与惩罚系数</span>
                     <div>
                       <el-button size="small" :disabled="solving" @click="addConstraint">添加约束</el-button>
                       <el-button size="small" :disabled="solving || constraints.length === 0" @click="constraints = []">清空约束</el-button>
                     </div>
                   </div>
-                  <el-table :data="constraints" class="constraint-table" table-layout="fixed" size="small" border empty-text="暂无约束">
+                  <el-table :data="constraints" class="constraint-table" table-layout="fixed" size="small" empty-text="暂无约束">
                     <el-table-column :label="expressionForm === 'vector' ? '系数向量 a' : '左端表达式'" min-width="120">
                       <template #default="{ row }">
                         <el-input
@@ -143,9 +150,9 @@
                         <el-input-number v-model="row.penalty" class="constraint-penalty-input" :min="0.001" :controls="false" :disabled="solving" />
                       </template>
                     </el-table-column>
-                    <el-table-column label="操作" width="58" align="center">
+                    <el-table-column label="操作" width="72" align="center" fixed="right">
                       <template #default="{ $index }">
-                        <el-button link type="danger" :disabled="solving" @click="removeConstraint($index)">删除</el-button>
+                        <el-button link type="primary" :disabled="solving" @click="removeConstraint($index)">删除</el-button>
                       </template>
                     </el-table-column>
                   </el-table>
@@ -154,10 +161,10 @@
                 </el-form>
               </el-tab-pane>
 
-              <el-tab-pane label="QUBO矩阵输入" name="matrix">
+              <el-tab-pane label="QUBO 矩阵" name="matrix" :disabled="solving || importing">
                 <div class="matrix-actions">
                   <input ref="fileInput" class="file-input" type="file" accept=".csv,.txt,text/csv,text/plain" :disabled="solving || importing" @change="handleFileImport" />
-                  <el-button :loading="importing" :disabled="solving || importing" @click="openFilePicker">数据导入(txt/csv)</el-button>
+                  <el-button :loading="importing" :disabled="solving || importing" @click="openFilePicker">导入数据</el-button>
                   <el-button :disabled="solving || importing" @click="handleTemplateDownload">下载模板</el-button>
                   <el-button :disabled="solving || importing" @click="symmetrizeMatrix">对称化</el-button>
                   <el-button :disabled="solving || importing" @click="clearMatrix">全零</el-button>
@@ -181,31 +188,34 @@
         </div>
 
         <div class="right-column">
-          <div class="solve-area">
-            <el-button type="primary" size="large" :loading="solving" :disabled="importing" class="solve-btn" @click="startSolve">
-              {{ solving ? "求解中..." : "求解" }}
-            </el-button>
-            <el-button
-              :loading="
-                currentTaskId !== null && cancelingTaskId === currentTaskId
-              "
-              :disabled="!solving || cancelingTaskId !== null"
-              @click="cancelSolve"
-            >取消任务</el-button>
-          </div>
-
-          <div class="solve-state">
-            <div class="state-icon" :class="stateClass"></div>
-            <div class="state-text">{{ stateText }}</div>
-          </div>
-          <div class="solve-time">求解时间：{{ solveTime }}</div>
-
-          <el-card class="log-card">
-            <template #header><span>求解日志</span></template>
-            <div class="log-entries">
-              <div v-for="(log, index) in logs" :key="index" class="log-entry">{{ log }}</div>
+          <div class="workspace-section-heading"><h2>求解与结果</h2></div>
+          <div class="solver-run-panel">
+            <div class="solve-area">
+              <el-button type="primary" size="large" :loading="solving" :disabled="importing" class="solve-btn" @click="startSolve">
+                <span v-if="!solving" class="solve-start-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="m6 4 9 6-9 6z" /></svg>
+                </span>
+                <span>{{ solving ? "求解中…" : "开始求解" }}</span>
+              </el-button>
+              <el-button class="cancel-solve-btn"
+                :loading="
+                  currentTaskId !== null && cancelingTaskId === currentTaskId
+                "
+                :disabled="!solving || cancelingTaskId !== null"
+                @click="cancelSolve"
+              ><span>取消任务</span></el-button>
             </div>
-          </el-card>
+
+            <div class="solver-run-meta">
+            <div class="solve-state">
+              <div class="state-icon" :class="stateClass"></div>
+              <div class="state-text">{{ stateText }}</div>
+            </div>
+            <div class="solve-time">求解时间：{{ solveTime }}</div>
+            </div>
+          </div>
+
+          <SolverLog :logs="logs" />
 
           <el-card class="result-card">
             <template #header>
@@ -214,7 +224,7 @@
                 <el-button :disabled="candidates.length === 0" @click="exportResults">结果导出</el-button>
               </div>
             </template>
-            <div v-if="candidates.length === 0" class="candidates-placeholder">--</div>
+            <CandidateEmptyState v-if="candidates.length === 0" :solving="solving" :status="stateText" />
             <div class="candidates">
               <div v-for="(candidate, index) in candidates" :key="index" class="candidate-item">
                 <div class="candidate-header">
@@ -240,40 +250,40 @@
             <el-input v-model="historyTaskName" placeholder="请输入任务名称" style="width: 220px" clearable @keyup.enter="handleHistorySearch" />
             <el-button type="primary" @click="handleHistorySearch">确定</el-button>
             <el-button @click="handleHistoryReset">重置</el-button>
-            <el-button type="danger" :disabled="historyTotal === 0" @click="handleDeleteAllTasks">全部删除</el-button>
+            <el-button type="primary" plain :disabled="historyTotal === 0" @click="handleDeleteAllTasks">全部删除</el-button>
           </div>
         </div>
       </template>
-      <el-table :data="taskHistory" row-key="taskId" stripe table-layout="fixed" style="width: 100%" v-loading="historyLoading">
-        <el-table-column prop="taskName" label="任务名" min-width="220" show-overflow-tooltip>
+      <el-table class="history-table app-data-table" scrollbar-always-on :data="taskHistory" row-key="taskId" stripe table-layout="fixed" style="width: 100%" v-loading="historyLoading">
+        <el-table-column prop="taskName" label="任务名" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <el-link type="primary" :underline="false" @click.stop="handleViewTaskDetail(row)">{{ row.taskName }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="modelType" label="模型" min-width="150">
+        <el-table-column prop="modelType" label="模型" width="156" class-name="table-model">
           <template #default="{ row }">{{ getModelTypeText(row.modelType) }}</template>
         </el-table-column>
-        <el-table-column prop="methodType" label="算法类型" min-width="140">
+        <el-table-column prop="methodType" label="算法类型" width="124">
           <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
         </el-table-column>
-        <el-table-column prop="timestamp" label="提交时间" min-width="170">
+        <el-table-column prop="timestamp" label="提交时间" width="176">
           <template #default="{ row }">{{ formatDate(row.timestamp) }}</template>
         </el-table-column>
-        <el-table-column prop="matrixSize" label="规模" min-width="90" />
-        <el-table-column prop="status" label="状态" min-width="110">
+        <el-table-column prop="matrixSize" label="规模" width="80" />
+        <el-table-column prop="status" label="状态" width="96">
           <template #default="{ row }"><el-tag :type="getStatusType(row.status)">{{ getStatusText(row.status) }}</el-tag></template>
         </el-table-column>
-        <el-table-column prop="taskId" label="操作" width="190" align="center">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleViewTaskDetail(row)">查看</el-button>
-            <el-button type="danger" size="small" :disabled="!isTaskDeletable(row.status)" @click="handleDeleteTask(row)">删除</el-button>
-          </template>
-        </el-table-column>
-        <el-table-column prop="bestValue" label="最优值" min-width="100">
+        <el-table-column prop="bestValue" label="最优值" min-width="100" show-overflow-tooltip>
           <template #default="{ row }">{{ formatBestValue(row.bestValue) }}</template>
         </el-table-column>
-        <el-table-column prop="solveTime" label="求解时间" min-width="110">
+        <el-table-column prop="solveTime" label="求解时间" width="108">
           <template #default="{ row }">{{ formatSolveTime(row.solveTime) }}</template>
+        </el-table-column>
+        <el-table-column prop="taskId" label="操作" width="156" align="center" fixed="right" class-name="table-actions">
+          <template #default="{ row }">
+            <el-button type="primary" size="small" @click="handleViewTaskDetail(row)">查看</el-button>
+            <el-button type="primary" plain size="small" :disabled="!isTaskDeletable(row.status)" @click="handleDeleteTask(row)">删除</el-button>
+          </template>
         </el-table-column>
       </el-table>
       <div class="history-pagination">
@@ -409,6 +419,9 @@
 </template>
 
 <script setup lang="ts">
+import TaskNameField from "../components/TaskNameField.vue";
+import CandidateEmptyState from "../components/CandidateEmptyState.vue";
+import SolverLog from "../components/SolverLog.vue";
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
@@ -482,6 +495,7 @@ interface GeneralResultExportContext {
 }
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
+const taskNameField = ref<InstanceType<typeof TaskNameField>>();
 const solveType = ref<ModelType>("classic");
 const methodType = ref<MethodType>("sa");
 const matrixSize = ref(4);
@@ -843,6 +857,7 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
 };
 
 const startSolve = async () => {
+  if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
   if (importing.value) return;
   let preparedExpressionResult: {
     matrix: number[][];
@@ -1177,56 +1192,35 @@ onBeforeUnmount(() => {
 .solve-type-group :deep(.el-radio-button__inner) { border: 1px solid #dcdfe6; padding: 8px 10px; font-size: 13px; white-space: nowrap; }
 .solve-type-group :deep(.el-radio-button:not(.is-active) .el-radio-button__inner) { background: #fff; border-color: #dcdfe6; }
 .model-card { margin-top: 16px; }
-.input-tabs > :deep(.el-tabs__header) { margin: 0 0 18px; }
-.input-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap::after) { display: none; }
-.input-tabs > :deep(.el-tabs__header .el-tabs__nav) {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  box-sizing: border-box;
-  float: none;
-  width: 100%;
-  padding: 4px;
-  border: 0;
-  border-radius: 8px;
-  background: #f3f6fa;
-}
-.input-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap.is-scrollable) { padding: 0; }
-.input-tabs > :deep(.el-tabs__header .el-tabs__nav-prev),
-.input-tabs > :deep(.el-tabs__header .el-tabs__nav-next) { display: none; }
+.input-tabs > :deep(.el-tabs__header) { margin: 0 0 24px; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap::after) { height: 1px; background: #edf0f5; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__nav) { display: flex; gap: 28px; padding: 0; border: 0; background: transparent; }
 .input-tabs > :deep(.el-tabs__header .el-tabs__active-bar) { display: none; }
-.input-tabs > :deep(.el-tabs__header .el-tabs__item) {
-  height: 40px;
-  padding: 0 18px;
-  border-radius: 6px;
-  color: #526174;
-  font-size: 14px;
-  font-weight: 500;
-  transition: color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
-}
-.input-tabs > :deep(.el-tabs__header .el-tabs__item:hover) {
-  color: #3156d9;
-  background: rgba(49, 86, 217, 0.04);
-}
-.input-tabs > :deep(.el-tabs__header .el-tabs__item.is-active) {
-  color: #3156d9;
-  background: #eaf0ff;
-  box-shadow: inset 0 0 0 1px #d6e1ff;
-  font-weight: 600;
-}
+.input-tabs > :deep(.el-tabs__header .el-tabs__item) { position: relative; height: 44px; padding: 0 2px 12px; color: #78879b; font-size: 15px; font-weight: 500; transition: color 150ms; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__item::after) { position: absolute; right: 2px; bottom: 0; left: 2px; height: 3px; border-radius: 3px 3px 0 0; background: transparent; content: ''; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__item.is-active) { color: var(--app-accent); font-weight: 600; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__item.is-active::after) { background: var(--app-accent); }
+.input-tabs > :deep(.el-tabs__header .el-tabs__item:not(.is-disabled):hover) { color: var(--app-accent); }
+.input-tabs > :deep(.el-tabs__header .el-tabs__item:focus-visible),
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item:focus-visible) { outline: 2px solid var(--app-accent); outline-offset: -2px; border-radius: 4px; }
+.input-tabs > :deep(.el-tabs__header .el-tabs__item.is-disabled),
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item.is-disabled) { opacity: .5; cursor: not-allowed; }
 .matrix-title-row, .result-header, .history-header, .constraint-heading { justify-content: space-between; }
 .form-row { display: grid; gap: 12px; }
 .three-columns { grid-template-columns: 1.4fr 1fr 1fr; }
 .expression-form :deep(.el-form-item) { margin-bottom: 14px; }
 .expression-options { display: grid; grid-template-columns: minmax(112px, 1fr) minmax(102px, 0.85fr) auto; gap: 12px; align-items: end; }
 .expression-options .example-button { margin-bottom: 14px; white-space: nowrap; }
-.expression-type-tabs { margin: 2px 0 18px; }
-.expression-type-tabs > :deep(.el-tabs__header) { margin: 0 0 15px; }
-.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item) { height: 38px; padding: 0 16px; color: #667085; font-size: 13px; }
-.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item.is-active) { color: #4050f8; font-weight: 600; }
-.expression-type-tabs > :deep(.el-tabs__header .el-tabs__active-bar) { height: 2px; background: #4050f8; }
-.expression-type-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap::after) { height: 1px; background: #e4e9f1; }
+.expression-type-tabs { margin: 4px 0 18px; }
+.expression-type-tabs > :deep(.el-tabs__header) { margin: 0 0 18px; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__nav) { display: flex; gap: 4px; padding: 3px; border: 0; border-radius: 7px; background: #f3f5f8; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap::after),
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__active-bar) { display: none; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item) { height: 30px; padding: 0 14px; border-radius: 5px; color: #78879b; font-size: 12px; font-weight: 400; transition: background-color 150ms, color 150ms; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item.is-active) { color: var(--app-accent); background: #fff; font-weight: 500; box-shadow: 0 1px 3px #2638500a; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item:not(.is-disabled):hover) { color: var(--app-accent); }
 .expression-tip { margin-top: -3px; margin-bottom: 14px; }
-.matrix-formula { padding: 10px 12px; margin-bottom: 14px; border-left: 3px solid #409eff; background: #f3f8ff; color: #4050f8; font-size: 13px; line-height: 1.6; }
+.matrix-formula { padding: 10px 12px; margin-bottom: 14px; border-left: 3px solid var(--el-color-primary); background: var(--app-accent-soft); color: var(--app-accent); font-size: 13px; line-height: 1.6; }
 .matrix-kind-select { width: min(100%, 300px); }
 .matrix-textarea :deep(.el-textarea__inner) { font-family: "SFMono-Regular", Consolas, monospace; line-height: 1.55; }
 .vector-fields { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 12px; }
@@ -1257,10 +1251,7 @@ onBeforeUnmount(() => {
 .candidate-item { background: #f6f7fa; border-radius: 8px; padding: 12px; }
 .candidate-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
 .candidate-rank { color: #292929; font-size: 14px; font-weight: 500; }
-.candidate-value { color: #4050f8; font-size: 14px; font-weight: 600; }
-.candidate-solution { display: flex; gap: 8px; font-size: 13px; }
-.solution-label { color: #8c8fa3; }
-.solution-value { color: #666; font-family: "Courier New", monospace; word-break: break-all; }
+.candidate-value { color: var(--app-accent); font-size: 14px; font-weight: 600; }
 .history-card { margin-top: 20px; }
 .history-actions { gap: 12px; flex-wrap: wrap; }
 .history-header h3 { margin: 0; color: #292929; font-weight: 600; }
@@ -1275,22 +1266,18 @@ onBeforeUnmount(() => {
 .detail-row:last-child { border-bottom: 0; }
 .detail-label { min-width: 120px; color: #8c8fa3; font-size: 14px; font-weight: 500; }
 .detail-value { color: #292929; font-size: 14px; word-break: break-all; }
-.detail-value.highlight { color: #4050f8; font-size: 16px; font-weight: 600; }
+.detail-value.highlight { color: var(--app-accent); font-size: 16px; font-weight: 600; }
 .candidates-list { margin-top: 16px; padding-top: 16px; border-top: 1px solid #e6eaf5; }
 .candidates-header { margin-bottom: 12px; color: #292929; font-size: 15px; font-weight: 600; }
 .candidates-list .candidate-item { margin-bottom: 12px; }
 .candidates-list .candidate-item:last-child { margin-bottom: 0; }
 .candidates-list .candidate-header { align-items: center; }
-.candidates-list .solution-label { min-width: 60px; flex-shrink: 0; }
-.candidates-list .solution-value { padding: 4px 8px; border-radius: 4px; }
 @media (max-width: 1180px) { .card-content { grid-template-columns: 1fr; } .right-column { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; } .solve-area, .solve-state, .solve-time { grid-column: 1 / -1; } }
 @media (max-width: 780px) {
   .controls-top { align-items: flex-start; flex-direction: column; }
   .solve-type-group { flex-wrap: wrap; }
   .three-columns, .right-column, .expression-options, .vector-fields { grid-template-columns: 1fr; }
   .expression-options .example-button { width: 100%; }
-  .input-tabs > :deep(.el-tabs__header .el-tabs__item) { height: 40px; padding: 0 10px; }
-  .expression-type-tabs > :deep(.el-tabs__header .el-tabs__item) { padding: 0 12px; }
   .log-card, .result-card { grid-column: 1; }
   .history-header { align-items: flex-start; flex-direction: column; gap: 12px; }
 }

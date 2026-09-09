@@ -188,15 +188,15 @@ body {
 .main-layout {
   box-sizing: border-box;
   height: 100vh;
-  background: linear-gradient(180deg, #f6f7fa, #fbfbff);
+  background: linear-gradient(180deg, var(--app-page-start), var(--app-page-end));
   padding: 20px;
   gap: 20px;
 }
 
 .el-aside {
-  background: linear-gradient(180deg, #f6f7ff, #ffffff);
+  background: linear-gradient(180deg, var(--app-sidebar-start), #ffffff);
   border-radius: 18px;
-  border: 1px solid #e6eaf5;
+  border: 1px solid var(--app-border);
   box-shadow: 0 10px 20px rgba(9, 30, 66, 0.04);
   padding: 18px;
 }

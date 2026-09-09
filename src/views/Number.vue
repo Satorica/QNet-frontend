@@ -1,30 +1,37 @@
 <template>
   <div class="number-page">
-    <el-card class="main-card">
+    <el-card class="main-card solver-workspace">
       <div class="card-content">
-        <div class="controls-top algorithm-control">
-          <span class="label">求解模型：</span>
-          <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
-            <el-radio-button label="classic">经典计算</el-radio-button>
-            <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
-          </el-radio-group>
-          <div class="algorithm-field">
-            <span class="label">算法类型：</span>
-            <el-select v-model="methodType" :disabled="solving" style="width: 220px">
-              <el-option
-                v-for="option in METHOD_TYPE_OPTIONS"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
+        <section class="solver-configuration" aria-label="任务配置">
+          <div class="workspace-section-heading"><h2>任务配置</h2></div>
+          <TaskNameField ref="taskNameField" :disabled="solving" />
+          <div class="controls-top algorithm-control">
+            <div class="solver-model-field">
+              <span class="label">求解模型</span>
+              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+                <el-radio-button label="classic">经典计算</el-radio-button>
+                <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
+              </el-radio-group>
+            </div>
+            <div class="algorithm-field">
+              <span class="label">算法类型</span>
+              <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+                <el-option
+                  v-for="option in METHOD_TYPE_OPTIONS"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </div>
           </div>
-        </div>
+        </section>
         <div class="left-column">
+          <div class="workspace-section-heading"><h2>数字输入</h2></div>
           <!-- 规模控制 -->
           <div class="controls-row">
             <div class="control-item">
-              <span class="ctrl-label">数字规模：</span>
+              <span class="ctrl-label">数字规模</span>
               <el-input-number
                 v-model="numberSize"
                 :min="NUMBER_MIN_SIZE"
@@ -38,22 +45,24 @@
 
           <!-- 数字输入区域 -->
           <el-card class="input-card">
-            <template #header>
-              <span>数字输入</span>
-            </template>
-
             <div class="number-input-area">
               <el-input
                 v-model="numberInput"
                 type="textarea"
-                :rows="4"
+                :autosize="{ minRows: 3, maxRows: 8 }"
+                resize="none"
+                aria-label="待划分的数字"
+                aria-describedby="number-input-hint"
                 :disabled="solving"
-                placeholder="请输入数字，用逗号或空格分隔，例如：1,2,3,4,5"
+                placeholder="在这里输入或粘贴数字，例如：1, 2, 3, 4, 5"
               />
+              <div class="number-input-footer">
+                <span id="number-input-hint">支持逗号、空格或换行分隔</span>
               <div class="input-buttons">
-                <el-button :disabled="solving" @click="parseNumbers">解析数字</el-button>
+                <el-button type="primary" :disabled="solving" @click="parseNumbers">解析数字</el-button>
                 <el-button :disabled="solving" @click="generateRandomNumbers">随机生成</el-button>
                 <el-button :disabled="solving" @click="clearNumbers">清空</el-button>
+              </div>
               </div>
             </div>
 
@@ -79,75 +88,47 @@
           </el-card>
 
           <!-- 候选结果 -->
-          <el-card class="candidates-result-card">
-            <template #header>
-              <div class="result-header">
-                <span>候选结果</span>
-                <el-button
-                  :disabled="!result || !resultExportContext"
-                  @click="exportResults"
-                  >结果导出</el-button
-                >
-              </div>
-            </template>
-            <div v-if="candidates.length === 0" class="candidates-placeholder">
-              --
-            </div>
-            <div class="candidates-list-main">
-              <div
-                v-for="(candidate, index) in candidates"
-                :key="index"
-                class="candidate-item-main"
-              >
-                <div class="candidate-header-main">
-                  <span class="candidate-rank-main"
-                    >候选解 {{ index + 1 }}</span
-                  >
-                  <span class="candidate-value-main"
-                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
-                  >
-                </div>
-                <div class="candidate-solution-main">
-                  <span class="solution-label-main">解向量：</span>
-                  <span class="solution-value-main">{{
-                    candidate.solution || "--"
-                  }}</span>
-                </div>
-              </div>
-            </div>
-          </el-card>
+
         </div>
 
         <div class="right-column">
-          <!-- 求解控制 -->
-          <div class="solve-area">
-            <el-button
-              type="primary"
-              size="large"
-              :loading="solving"
-              :disabled="!numberInput.trim()"
-              @click="startSolve"
-              class="solve-btn"
-            >
-              {{ solving ? "求解中..." : "求解" }}
-            </el-button>
-            <el-button
-              :loading="
-                currentTaskId !== null &&
-                historyCancelingTaskId === currentTaskId
-              "
-              :disabled="!solving || historyCancelingTaskId !== null"
-              @click="cancelSolve"
-              >取消任务</el-button
-            >
-          </div>
+          <div class="workspace-section-heading"><h2>求解与结果</h2></div>
+          <div class="solver-run-panel">
+            <!-- 求解控制 -->
+            <div class="solve-area">
+              <el-button
+                type="primary"
+                size="large"
+                :loading="solving"
+                :disabled="!numberInput.trim()"
+                @click="startSolve"
+                class="solve-btn"
+              >
+                <span v-if="!solving" class="solve-start-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="m6 4 9 6-9 6z" /></svg>
+                </span>
+                <span>{{ solving ? "求解中…" : "开始求解" }}</span>
+              </el-button>
+              <el-button class="cancel-solve-btn"
+                :loading="
+                  currentTaskId !== null &&
+                  historyCancelingTaskId === currentTaskId
+                "
+                :disabled="!solving || historyCancelingTaskId !== null"
+                @click="cancelSolve"
+                ><span>取消任务</span></el-button
+              >
+            </div>
 
-          <!-- 求解状态 -->
-          <div class="solve-state">
-            <div class="state-icon" :class="statusClass"></div>
-            <div class="state-text">{{ statusText }}</div>
+            <!-- 求解状态 -->
+            <div class="solver-run-meta">
+            <div class="solve-state">
+              <div class="state-icon" :class="statusClass"></div>
+              <div class="state-text">{{ statusText }}</div>
+            </div>
+            <div class="solve-time">求解时间：{{ solveTime }}</div>
+            </div>
           </div>
-          <div class="solve-time">求解时间：{{ solveTime }}</div>
 
           <!-- 结果展示 -->
           <el-card class="result-card" v-if="result">
@@ -215,16 +196,42 @@
           </el-card>
 
           <!-- 算法日志 -->
-          <el-card class="log-card">
+          <el-card class="candidates-result-card">
             <template #header>
-              <span>求解日志</span>
+              <div class="result-header">
+                <span>候选结果</span>
+                <el-button
+                  :disabled="!result || !resultExportContext"
+                  @click="exportResults"
+                  >结果导出</el-button
+                >
+              </div>
             </template>
-            <div class="log-entries">
-              <div v-for="(log, index) in logs" :key="index" class="log-entry">
-                {{ log }}
+            <CandidateEmptyState v-if="candidates.length === 0" :solving="solving" :status="statusText" />
+            <div class="candidates-list-main">
+              <div
+                v-for="(candidate, index) in candidates"
+                :key="index"
+                class="candidate-item-main"
+              >
+                <div class="candidate-header-main">
+                  <span class="candidate-rank-main"
+                    >候选解 {{ index + 1 }}</span
+                  >
+                  <span class="candidate-value-main"
+                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
+                  >
+                </div>
+                <div class="candidate-solution-main">
+                  <span class="solution-label-main">解向量：</span>
+                  <span class="solution-value-main">{{
+                    candidate.solution || "--"
+                  }}</span>
+                </div>
               </div>
             </div>
           </el-card>
+          <SolverLog :logs="logs" />
         </div>
       </div>
     </el-card>
@@ -245,7 +252,7 @@
             >
             <el-button @click="handleHistoryReset">重置</el-button>
             <el-button
-              type="danger"
+              type="primary" plain
               :disabled="historyTotal === 0"
               @click="handleDeleteAllTasks"
               >全部删除</el-button
@@ -254,7 +261,8 @@
         </div>
       </template>
       <el-table
-        class="history-table"
+        class="history-table app-data-table"
+        scrollbar-always-on
         :data="taskHistory"
         row-key="taskId"
         stripe
@@ -265,7 +273,7 @@
         <el-table-column
           prop="taskName"
           label="任务名"
-          min-width="260"
+          min-width="180"
           show-overflow-tooltip
         >
           <template #default="{ row }">
@@ -279,28 +287,38 @@
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="modelType" label="模型" min-width="150">
+        <el-table-column prop="modelType" label="模型" width="156" class-name="table-model">
           <template #default="{ row }">
             {{ getModelTypeText(row.modelType) }}
           </template>
         </el-table-column>
-        <el-table-column prop="methodType" label="算法类型" min-width="140">
+        <el-table-column prop="methodType" label="算法类型" width="124">
           <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
         </el-table-column>
-        <el-table-column prop="timestamp" label="提交时间" min-width="170">
+        <el-table-column prop="timestamp" label="提交时间" width="176">
           <template #default="{ row }">
             {{ formatDate(row.timestamp) }}
           </template>
         </el-table-column>
-        <el-table-column prop="matrixSize" label="规模" min-width="90" />
-        <el-table-column prop="status" label="状态" min-width="110">
+        <el-table-column prop="matrixSize" label="规模" width="80" />
+        <el-table-column prop="status" label="状态" width="96">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="taskId" label="操作" width="220" align="center">
+        <el-table-column prop="bestValue" label="最优值" min-width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ formatBestValue(row.bestValue) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="solveTime" label="求解时间" width="108">
+          <template #default="{ row }">
+            {{ formatSolveTime(row.solveTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="taskId" label="操作" width="156" align="center" fixed="right" class-name="table-actions">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -322,21 +340,11 @@
             >
             <el-button
               v-else
-              type="danger"
+              type="primary" plain
               size="small"
               @click="handleDeleteTask(row)"
               >删除</el-button
             >
-          </template>
-        </el-table-column>
-        <el-table-column prop="bestValue" label="最优值" min-width="100">
-          <template #default="{ row }">
-            {{ formatBestValue(row.bestValue) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="solveTime" label="求解时间" min-width="110">
-          <template #default="{ row }">
-            {{ formatSolveTime(row.solveTime) }}
           </template>
         </el-table-column>
       </el-table>
@@ -532,6 +540,9 @@
 </template>
 
 <script setup lang="ts">
+import TaskNameField from "../components/TaskNameField.vue";
+import CandidateEmptyState from "../components/CandidateEmptyState.vue";
+import SolverLog from "../components/SolverLog.vue";
 import { ref, computed, onBeforeUnmount } from "vue";
 import {
   submitTask,
@@ -589,6 +600,7 @@ type NumberExportContext = {
 };
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
+const taskNameField = ref<InstanceType<typeof TaskNameField>>();
 
 const NUMBER_MIN_SIZE = 1;
 const NUMBER_MAX_SIZE = 10;
@@ -773,6 +785,7 @@ const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
 };
 
 const startSolve = async () => {
+  if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
   let parsedNumbers;
   try {
     parsedNumbers = parseNumberInput();
@@ -1646,34 +1659,18 @@ onBeforeUnmount(() => {
 
 .candidate-rank-main {
   font-weight: 500;
-  color: #4050f8;
+  color: var(--app-accent);
   font-size: 14px;
 }
 
 .candidate-value-main {
-  color: #4050f8;
+  color: var(--app-accent);
   font-weight: 600;
   font-size: 14px;
 }
 
-.candidate-solution-main {
-  display: flex;
-  gap: 8px;
-  font-size: 12px;
-}
 
-.solution-label-main {
-  color: #8c8fa3;
-  flex-shrink: 0;
-}
 
-.solution-value-main {
-  color: #666;
-  word-break: break-all;
-  font-family: "Courier New", monospace;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
 
 /* 任务历史列表 */
 .history-card {
@@ -1708,11 +1705,11 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 .task-name-link:hover,
 .task-name-link:focus {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 .history-pagination {
   display: flex;
@@ -1775,7 +1772,7 @@ onBeforeUnmount(() => {
 }
 
 .detail-value.highlight {
-  color: #4050f8;
+  color: var(--app-accent);
   font-weight: 600;
   font-size: 16px;
 }
@@ -1809,32 +1806,17 @@ onBeforeUnmount(() => {
 
 .candidate-rank {
   font-weight: 600;
-  color: #4050f8;
+  color: var(--app-accent);
 }
 
 .candidate-value {
-  color: #4050f8;
+  color: var(--app-accent);
   font-weight: 600;
   font-size: 14px;
 }
 
-.candidate-solution {
-  display: flex;
-  gap: 8px;
-  font-size: 13px;
-}
 
-.solution-label {
-  color: #666;
-  min-width: 70px;
-}
 
-.solution-value {
-  flex: 1;
-  color: #292929;
-  font-family: "Courier New", monospace;
-  word-break: break-all;
-}
 @media (max-width: 780px) {
   .algorithm-control {
     align-items: flex-start;

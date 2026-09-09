@@ -1,6 +1,6 @@
 <template>
   <div ref="graphContainer" class="maxcut-graph">
-    <svg :width="width" :height="height" class="graph-svg">
+    <svg :width="width" :height="height" :viewBox="`0 0 ${width} ${height}`" class="graph-svg">
       <!-- 边 -->
       <line
         v-for="(edge, index) in edges"
@@ -9,8 +9,8 @@
         :y1="nodes[edge.source]?.y"
         :x2="nodes[edge.target]?.x"
         :y2="nodes[edge.target]?.y"
-        stroke="#C0C4CC"
-        stroke-width="2"
+        stroke="#B8C2D1"
+        stroke-width="1.5"
         opacity="0.6"
         class="graph-edge"
       />
@@ -23,9 +23,9 @@
         :cy="node.y"
         :r="nodeRadius"
         :fill="getNodeColor(node.id)"
-        :stroke="isSelected(node.id) ? '#4050F8' : getNodeStrokeColor(node.id)"
+        :stroke="isSelected(node.id) ? 'var(--app-accent)' : getNodeStrokeColor(node.id)"
         :stroke-width="isSelected(node.id) ? 4 : 3"
-        :class="{ clickable: editable, 'has-partition': hasPartition(node.id) }"
+        :class="{ clickable: editable, 'has-partition': hasPartition(node.id), 'is-selected': isSelected(node.id) }"
         @click="handleNodeClick(node.id)"
       />
 
@@ -103,7 +103,7 @@ const getNodeColor = (nodeId: number) => {
   const partition = props.partition[nodeId];
   if (partition === 0) return "#FF6B6B"; // 分区A - 鲜艳红色
   if (partition === 1) return "#4ECDC4"; // 分区B - 青绿色
-  return "#B0B0B0"; // 默认灰色（未分区）
+  return "var(--app-accent)"; // 未分区节点跟随主题
 };
 
 // 节点边框颜色
@@ -111,7 +111,7 @@ const getNodeStrokeColor = (nodeId: number) => {
   const partition = props.partition[nodeId];
   if (partition === 0) return "#E85454"; // 深红色边框
   if (partition === 1) return "#3DBDB4"; // 深青色边框
-  return "#909090"; // 灰色边框
+  return "#FFFFFF";
 };
 
 // 检查节点是否已分区
@@ -187,8 +187,12 @@ const handleNodeClick = (nodeId: number) => {
 }
 
 .clickable:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.1) drop-shadow(0 0 3px rgba(var(--app-accent-rgb), .3));
   transform: scale(1.1);
+}
+
+.is-selected {
+  filter: drop-shadow(0 0 3px rgba(var(--app-accent-rgb), .4));
 }
 
 .has-partition {

@@ -546,22 +546,22 @@ onBeforeUnmount(() => {
 <style scoped>
 .step-bar { padding: 0 4px; }
 .step-bar :deep(.el-step__head.is-process),
-.step-bar :deep(.el-step__title.is-process) { color: #087eaa; border-color: #087eaa; }
+.step-bar :deep(.el-step__title.is-process) { color: var(--brand-primary); border-color: var(--brand-primary); }
 .step-bar :deep(.el-step__title) { font-size: 13px; }
 .step-bar :deep(.el-step__head.is-wait),
-.step-bar :deep(.el-step__title.is-wait) { color: #7893a3; border-color: #a8c0ce; }
-.step-bar :deep(.el-step__icon) { background: #f7fcfe; }
-.step-bar :deep(.el-step__head.is-process .el-step__icon) { background: #e0edf2; box-shadow: 0 0 0 5px #087eaa12; }
-.step-bar :deep(.el-step__line) { background: #cddfe6; }
+.step-bar :deep(.el-step__title.is-wait) { color: #8395ae; border-color: #c6d5e9; }
+.step-bar :deep(.el-step__icon) { background: #ffffff; }
+.step-bar :deep(.el-step__head.is-process .el-step__icon) { background: #edf2f8; box-shadow: 0 0 0 5px rgba(var(--brand-rgb), .07); }
+.step-bar :deep(.el-step__line) { background: #dce4ef; }
 .step-content { margin-top: 28px; }
 .info-alert { margin-bottom: 24px; border-radius: 10px; }
-.info-alert.el-alert--info { background: #e0edf2; color: #405e70; }
-.password-strength-panel { box-sizing: border-box; margin: -6px 0 18px; width: 100%; padding: 10px 12px; background: #e0edf2; border-radius: 10px; }
-.strength-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; color: #405e70; }
-.strength-tip { margin: 8px 0 0; font-size: 12px; color: #587384; }
+.info-alert.el-alert--info { background: #edf2f8; color: #4b5d76; }
+.password-strength-panel { box-sizing: border-box; margin: -6px 0 18px; width: 100%; padding: 10px 12px; background: #edf2f8; border-radius: 10px; }
+.strength-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; color: #4b5d76; }
+.strength-tip { margin: 8px 0 0; font-size: 12px; color: #687c96; }
 .link-icon { margin-right: 4px; }
 .success-view { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 28px 0 8px; }
 .success-icon { font-size: 64px; color: var(--el-color-success); margin-bottom: 20px; }
-.success-view p { margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #587384; }
-.success-view .success-title { font-size: 22px; font-weight: 500; color: #173c50; }
+.success-view p { margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #687c96; }
+.success-view .success-title { font-size: 22px; font-weight: 500; color: #243753; }
 </style>

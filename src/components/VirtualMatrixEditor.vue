@@ -214,7 +214,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 
 .matrix-corner,
 .axis-cell {
-  background: #f1f6ff;
+  background: var(--app-accent-soft);
   color: #526176;
   font-size: 12px;
   font-weight: 600;
@@ -270,7 +270,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 
 .axis-cell.is-axis-hovered {
   background: #e3f0ff;
-  color: #2878c8;
+  color: var(--app-accent);
 }
 
 .matrix-data-viewport {
@@ -296,8 +296,8 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
   position: absolute;
   inset: 0;
   z-index: 1;
-  border: 1px solid #409eff;
-  border-radius: 3px;
+  border: 1px solid var(--el-color-primary);
+  border-radius: 0;
   opacity: 0;
   pointer-events: none;
 }
@@ -305,14 +305,11 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 .matrix-cell.is-cell-hovered,
 .matrix-cell:hover,
 .matrix-cell:focus-within {
-  background: #f0f7ff;
+  background: var(--app-accent-soft);
 }
 
-.matrix-cell.is-cell-hovered::after,
-.matrix-cell:hover::after,
 .matrix-cell:focus-within::after {
   opacity: 1;
-  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.1);
 }
 
 .matrix-cell :deep(.el-input-number) {
@@ -321,8 +318,16 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
   height: 100%;
 }
 
-.matrix-cell :deep(.el-input__wrapper) {
-  min-height: 100%;
+.matrix-cell :deep(.el-input) {
+  height: 100%;
+}
+
+.matrix-cell :deep(.el-input__wrapper),
+.matrix-cell :deep(.el-input__wrapper:hover),
+.matrix-cell :deep(.el-input__wrapper.is-focus) {
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
   padding: 0 3px;
   border-radius: 0;
   background: transparent;

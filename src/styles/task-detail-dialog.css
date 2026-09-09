@@ -80,7 +80,7 @@ body .task-detail-dialog .detail-title::after {
   left: 0;
   height: 2px;
   border-radius: 999px;
-  background: #409eff;
+  background: var(--el-color-primary);
   content: "";
 }
 
@@ -110,7 +110,7 @@ body .task-detail-dialog .detail-value {
 }
 
 body .task-detail-dialog .detail-value.highlight {
-  color: #2878db;
+  color: var(--app-accent);
 }
 
 body .task-detail-dialog .candidates-list {
@@ -152,7 +152,7 @@ body .task-detail-dialog .candidate-header {
 body .task-detail-dialog .candidate-rank {
   padding: 0;
   background: transparent;
-  color: #2878db;
+  color: var(--app-accent);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.5;
@@ -165,36 +165,6 @@ body .task-detail-dialog .candidate-value {
   font-size: 13px;
   font-weight: 500;
   line-height: 1.5;
-}
-
-body .task-detail-dialog .candidate-solution {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: 0;
-  padding-top: 0;
-  border-top: 0;
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-body .task-detail-dialog .solution-label {
-  min-width: 56px;
-  flex-shrink: 0;
-  padding-top: 4px;
-  color: #8992a3;
-}
-
-body .task-detail-dialog .solution-value {
-  min-width: 0;
-  flex: 1;
-  padding: 3px 8px;
-  border-radius: 5px;
-  background: #eef2f7;
-  color: #414a5a;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  font-size: 12px;
-  word-break: break-all;
 }
 
 body .task-detail-dialog .el-dialog__footer {
@@ -254,18 +224,4 @@ body .task-detail-dialog .task-detail::-webkit-scrollbar-track {
     gap: 8px;
   }
 
-  body .task-detail-dialog .candidate-solution {
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  body .task-detail-dialog .solution-label {
-    min-width: 0;
-    padding-top: 0;
-  }
-
-  body .task-detail-dialog .solution-value {
-    width: 100%;
-    box-sizing: border-box;
-  }
 }

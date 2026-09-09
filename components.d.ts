@@ -7,6 +7,7 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    CandidateEmptyState: typeof import('./src/components/CandidateEmptyState.vue')['default']
     ColoringGraph: typeof import('./src/components/ColoringGraph.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElAside: typeof import('element-plus/es')['ElAside']
@@ -30,6 +31,7 @@ declare module 'vue' {
     ElMenuItem: typeof import('element-plus/es')['ElMenuItem']
     ElOption: typeof import('element-plus/es')['ElOption']
     ElPagination: typeof import('element-plus/es')['ElPagination']
+    ElPopover: typeof import('element-plus/es')['ElPopover']
     ElProgress: typeof import('element-plus/es')['ElProgress']
     ElRadioButton: typeof import('element-plus/es')['ElRadioButton']
     ElRadioGroup: typeof import('element-plus/es')['ElRadioGroup']
@@ -49,6 +51,10 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     Sidebar: typeof import('./src/components/Sidebar.vue')['default']
+    SolverEmptyState: typeof import('./src/components/SolverEmptyState.vue')['default']
+    SolverLog: typeof import('./src/components/SolverLog.vue')['default']
+    TaskNameField: typeof import('./src/components/TaskNameField.vue')['default']
+    ThemeSwitcher: typeof import('./src/components/ThemeSwitcher.vue')['default']
     TopBar: typeof import('./src/components/TopBar.vue')['default']
     TSPGraph: typeof import('./src/components/TSPGraph.vue')['default']
     VirtualMatrixEditor: typeof import('./src/components/VirtualMatrixEditor.vue')['default']

@@ -15,9 +15,9 @@
             :y1="cities[edge.i]?.y"
             :x2="cities[edge.j]?.x"
             :y2="cities[edge.j]?.y"
-            stroke="#8C8FA3"
-            stroke-width="1.5"
-            opacity="0.5"
+            stroke="#B8C2D1"
+            stroke-width="1.25"
+            opacity="0.6"
           />
         </g>
       </g>
@@ -47,10 +47,10 @@
         :cx="city.x"
         :cy="city.y"
         :r="cityRadius"
-        fill="url(#cityGradient)"
-        :stroke="isSelected(city.id) ? '#4050F8' : '#FFFFFF'"
+        fill="var(--app-accent)"
+        :stroke="isSelected(city.id) ? 'var(--app-accent)' : '#FFFFFF'"
         :stroke-width="isSelected(city.id) ? 3 : 2"
-        :class="{ clickable: editable }"
+        :class="{ clickable: editable, 'is-selected': isSelected(city.id) }"
         @click="handleCityClick(city.id)"
       />
 
@@ -63,19 +63,15 @@
         text-anchor="middle"
         dy="0.35em"
         fill="white"
-        font-size="12"
+        :font-size="12 * nodeScale"
         font-weight="600"
         style="pointer-events: none"
       >
         {{ city.id }}
       </text>
 
-      <!-- 渐变定义 -->
+      <!-- 路线箭头保持结果色 -->
       <defs>
-        <linearGradient id="cityGradient" gradientTransform="rotate(45)">
-          <stop offset="0%" stop-color="#4050F8" />
-          <stop offset="100%" stop-color="#7848E8" />
-        </linearGradient>
         <marker
           id="tspRouteArrow"
           markerWidth="10"
@@ -126,6 +122,7 @@ const props = withDefaults(
     editable?: boolean;
     selectedNodes?: number[];
     distanceMatrix?: number[][];
+    nodeScale?: number;
   }>(),
   {
     cities: () => [],
@@ -134,6 +131,7 @@ const props = withDefaults(
     editable: false,
     selectedNodes: () => [],
     distanceMatrix: () => [],
+    nodeScale: 1,
   },
 );
 
@@ -145,8 +143,8 @@ const emit = defineEmits<{
 
 const width = 760;
 const height = 380;
-const cityRadius = 12;
-const routeEndpointGap = cityRadius + 5;
+const cityRadius = computed(() => 12 * props.nodeScale);
+const routeEndpointGap = computed(() => cityRadius.value + 5);
 
 const getCityById = (cityId: number) => {
   return props.cities.find((city) => city?.id === cityId) || props.cities[cityId];
@@ -186,7 +184,7 @@ const routeSegments = computed(() => {
 
     const ux = dx / length;
     const uy = dy / length;
-    const gap = Math.min(routeEndpointGap, length / 3);
+    const gap = Math.min(routeEndpointGap.value, length / 3);
 
     result.push({
       from,
@@ -241,7 +239,11 @@ const handleCityClick = (cityId: number) => {
 }
 
 .clickable:hover {
-  filter: brightness(1.1);
+  filter: brightness(1.1) drop-shadow(0 0 3px rgba(var(--app-accent-rgb), .3));
   transform: scale(1.1);
+}
+
+.is-selected {
+  filter: drop-shadow(0 0 3px rgba(var(--app-accent-rgb), .4));
 }
 </style>

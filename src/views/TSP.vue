@@ -1,31 +1,37 @@
 <template>
   <div class="tsp-page">
-    <el-card class="main-card">
+    <el-card class="main-card solver-workspace">
       <div class="card-content">
-        <div class="controls-top algorithm-control">
-          <span class="label">求解模型：</span>
-          <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
-            <el-radio-button label="classic">经典计算</el-radio-button>
-            <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
-          </el-radio-group>
-          <div class="algorithm-field">
-            <span class="label">算法类型：</span>
-            <el-select v-model="methodType" :disabled="solving" style="width: 220px">
-              <el-option
-                v-for="option in METHOD_TYPE_OPTIONS"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
+        <section class="solver-configuration" aria-label="任务配置">
+          <div class="workspace-section-heading"><h2>任务配置</h2></div>
+          <TaskNameField ref="taskNameField" :disabled="solving" />
+          <div class="controls-top algorithm-control">
+            <div class="solver-model-field">
+              <span class="label">求解模型</span>
+              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+                <el-radio-button label="classic">经典计算</el-radio-button>
+                <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
+              </el-radio-group>
+            </div>
+            <div class="algorithm-field">
+              <span class="label">算法类型</span>
+              <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+                <el-option
+                  v-for="option in METHOD_TYPE_OPTIONS"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
+              </el-select>
+            </div>
           </div>
-        </div>
-        <!-- 左列：矩阵和图 -->
-        <div class="left-column">
+        </section>
+        <div class="left-column graph-data-section">
+          <div class="workspace-section-heading"><h2>数据与预览</h2></div>
           <!-- 城市设置 -->
           <div class="controls-row">
             <div class="control-item">
-              <span class="ctrl-label">城市数量：</span>
+              <span class="ctrl-label">城市数量</span>
               <el-input-number
                 v-model="cityCount"
                 :min="3"
@@ -38,125 +44,138 @@
           </div>
 
           <!-- 距离矩阵（可非负权重） -->
-          <el-card class="matrix-card">
-            <template #header>
-              <div class="matrix-header">
-                <span>距离矩阵</span>
-                <div class="matrix-actions">
-                  <el-button
-                    :type="matrixMode === 'custom' ? 'primary' : ''"
-                    :disabled="solving"
-                    @click="setMatrixMode('custom')"
-                    >自定义</el-button
-                  >
-                  <el-button
-                    :type="matrixMode === 'random' ? 'primary' : ''"
-                    :disabled="solving"
-                    @click="
-                      setMatrixMode('random');
-                      generateRandomMatrix();
-                    "
-                    >随机生成</el-button
-                  >
-                  <el-upload
-                    ref="importUpload"
-                    action="#"
-                    accept=".csv,.txt,text/csv,text/plain"
-                    :limit="1"
-                    :show-file-list="false"
-                    :disabled="solving || importing"
-                    :http-request="handleFileImport"
-                    :on-success="clearImportFiles"
-                    :on-error="clearImportFiles"
-                  >
-                    <el-button
-                      :disabled="solving || importing"
-                      :loading="importing"
-                    >
-                      {{ importing ? "解析中..." : "数据导入(txt/csv)" }}
-                    </el-button>
-                  </el-upload>
-                  <el-button
-                    :disabled="solving"
-                    @click="handleTemplateDownload"
-                    >下载模板</el-button
-                  >
-                </div>
-              </div>
-            </template>
-
-            <div class="matrix-grid">
-              <div
-                v-for="(row, i) in distanceMatrix"
-                :key="i"
-                class="matrix-row"
+          <div class="matrix-actions">
+            <el-button
+              :type="matrixMode === 'custom' ? 'primary' : ''"
+              :disabled="solving"
+              @click="setMatrixMode('custom')"
+              >自定义</el-button
+            >
+            <el-button
+              :type="matrixMode === 'random' ? 'primary' : ''"
+              :disabled="solving"
+              @click="
+                setMatrixMode('random');
+                generateRandomMatrix();
+              "
+              >随机生成</el-button
+            >
+            <el-upload
+              ref="importUpload"
+              action="#"
+              accept=".csv,.txt,text/csv,text/plain"
+              :limit="1"
+              :show-file-list="false"
+              :disabled="solving || importing"
+              :http-request="handleFileImport"
+              :on-success="clearImportFiles"
+              :on-error="clearImportFiles"
+            >
+              <el-button
+                :disabled="solving || importing"
+                :loading="importing"
               >
+                {{ importing ? "解析中..." : "导入数据" }}
+              </el-button>
+            </el-upload>
+            <el-button
+              :disabled="solving"
+              @click="handleTemplateDownload"
+              >下载模板</el-button
+            >
+          </div>
+          <div class="data-editor-grid">
+            <el-card class="matrix-card">
+              <template #header>
+                <div class="matrix-header">
+                  <span>距离矩阵</span>
+                </div>
+              </template>
+
+              <div class="matrix-scroll" tabindex="0" aria-label="矩阵编辑区，可横向滚动">
+              <div class="matrix-grid">
                 <div
-                  v-for="(cell, j) in row"
-                  :key="j"
-                  class="matrix-cell"
-                  :class="{
-                    editable:
-                      !solving &&
-                      (matrixMode === 'custom' || matrixMode === 'random') &&
-                      i !== j,
-                  }"
-                  @click="toggleMatrixCell(i, j)"
+                  v-for="(row, i) in distanceMatrix"
+                  :key="i"
+                  class="matrix-row"
                 >
-                  {{ cell }}
+                  <div
+                    v-for="(cell, j) in row"
+                    :key="j"
+                    class="matrix-cell"
+                    :class="{
+                      editable:
+                        !solving &&
+                        (matrixMode === 'custom' || matrixMode === 'random') &&
+                        i !== j,
+                    }"
+                    @click="toggleMatrixCell(i, j)"
+                  >
+                    {{ cell }}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div class="tip">点击单元格编辑距离，非对角线距离需 ≥ 0.1（对称）。</div>
-          </el-card>
+              </div>
+              <div class="tip">点击单元格编辑距离，非对角线距离需 ≥ 0.1（对称）。</div>
+            </el-card>
 
-          <!-- TSP可视化 -->
-          <div class="tsp-visualization">
-            <TSPGraph
-              :cities="cities"
-              :route="currentRoute"
-              :bestRoute="bestRoute"
-              :editable="!solving"
-              :selected-nodes="selectedNodes"
-              :distance-matrix="distanceMatrix"
-              @city-click="onCityClick"
-              @city-move="handleCityMove"
-              @route-change="handleRouteChange"
-            />
+            <!-- TSP可视化 -->
+            <div class="tsp-visualization graph-preview-panel">
+              <div class="graph-preview-heading"><span>图形预览</span><small>城市与路径</small></div>
+              <TSPGraph
+                :cities="cities"
+                :route="currentRoute"
+                :bestRoute="bestRoute"
+                :editable="!solving"
+                :selected-nodes="selectedNodes"
+                :distance-matrix="distanceMatrix"
+                @city-click="onCityClick"
+                @city-move="handleCityMove"
+                @route-change="handleRouteChange"
+              />
+            </div>
           </div>
         </div>
 
-        <!-- 右列：求解状态和结果 -->
+        <!-- 求解操作与结果 -->
         <div class="right-column">
-          <!-- 求解按钮 -->
-          <div class="solve-area">
-            <el-button
-              type="primary"
-              size="large"
-              :loading="solving"
-              @click="submitSolve"
-              class="solve-btn"
-            >
-              {{ solving ? "求解中..." : "求解" }}
-            </el-button>
-            <el-button
-              :loading="
-                currentTaskId !== null &&
-                historyCancelingTaskId === currentTaskId
-              "
-              :disabled="!solving || historyCancelingTaskId !== null"
-              @click="cancelSolve"
-              >取消任务</el-button
-            >
-          </div>
+          <div class="workspace-section-heading"><h2>求解与结果</h2></div>
+          <div class="solver-run-panel">
+            <!-- 求解按钮 -->
+            <div class="solve-area">
+              <el-button
+                type="primary"
+                size="large"
+                :loading="solving"
+                @click="submitSolve"
+                class="solve-btn"
+              >
+                <span v-if="!solving" class="solve-start-icon" aria-hidden="true">
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="m6 4 9 6-9 6z" /></svg>
+                </span>
+                <span>{{ solving ? "求解中…" : "开始求解" }}</span>
+              </el-button>
+              <el-button class="cancel-solve-btn"
+                :loading="
+                  currentTaskId !== null &&
+                  historyCancelingTaskId === currentTaskId
+                "
+                :disabled="!solving || historyCancelingTaskId !== null"
+                @click="cancelSolve"
+                ><span>取消任务</span></el-button
+              >
+            </div>
 
-          <!-- 求解状态 -->
-          <div class="solve-state">
-            <div class="state-icon" :class="statusClass"></div>
-            <div class="state-text">{{ statusText }}</div>
-          </div>
+            <!-- 求解状态 -->
+            <div class="solver-run-meta">
+            <div class="solve-state">
+              <div class="state-icon" :class="statusClass"></div>
+              <div class="state-text">{{ statusText }}</div>
+            </div>
 
-          <div class="solve-time">求解时间：{{ solveTime }}</div>
+            <div class="solve-time">求解时间：{{ solveTime }}</div>
+            </div>
+          </div>
 
           <!-- 统计信息 -->
           <el-card class="stats-card">
@@ -185,16 +204,7 @@
           </el-card>
 
           <!-- 算法日志 -->
-          <el-card class="log-card">
-            <template #header>
-              <span>求解日志</span>
-            </template>
-            <div class="log-entries">
-              <div v-for="(log, index) in logs" :key="index" class="log-entry">
-                {{ log }}
-              </div>
-            </div>
-          </el-card>
+          <SolverLog :logs="logs" />
 
           <!-- 候选结果 -->
           <el-card class="candidates-card">
@@ -208,12 +218,7 @@
                 >
               </div>
             </template>
-            <div
-              v-if="solveCandidates.length === 0"
-              class="candidates-placeholder"
-            >
-              --
-            </div>
+            <CandidateEmptyState v-if="solveCandidates.length === 0" :solving="solving" :status="statusText" />
             <div v-else class="candidates-list">
               <div
                 v-for="(candidate, index) in solveCandidates"
@@ -257,7 +262,7 @@
             >
             <el-button @click="handleHistoryReset">重置</el-button>
             <el-button
-              type="danger"
+              type="primary" plain
               :disabled="historyTotal === 0"
               @click="handleDeleteAllTasks"
               >全部删除</el-button
@@ -266,7 +271,8 @@
         </div>
       </template>
       <el-table
-        class="history-table"
+        class="history-table app-data-table"
+        scrollbar-always-on
         :data="taskHistory"
         row-key="taskId"
         stripe
@@ -277,7 +283,7 @@
         <el-table-column
           prop="taskName"
           label="任务名"
-          min-width="220"
+          min-width="180"
           show-overflow-tooltip
         >
           <template #default="{ row }">
@@ -291,28 +297,38 @@
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="modelType" label="模型" min-width="150">
+        <el-table-column prop="modelType" label="模型" width="156" class-name="table-model">
           <template #default="{ row }">
             {{ getModelTypeText(row.modelType) }}
           </template>
         </el-table-column>
-        <el-table-column prop="methodType" label="算法类型" min-width="140">
+        <el-table-column prop="methodType" label="算法类型" width="124">
           <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
         </el-table-column>
-        <el-table-column prop="timestamp" label="提交时间" min-width="170">
+        <el-table-column prop="timestamp" label="提交时间" width="176">
           <template #default="{ row }">
             {{ formatDate(row.timestamp) }}
           </template>
         </el-table-column>
-        <el-table-column prop="matrixSize" label="规模" min-width="90" />
-        <el-table-column prop="status" label="状态" min-width="110">
+        <el-table-column prop="matrixSize" label="规模" width="80" />
+        <el-table-column prop="status" label="状态" width="96">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
               {{ getStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="taskId" label="操作" width="220" align="center">
+        <el-table-column prop="bestValue" label="最优值" min-width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ formatBestValue(row.bestValue) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="solveTime" label="求解时间" width="108">
+          <template #default="{ row }">
+            {{ formatSolveTime(row.solveTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="taskId" label="操作" width="156" align="center" fixed="right" class-name="table-actions">
           <template #default="{ row }">
             <el-button
               type="primary"
@@ -334,21 +350,11 @@
             >
             <el-button
               v-else
-              type="danger"
+              type="primary" plain
               size="small"
               @click="handleDeleteTask(row)"
               >删除</el-button
             >
-          </template>
-        </el-table-column>
-        <el-table-column prop="bestValue" label="最优值" min-width="100">
-          <template #default="{ row }">
-            {{ formatBestValue(row.bestValue) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="solveTime" label="求解时间" min-width="110">
-          <template #default="{ row }">
-            {{ formatSolveTime(row.solveTime) }}
           </template>
         </el-table-column>
       </el-table>
@@ -544,6 +550,9 @@
 </template>
 
 <script setup lang="ts">
+import TaskNameField from "../components/TaskNameField.vue";
+import CandidateEmptyState from "../components/CandidateEmptyState.vue";
+import SolverLog from "../components/SolverLog.vue";
 import { ref, computed, onBeforeUnmount } from "vue";
 import TSPGraph from "../components/TSPGraph.vue";
 import {
@@ -604,6 +613,7 @@ type TspExportContext = {
 };
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
+const taskNameField = ref<InstanceType<typeof TaskNameField>>();
 
 // 响应式数据
 const cityCount = ref(8);
@@ -1346,6 +1356,7 @@ const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
 
 // 求解提交（统一POST参数）
 const submitSolve = async () => {
+  if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
   const submittedCityCount = cityCount.value;
   const submittedAt = Date.now();
   const submittedTaskName = customTaskName.value || `TSP_${submittedAt}`;
@@ -1958,7 +1969,7 @@ onBeforeUnmount(() => {
 .title-bar {
   width: 4px;
   height: 28px;
-  background: linear-gradient(180deg, #4050f8, #7848e8);
+  background: linear-gradient(180deg, var(--app-accent), var(--app-accent-secondary));
   border-radius: 2px;
 }
 
@@ -2031,7 +2042,7 @@ onBeforeUnmount(() => {
 }
 
 .matrix-cell.editable:hover {
-  background: #f0f8ff;
+  background: var(--app-accent-soft);
 }
 
 .matrix-row:last-child .matrix-cell {
@@ -2288,11 +2299,11 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 .task-name-link:hover,
 .task-name-link:focus {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 .history-pagination {
   display: flex;
@@ -2355,7 +2366,7 @@ onBeforeUnmount(() => {
 }
 
 .detail-value.highlight {
-  color: #4050f8;
+  color: var(--app-accent);
   font-weight: 600;
   font-size: 16px;
 }
@@ -2404,32 +2415,17 @@ onBeforeUnmount(() => {
 
 .candidate-rank {
   font-weight: 600;
-  color: #4050f8;
+  color: var(--app-accent);
 }
 
 .candidate-value {
-  color: #4050f8;
+  color: var(--app-accent);
   font-weight: 600;
   font-size: 14px;
 }
 
-.candidate-solution {
-  display: flex;
-  gap: 8px;
-  font-size: 13px;
-}
 
-.solution-label {
-  color: #666;
-  min-width: 70px;
-}
 
-.solution-value {
-  flex: 1;
-  color: #292929;
-  font-family: "Courier New", monospace;
-  word-break: break-all;
-}
 @media (max-width: 780px) {
   .algorithm-control {
     align-items: flex-start;

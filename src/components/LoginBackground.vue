@@ -15,6 +15,8 @@ import quantumField from "../assets/login-quantum-field.webp";
   overflow: hidden;
   pointer-events: none;
   background: #020c19;
+  /* Filter the artwork and its base together to keep mobile edges seamless. */
+  filter: hue-rotate(8deg) saturate(.7) brightness(.86);
 }
 .quantum-art {
   width: 100%;

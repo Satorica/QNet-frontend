@@ -1,78 +1,72 @@
 <template>
   <div class="feedback-page">
     <el-card class="feedback-card" shadow="never">
-      <div class="feedback-workspace">
-        <section class="feedback-main">
-          <header class="feedback-card-header">
-            <div class="feedback-heading-copy">
-              <h2>问题反馈</h2>
-              <p>详细描述问题，有助于我们更快定位和处理。</p>
-            </div>
-            <el-button class="history-entry" plain type="primary" @click="goToHistory">
-              <el-icon><Clock /></el-icon>
-              <span>我的反馈</span>
+      <template #header>
+        <header class="feedback-card-header">
+          <div class="feedback-heading-copy">
+            <h3>问题反馈</h3>
+            <p>详细描述问题，有助于我们更快定位和处理。</p>
+          </div>
+          <el-button class="history-entry" plain type="primary" @click="goToHistory">
+            <el-icon><Clock /></el-icon>
+            <span>我的反馈</span>
+          </el-button>
+        </header>
+      </template>
+      <section class="feedback-main">
+        <el-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          label-position="top"
+          class="feedback-form"
+          @submit.prevent="handleSubmit"
+        >
+          <el-form-item label="反馈类型" prop="category">
+            <el-select v-model="form.category" class="category-select" placeholder="请选择反馈类型">
+              <el-option
+                v-for="option in categoryOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
+            </el-select>
+          </el-form-item>
+
+          <el-form-item label="反馈内容" prop="content">
+            <el-input
+              v-model="form.content"
+              type="textarea"
+              :rows="7"
+              maxlength="500"
+              show-word-limit
+              resize="none"
+              placeholder="请描述遇到的问题、操作步骤或希望改进的地方（不少于 10 个字）"
+            />
+          </el-form-item>
+
+          <el-form-item label="联系方式（选填）" prop="contact">
+            <el-input
+              v-model="form.contact"
+              maxlength="100"
+              clearable
+              placeholder="邮箱、手机号或其他方便联系你的方式"
+            />
+            <div class="field-help">仅在需要进一步了解问题时使用。</div>
+          </el-form-item>
+
+          <div class="form-actions">
+            <el-button
+              type="primary"
+              native-type="submit"
+              :loading="submitting"
+              :disabled="submitting"
+            >
+              {{ submitting ? "正在提交" : "提交反馈" }}
             </el-button>
-          </header>
-
-          <div class="main-divider"></div>
-
-          <el-form
-            ref="formRef"
-            :model="form"
-            :rules="rules"
-            label-position="top"
-            class="feedback-form"
-            @submit.prevent="handleSubmit"
-          >
-            <el-form-item label="反馈类型" prop="category">
-              <el-radio-group v-model="form.category" class="category-grid">
-                <el-radio-button
-                  v-for="option in categoryOptions"
-                  :key="option.value"
-                  :label="option.value"
-                  class="category-option"
-                >
-                  {{ option.label }}
-                </el-radio-button>
-              </el-radio-group>
-            </el-form-item>
-
-            <el-form-item label="反馈内容" prop="content">
-              <el-input
-                v-model="form.content"
-                type="textarea"
-                :rows="7"
-                maxlength="500"
-                show-word-limit
-                resize="none"
-                placeholder="请描述遇到的问题、操作步骤或希望改进的地方（不少于 10 个字）"
-              />
-            </el-form-item>
-
-            <el-form-item label="联系方式（选填）" prop="contact">
-              <el-input
-                v-model="form.contact"
-                maxlength="100"
-                clearable
-                placeholder="邮箱、手机号或其他方便联系你的方式"
-              />
-              <div class="field-help">仅在需要进一步了解问题时使用。</div>
-            </el-form-item>
-
-            <div class="form-actions">
-              <el-button
-                type="primary"
-                native-type="submit"
-                :loading="submitting"
-                :disabled="submitting"
-              >
-                {{ submitting ? "正在提交" : "提交反馈" }}
-              </el-button>
-            </div>
-          </el-form>
-        </section>
-
-      </div>
+          </div>
+        </el-form>
+      </section>
     </el-card>
 
     <el-dialog
@@ -210,171 +204,78 @@ const goToHistory = () => {
 
 .feedback-card {
   width: 100%;
-  min-height: 100%;
   box-sizing: border-box;
-  margin: 0 auto;
-  border: 1px solid #e4e8f2;
-  border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(9, 30, 66, 0.06);
+  border: 1px solid var(--app-border);
+  border-radius: 18px;
+  box-shadow: 0 4px 20px #24375305;
+}
+
+.feedback-card :deep(.el-card__header) {
+  padding: 20px 26px;
+  border-bottom-color: #e5eaf1;
 }
 
 .feedback-card :deep(.el-card__body) {
-  min-height: 100%;
-  box-sizing: border-box;
-  padding: 0;
+  padding: 24px 26px 28px;
 }
 
-.feedback-workspace {
-  min-height: 100%;
-}
-
-.feedback-main {
-  min-width: 0;
-  padding: 30px 36px 32px;
-}
-
+.feedback-main { min-width: 0; }
 .feedback-card-header {
   display: flex;
-  width: 100%;
-  max-width: 1120px;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 20px;
 }
-
-.feedback-heading-copy {
-  min-width: 0;
-}
-
-.feedback-card-header h2 {
+.feedback-heading-copy { min-width: 0; }
+.feedback-card-header h3 {
   margin: 0;
   color: #292929;
-  font-size: 22px;
-  line-height: 1.35;
+  font-size: 18px;
+  font-weight: 600;
 }
-
-.main-divider {
-  height: 1px;
-  margin-top: 24px;
-  background: #edf0f6;
-}
-
 .feedback-card-header p {
-  margin: 6px 0 0;
-  color: #8c8fa3;
+  margin: 8px 0 0;
+  color: #78879b;
   font-size: 13px;
   line-height: 1.6;
 }
+.history-entry { flex-shrink: 0; border-radius: 7px; }
+.history-entry .el-icon { margin-right: 6px; }
 
-.history-entry {
-  flex-shrink: 0;
-  height: 32px;
-  padding: 0 12px;
-  border-color: #d9e7f7;
-  border-radius: 7px;
-  background: #f7faff;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.history-entry:hover {
-  background: #f2f6fb;
-  color: #337ecc;
-}
-
-.history-entry .el-icon {
-  margin-right: 5px;
-}
-
-.feedback-form {
-  max-width: 690px;
-  padding-top: 24px;
-}
-
-.category-grid {
-  display: flex;
-  width: 100%;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.category-option {
-  width: 92px;
-  margin: 0 !important;
-}
-
-.category-option :deep(.el-radio-button__inner) {
-  display: flex;
-  width: 100%;
-  height: 32px;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  border: 1px solid #dfe4ee !important;
-  border-radius: 8px !important;
-  box-shadow: none !important;
-  color: #60657a;
-  font-size: 12px;
-  transition: border-color 0.18s ease, background-color 0.18s ease, color 0.18s ease;
-}
-
-.category-option :deep(.el-radio-button__inner:hover) {
-  border-color: #9aa7ff !important;
-  color: #4050f8;
-}
-
-.category-option.is-active :deep(.el-radio-button__inner) {
-  border-color: #5265f8;
-  background: #f6f7ff;
-  color: #4050f8;
-  font-weight: 600;
-}
-
-.feedback-form :deep(.el-form-item) {
-  margin-bottom: 26px;
-}
-
+.feedback-form { width: 100%; max-width: 840px; }
+.category-select { width: 320px; max-width: 100%; }
+.feedback-form :deep(.el-form-item) { margin-bottom: 24px; }
 .feedback-form :deep(.el-form-item__label) {
-  color: #303447;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.feedback-form :deep(.el-textarea__inner),
-.feedback-form :deep(.el-input__wrapper) {
-  border-radius: 10px;
-}
-
-.feedback-form :deep(.el-input__wrapper) {
-  min-height: 40px;
-}
-
-.feedback-form :deep(.el-textarea__inner) {
-  min-height: 194px !important;
-  line-height: 1.7;
-}
-
-.field-help {
-  width: 100%;
-  margin-top: 7px;
-  color: #a0a5b4;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.form-actions {
-  margin-top: 2px;
-}
-
-.form-actions .el-button {
-  min-width: 96px;
-  height: 34px;
-  padding: 0 16px;
-  border-radius: 7px;
+  color: #63738a;
   font-size: 13px;
-  font-weight: 600;
+  line-height: 20px;
 }
+.feedback-form :deep(.el-textarea__inner),
+.feedback-form :deep(.el-input__wrapper),
+.feedback-form :deep(.el-select__wrapper) {
+  border-radius: 7px;
+  background: #f5f7fa;
+  box-shadow: none;
+}
+.feedback-form :deep(.el-input__wrapper),
+.feedback-form :deep(.el-select__wrapper) { min-height: 36px; box-sizing: border-box; }
+.feedback-form :deep(.el-textarea__inner) { padding: 12px 14px 28px; line-height: 1.8; }
+.feedback-form :deep(.el-input__wrapper:hover),
+.feedback-form :deep(.el-select__wrapper:hover),
+.feedback-form :deep(.el-textarea__inner:hover) { box-shadow: 0 0 0 1px #dce4ee inset; }
+.feedback-form :deep(.el-input__wrapper.is-focus),
+.feedback-form :deep(.el-select__wrapper.is-focused),
+.feedback-form :deep(.el-textarea__inner:focus) {
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--app-accent) inset, 0 0 0 3px var(--app-accent-soft);
+}
+.feedback-form :deep(.is-error .el-input__wrapper),
+.feedback-form :deep(.is-error .el-select__wrapper),
+.feedback-form :deep(.is-error .el-textarea__inner) { box-shadow: 0 0 0 1px var(--el-color-danger) inset; }
+.feedback-form :deep(.el-input__count) { right: 14px; bottom: 8px; background: transparent; color: #78879b; }
+.field-help { width: 100%; margin-top: 8px; color: #78879b; font-size: 12px; line-height: 1.5; }
+.form-actions { padding-top: 4px; }
+.form-actions .el-button { min-width: 104px; height: 36px; border-radius: 7px; }
 
 :global(.feedback-success-dialog) {
   overflow: hidden;
@@ -450,7 +351,7 @@ const goToHistory = () => {
 
 .success-note .el-icon {
   flex-shrink: 0;
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .success-actions {
@@ -475,9 +376,13 @@ const goToHistory = () => {
     width: calc(100vw - 32px) !important;
   }
 
-  .feedback-main {
-    padding: 26px 24px 28px;
-  }
+  .feedback-card :deep(.el-card__header),
+  .feedback-card :deep(.el-card__body) { padding: 20px; }
+}
+
+@media (max-width: 540px) {
+  .feedback-card-header { flex-wrap: wrap; gap: 12px; }
+  .category-select { width: 100%; }
 
 }
 </style>

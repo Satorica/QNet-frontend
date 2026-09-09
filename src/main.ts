@@ -2,13 +2,19 @@ import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import './styles/theme.css'
+import './styles/tables.css'
+import './styles/solver-workspace.css'
 import './styles/task-detail-dialog.css'
+import './styles/solution-vector.css'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 
 import App from './App.vue'
 import routes from './router/index'
 import { setupRouterGuards } from './router/guards'
+import { initializeTheme } from './stores/theme'
 
+initializeTheme()
 const app = createApp(App)
 
 // 配置路由

@@ -1,17 +1,5 @@
 <template>
   <div class="topbar">
-    <div class="top-left">
-      <div v-if="!isFeedbackRoute" class="task-input">
-        <el-input
-          v-model="taskName"
-          placeholder="请输入任务名："
-          :maxlength="TASK_NAME_MAX_LENGTH"
-          style="width: 300px"
-        />
-        <el-button type="primary" @click="handleOk">OK</el-button>
-      </div>
-    </div>
-
     <div class="top-right">
       <div class="time-wrap">
         <div class="time">{{ currentTime }}</div>
@@ -21,14 +9,17 @@
         </div>
       </div>
 
+      <ThemeSwitcher />
+
       <!-- 用户信息和菜单 -->
       <el-dropdown v-if="isLoggedIn" @command="handleCommand" trigger="click">
-        <div class="user-info">
-          <img class="avatar" :src="defaultAvatar" alt="用户头像" width="36" height="36" />
+        <button type="button" class="user-info" :aria-label="`个人资料：${displayName}`">
+          <img class="avatar" :src="defaultAvatar" alt="" width="26" height="26" />
           <span class="username">{{
             displayName
           }}</span>
-        </div>
+          <el-icon class="user-chevron" aria-hidden="true"><ArrowDown /></el-icon>
+        </button>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item disabled>
@@ -66,29 +57,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from "vue";
-import { useRouter, useRoute } from "vue-router";
+import { ref, onMounted, onUnmounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import axios from "axios";
-import { SwitchButton } from "@element-plus/icons-vue";
+import { ArrowDown, SwitchButton } from "@element-plus/icons-vue";
 import { userManager } from "../utils/auth";
-import { checkTaskName } from "../api";
-import { useCustomTaskName } from "../stores/customTaskName";
 import defaultAvatar from "../assets/default-avatar.png";
+import ThemeSwitcher from "./ThemeSwitcher.vue";
 
 const router = useRouter();
-const route = useRoute();
-const TASK_NAME_MAX_LENGTH = 64;
-const taskName = ref("");
 const currentTime = ref("");
 const currentWeekday = ref("");
 const currentDateOnly = ref("");
 let timer: ReturnType<typeof setInterval> | null = null;
-
-const isFeedbackRoute = computed(() => route.path.startsWith("/feedback"));
-
-const { setCustomTaskName, customTaskName, clearCustomTaskName } =
-  useCustomTaskName();
 
 // 获取用户信息和登录状态
 const userInfo = computed(() => userManager.getUserInfo());
@@ -110,51 +91,6 @@ const updateClock = () => {
     now.getMonth() + 1
   )}-${pad(now.getDate())}`;
 };
-
-const handleOk = async () => {
-  const name = taskName.value.trim();
-
-  if (name) {
-    try {
-      await checkTaskName(name);
-      setCustomTaskName(name);
-      taskName.value = name;
-      ElMessage.success("任务名称已保存");
-    } catch (error) {
-      const status = axios.isAxiosError(error) ? error.response?.status : undefined;
-      const message = axios.isAxiosError(error)
-        ? error.response?.data?.message || "检查任务名称失败"
-        : "检查任务名称失败";
-
-      if (status === 400) {
-        ElMessage.error(message); // 任务名称已存在 / 名称为空
-        return;
-      }
-
-      if (status === 401) {
-        ElMessage.error("请先登录");
-        return;
-      }
-
-      ElMessage.error(message);
-    }
-  }
-};
-
-watch(
-  () => route.path,
-  () => {
-    clearCustomTaskName();
-  }
-);
-watch(
-  () => customTaskName.value,
-  (value) => {
-    if (!value) {
-      taskName.value = "";
-    }
-  }
-);
 
 // 处理下拉菜单命令
 const handleCommand = async (command: string) => {
@@ -207,40 +143,40 @@ onUnmounted(() => {
 
 <style scoped>
 .topbar {
+  box-sizing: border-box;
   height: 70px;
   background: #ffffff;
   border-radius: 16px;
   padding: 0 24px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   box-shadow: 0 4px 12px rgba(9, 30, 66, 0.08);
-  border: 1px solid #e6eaf5;
-}
-
-.task-input {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+  border: 1px solid var(--app-border);
+  gap: 16px;
 }
 
 .top-right {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
 .time-wrap {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  min-height: 36px;
 }
 
 .time {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
-  color: #6366f1;
-  letter-spacing: 1px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-accent);
+  letter-spacing: 0.4px;
 }
 
 .date-col {
@@ -248,41 +184,59 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
 }
 
 .weekday {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.2;
-  color: #6366f1;
+  color: #718097;
 }
 
 .date-line {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 400;
   line-height: 1.2;
-  color: #6366f1;
-  opacity: 0.88;
+  font-variant-numeric: tabular-nums;
+  color: #718097;
 }
 
 .user-info {
-  display: flex;
+  box-sizing: border-box;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
+  height: 36px;
+  gap: 8px;
   cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 20px;
-  transition: all 0.3s ease;
+  padding: 0 10px;
+  border: 1px solid #edf0f4;
+  border-radius: 8px;
+  background: #f8f9fb;
+  font-family: inherit;
+  transition: background-color 150ms, border-color 150ms;
 }
 
 .user-info:hover {
-  background: #f5f7fa;
+  background: #f0f3f7;
+  border-color: #dfe5ed;
+}
+
+.user-info:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 3px;
+}
+
+.user-chevron {
+  flex-shrink: 0;
+  color: #8c95a4;
+  font-size: 11px;
 }
 
 .avatar {
-  width: 36px;
-  height: 36px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: #e3f2fd;
   display: block;
@@ -292,8 +246,8 @@ onUnmounted(() => {
 
 .username {
   display: inline-block;
-  height: 16px;
-  font-size: 14px;
+  line-height: 20px;
+  font-size: 13px;
   font-weight: 500;
   color: #292929;
   max-width: 120px;
@@ -318,7 +272,8 @@ onUnmounted(() => {
 }
 
 .login-prompt {
-  margin-left: 10px;
+  display: flex;
+  align-items: center;
 }
 
 :deep(.el-dropdown-menu__item) {
@@ -327,6 +282,22 @@ onUnmounted(() => {
 
 :deep(.el-dropdown-menu__item:not(.is-disabled):hover) {
   background-color: #f5f7fa;
-  color: #4050f8;
+  color: var(--app-accent);
+}
+
+@media (max-width: 1280px) {
+  .topbar { padding: 0 16px; }
+  .top-right { gap: 12px; }
+  .time { font-size: 22px; }
+  .date-col { display: none; }
+}
+
+@media (max-width: 960px) {
+  .time-wrap { display: none; }
+  .username { max-width: 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-info { transition: none; }
 }
 </style> 

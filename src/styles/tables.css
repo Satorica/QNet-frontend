@@ -1,0 +1,48 @@
+/* Shared spacing for history, task, feedback and quota request lists. */
+.app-data-table {
+  width: 100%;
+}
+
+.app-data-table.el-table .el-table__cell {
+  padding: 12px 0;
+}
+
+.app-data-table.el-table .cell {
+  padding-right: 12px;
+  padding-left: 12px;
+  line-height: 24px;
+}
+
+.app-data-table th.el-table__cell > .cell {
+  white-space: nowrap;
+}
+
+.app-data-table .table-model .cell {
+  white-space: nowrap;
+}
+
+.app-data-table .cell > .el-link {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-data-table .cell > .el-link .el-link__inner {
+  display: inline;
+}
+
+.app-data-table .table-actions .cell,
+.app-data-table .table-actions .action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.app-data-table .table-actions .el-button {
+  flex-shrink: 0;
+  margin-left: 0;
+}

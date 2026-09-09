@@ -20,35 +20,36 @@
       <div v-else>
         <el-table
           v-loading="loading"
-          class="feedback-table"
+          class="feedback-table app-data-table"
+          scrollbar-always-on
           :data="feedbacks"
           row-key="id"
           table-layout="fixed"
           stripe
           size="large"
         >
-          <el-table-column label="反馈类型" prop="category" min-width="120">
+          <el-table-column label="反馈类型" prop="category" width="112">
             <template #default="{ row }">{{ getCategoryLabel(row.category) }}</template>
           </el-table-column>
-          <el-table-column label="反馈内容" prop="content" min-width="280" show-overflow-tooltip />
-          <el-table-column label="状态" prop="status" min-width="110">
+          <el-table-column label="反馈内容" prop="content" min-width="240" show-overflow-tooltip />
+          <el-table-column label="状态" prop="status" width="96">
             <template #default="{ row }">
               <el-tag class="status-tag" :type="getStatusType(row.status)" effect="light" size="small">
                 {{ getStatusLabel(row.status) }}
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="管理员回复" min-width="240" show-overflow-tooltip>
+          <el-table-column label="管理员回复" min-width="200" show-overflow-tooltip>
             <template #default="{ row }">
               <span :class="{ 'reply-placeholder': !row.adminReply }">
                 {{ row.adminReply || '暂无回复' }}
               </span>
             </template>
           </el-table-column>
-          <el-table-column label="提交时间" prop="createdAt" min-width="170">
+          <el-table-column label="提交时间" prop="createdAt" width="176">
             <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="110" align="center">
+          <el-table-column label="操作" width="88" align="center" fixed="right" class-name="table-actions">
             <template #default="{ row }">
               <el-button type="primary" size="small" @click.stop="openFeedbackDetail(row)">
                 查看
@@ -344,7 +345,7 @@ onMounted(loadFeedbacks);
 
 :global(.feedback-detail-dialog .el-dialog__headerbtn:hover) {
   background: #f5f7fa;
-  color: #337ecc;
+  color: var(--app-accent);
 }
 
 :global(.feedback-detail-dialog .el-dialog__body) {
@@ -416,12 +417,12 @@ onMounted(loadFeedbacks);
 
 .dialog-message-icon.is-user {
   background: #edf6ff;
-  color: #337ecc;
+  color: var(--app-accent);
 }
 
 .dialog-message-icon.is-admin {
   background: #f2f0ff;
-  color: #5b5bd6;
+  color: var(--app-accent);
 }
 
 .dialog-message-heading h4 {
@@ -491,7 +492,7 @@ onMounted(loadFeedbacks);
   padding: 3px 8px;
   border-radius: 5px;
   background: #edf6ff;
-  color: #337ecc;
+  color: var(--app-accent);
   font-size: 12px;
   font-weight: 600;
 }
@@ -531,7 +532,7 @@ onMounted(loadFeedbacks);
 .dialog-close-button:hover {
   border-color: #9bc6ee;
   background: #f7faff;
-  color: #337ecc;
+  color: var(--app-accent);
 }
 
 .dialog-close-button:focus-visible {

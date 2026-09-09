@@ -3,11 +3,8 @@
     <div class="sidebar-top">
       <!-- 品牌区域 -->
       <div class="brand">
-        <img class="logo" :src="brandLogo" alt="量子Ising" width="44" height="44" />
-        <div>
-          <div class="title">量子 Ising 求解系统</div>
-          <div class="subtitle">可视化求解与任务管理</div>
-        </div>
+        <div class="title">量子 Ising 求解系统</div>
+        <div class="subtitle">可视化求解与任务管理</div>
       </div>
 
       <!-- 导航菜单 -->
@@ -17,7 +14,7 @@
         router
         background-color="transparent"
         text-color="#8C8FA3"
-        active-text-color="#4050F8"
+        active-text-color="var(--app-accent)"
       >
         <el-menu-item index="/maxcut">
           <el-icon><TrendCharts /></el-icon>
@@ -50,7 +47,7 @@
         router
         background-color="transparent"
         text-color="#8C8FA3"
-        active-text-color="#4050F8"
+        active-text-color="var(--app-accent)"
       >
         <el-menu-item index="/tasks">
           <el-icon><List /></el-icon>
@@ -79,7 +76,6 @@ import { TrendCharts, Odometer, MagicStick, Location, DataAnalysis, List, Ticket
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { userManager } from '../utils/auth'
-import brandLogo from '../assets/brand-logo.svg'
 
 const router = useRouter()
 const route = useRoute()
@@ -109,24 +105,17 @@ const handleLogout = async () => {
 
 .brand {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 40px;
+  padding: 0 12px;
   margin-bottom: 20px;
-}
-
-.logo {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  display: block;
-  object-fit: contain;
-  border-radius: 50%;
-  box-shadow: 0 3px 8px rgba(64, 80, 248, 0.06);
 }
 
 .title {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
   color: #263b52;
 }
@@ -155,14 +144,14 @@ const handleLogout = async () => {
 .nav-menu .el-menu-item:hover,
 .bottom-menu .el-menu-item:hover,
 .logout-btn:hover {
-  background-color: rgba(64, 80, 248, 0.1);
+  background-color: var(--app-accent-soft);
 }
 
 .nav-menu .el-menu-item.is-active,
 .bottom-menu .el-menu-item.is-active {
-  background: linear-gradient(135deg, #4050F8, #7848E8);
+  background: var(--app-accent-gradient);
   color: white !important;
-  box-shadow: 0 6px 18px rgba(64, 80, 248, 0.25);
+  box-shadow: 0 6px 18px rgba(var(--app-accent-rgb), 0.25);
 }
 
 .logout-btn {
@@ -173,6 +162,6 @@ const handleLogout = async () => {
 }
 
 .logout-btn:hover {
-  color: #4050F8;
+  color: var(--app-accent);
 }
 </style>

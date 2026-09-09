@@ -58,7 +58,7 @@
               >重置</el-button
             >
             <el-button
-              type="danger"
+              type="primary" plain
               :disabled="total === 0"
               @click="handleDeleteAllTasks"
               >全部删除</el-button
@@ -69,7 +69,8 @@
 
       <!-- 任务表格 -->
       <el-table
-        class="tasks-table"
+        class="tasks-table app-data-table"
+        scrollbar-always-on
         row-key="taskId"
         :data="tasks"
         style="width: 100%"
@@ -81,7 +82,7 @@
         <el-table-column
           prop="taskName"
           label="任务名"
-          min-width="210"
+          min-width="180"
           show-overflow-tooltip
         >
           <template #default="{ row }">
@@ -98,7 +99,7 @@
         <el-table-column
           prop="problemType"
           label="问题类型"
-          min-width="120"
+          width="112"
         >
           <template #default="{ row }">
             {{ getProblemTypeText(row.problemType) }}
@@ -107,19 +108,19 @@
         <el-table-column
           prop="modelType"
           label="模型"
-          min-width="140"
+          width="156" class-name="table-model"
         >
           <template #default="{ row }">
             {{ getModelTypeText(row.modelType) }}
           </template>
         </el-table-column>
-        <el-table-column prop="methodType" label="算法类型" min-width="140">
+        <el-table-column prop="methodType" label="算法类型" width="124">
           <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
         </el-table-column>
         <el-table-column
           prop="timestamp"
           label="提交时间"
-          min-width="170"
+          width="176"
         >
           <template #default="{ row }">
             {{ formatDate(row.timestamp) }}
@@ -128,12 +129,12 @@
         <el-table-column
           prop="matrixSize"
           label="规模"
-          min-width="90"
+          width="80"
         />
         <el-table-column
           prop="status"
           label="状态"
-          min-width="110"
+          width="96"
         >
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
@@ -143,7 +144,9 @@
         </el-table-column>
         <el-table-column
           label="操作"
-          width="210"
+          fixed="right"
+          class-name="table-actions"
+          width="156"
           align="center"
         >
           <template #default="{ row }">
@@ -165,7 +168,7 @@
               <el-button
                 v-else
                 size="small"
-                type="danger"
+                type="primary" plain
                 @click.stop="deleteTask(row)"
                 >删除</el-button
               >
@@ -240,7 +243,6 @@
             v-for="card in quotaCards"
             :key="card.key"
             class="quota-item quota-card"
-            :style="{ '--quota-accent': card.accentColor }"
           >
             <div class="quota-card-label">
               <div class="quota-card-name">{{ card.label }}</div>
@@ -252,7 +254,7 @@
               :width="96"
               :stroke-width="7"
               :percentage="card.percentage"
-              :color="card.colors"
+              color="var(--app-accent)"
             >
               <div class="quota-progress-text">
                 <strong>{{ card.available }}</strong>
@@ -269,6 +271,7 @@
       class="quota-request-dialog"
       title="申请额度"
       width="560px"
+      align-center
       :close-on-click-modal="false"
     >
       <div
@@ -285,7 +288,7 @@
                   <strong id="quota-pending-title">等待管理员审批</strong>
                 </div>
               </div>
-              <span class="quota-pending-status">待审批</span>
+              <el-tag type="warning" effect="light" size="small">待审批</el-tag>
             </div>
 
             <div class="quota-pending-amounts">
@@ -636,11 +639,6 @@ const problemTypeOptions = [
   { value: "tsp", label: "旅行商问题" },
   { value: "general", label: "一般问题" },
 ];
-const quotaColorMap: Record<ModelType, Array<{ color: string; percentage: number }>> = {
-  classic: [{ color: "#ff9966", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
-  quantum: [{ color: "#5b6ef6", percentage: 50 }, { color: "#60dbe8", percentage: 100 }],
-};
-
 // 方法
 const normalizeTaskFilters = (filters: Partial<TaskFilterState> = {}): TaskFilterState => ({
   taskName: (filters.taskName ?? "").trim(),
@@ -1111,8 +1109,6 @@ const quotaCards = computed(() =>
         hasAvailable && total > 0
           ? Math.min(Math.max(Math.round((Number(available) / total) * 100), 0), 100)
           : 0,
-      colors: quotaColorMap[type],
-      accentColor: quotaColorMap[type][0].color,
     };
   })
 );
@@ -1213,20 +1209,52 @@ onBeforeUnmount(() => {
 .task-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 20px;
 }
 
 .task-header h3 {
   margin: 0;
+  flex-shrink: 0;
+  line-height: 36px;
+  white-space: nowrap;
   color: #292929;
   font-weight: 600;
 }
 
 .task-controls {
   display: flex;
+  min-width: 0;
+  justify-content: flex-end;
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
+}
+
+.task-controls :deep(.el-input__wrapper),
+.task-controls :deep(.el-select__wrapper) {
+  min-height: 36px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  background: #f5f7fa;
+  box-shadow: none;
+}
+
+.task-controls :deep(.el-input__wrapper:hover),
+.task-controls :deep(.el-select__wrapper:hover) {
+  box-shadow: 0 0 0 1px #dce4ee inset;
+}
+
+.task-controls :deep(.el-input__wrapper.is-focus),
+.task-controls :deep(.el-select__wrapper.is-focused) {
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--app-accent) inset, 0 0 0 3px var(--app-accent-soft);
+}
+
+.task-controls :deep(.el-button) {
+  height: 36px;
+  margin-left: 0;
+  border-radius: 7px;
 }
 
 .tasks-table {
@@ -1290,7 +1318,7 @@ onBeforeUnmount(() => {
 }
 
 .quota-panel-status.is-updating {
-  color: #2878e5;
+  color: var(--app-accent);
 }
 
 .quota-panel-status.is-updating .quota-status-dot {
@@ -1331,148 +1359,51 @@ onBeforeUnmount(() => {
   min-height: 0;
 }
 
-.quota-pending-card {
-  overflow: hidden;
-  border: 1px solid #e1e7ef;
-  border-radius: 12px;
-  background: #ffffff;
-}
-
+.quota-pending-card { min-width: 0; }
 .quota-pending-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 16px 18px;
-  border-bottom: 1px solid #edf2f7;
-  background: #f8fafc;
+  gap: 16px;
+  padding: 2px 0 16px;
+  border-bottom: 1px solid #eef1f5;
 }
-
-.quota-pending-heading {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  gap: 12px;
-}
-
+.quota-pending-heading { display: flex; align-items: center; min-width: 0; gap: 10px; }
 .quota-pending-mark {
   width: 8px;
   height: 8px;
-  flex: 0 0 auto;
+  flex-shrink: 0;
   border-radius: 50%;
-  background: #e9a23b;
-  box-shadow: 0 0 0 4px rgba(233, 162, 59, 0.14);
+  background: var(--el-color-warning);
 }
-
-.quota-pending-heading strong {
-  color: #26364a;
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 22px;
-}
-
-.quota-pending-status {
-  flex: 0 0 auto;
-  padding: 3px 9px;
-  border: 1px solid rgba(225, 148, 35, 0.2);
-  border-radius: 999px;
-  background: #fff7e8;
-  color: #b66d08;
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 20px;
-}
-
+.quota-pending-heading strong { color: #303746; font-size: 14px; font-weight: 600; line-height: 22px; }
+.quota-pending-head :deep(.el-tag) { flex-shrink: 0; border-radius: 4px; }
 .quota-pending-amounts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 16px 18px 0;
-}
-
-.quota-pending-amount {
-  padding: 13px 14px;
-  border: 1px solid #e7ecf3;
-  border-radius: 9px;
-  background: #fafbfd;
-}
-
-.quota-pending-amount > span {
-  display: block;
   overflow: hidden;
-  margin-bottom: 5px;
-  color: #6f7c8f;
-  font-size: 12px;
-  font-weight: 550;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin: 16px 0 20px;
+  border-radius: 8px;
+  background: #f8fafc;
 }
-
-.quota-pending-amount div {
-  display: flex;
-  align-items: baseline;
-  gap: 5px;
-}
-
-.quota-pending-amount strong {
-  color: #25364c;
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 30px;
-}
-
-.quota-request-content .quota-pending-amount small {
-  color: #8a96a7;
-  font-size: 11px;
-}
-
-.quota-pending-reason {
-  padding: 16px 18px 14px;
-}
-
-.quota-pending-reason > span,
-.quota-pending-meta > span {
-  color: #8995a6;
-  font-size: 11px;
+.quota-pending-amount { padding: 15px 16px; }
+.quota-pending-amount + .quota-pending-amount { border-left: 1px solid #e8edf4; }
+.quota-pending-amount > span { display: block; color: #7c8494; font-size: 12px; line-height: 18px; }
+.quota-pending-amount div { display: flex; align-items: baseline; gap: 5px; margin-top: 7px; }
+.quota-pending-amount strong { color: #303746; font-size: 22px; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.quota-pending-amount small { color: #8992a3; font-size: 12px; }
+.quota-pending-reason { padding-bottom: 16px; border-bottom: 1px solid #eef1f5; }
+.quota-pending-reason > span {
+  display: inline-block;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--app-accent);
+  color: #202737;
+  font-size: 14px;
   font-weight: 600;
 }
-
-.quota-request-content .quota-pending-reason p {
-  margin: 7px 0 0;
-  color: #455468;
-  font-size: 13px;
-  line-height: 1.65;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-}
-
-.quota-pending-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 10px 18px;
-  border-top: 1px solid #edf2f7;
-  background: #fafbfd;
-}
-
-.quota-pending-meta time {
-  color: #738196;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.quota-request-content p {
-  margin: 6px 0;
-  color: #5d6472;
-  line-height: 1.65;
-}
-
-.quota-request-content small {
-  color: #9098a8;
-}
+.quota-pending-reason p { margin: 10px 0 0; color: #303746; font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; white-space: pre-wrap; }
+.quota-pending-meta { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 0 4px; color: #7c8494; font-size: 13px; }
+.quota-pending-meta time { color: #596273; font-variant-numeric: tabular-nums; }
 
 .quota-request-grid {
   display: grid;
@@ -1495,113 +1426,33 @@ onBeforeUnmount(() => {
 
 :global(.el-dialog.quota-request-dialog) {
   overflow: hidden;
-  border: 1px solid rgba(210, 221, 236, 0.9);
-  border-radius: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
   background: #ffffff;
-  box-shadow:
-    0 24px 60px rgba(25, 47, 77, 0.18),
-    0 6px 18px rgba(25, 47, 77, 0.08);
+  box-shadow: 0 18px 54px rgba(31, 42, 68, 0.18);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
 }
-
-:global(.quota-request-dialog .el-dialog__header) {
-  margin-right: 0;
-  padding: 22px 24px 17px;
-  border-bottom: 1px solid #edf1f7;
-}
-
-:global(.quota-request-dialog .el-dialog__title) {
-  color: #1f2d3d;
-  font-size: 18px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  line-height: 28px;
-}
-
-:global(.quota-request-dialog .el-dialog__headerbtn) {
-  top: 17px;
-  right: 18px;
-  width: 36px;
-  height: 36px;
-  border-radius: 9px;
-  transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-:global(.quota-request-dialog .el-dialog__headerbtn:hover) {
-  background: #f1f6fc;
-}
-
-:global(.quota-request-dialog .el-dialog__headerbtn .el-dialog__close) {
-  color: #7a8798;
-  font-size: 17px;
-}
-
-:global(.quota-request-dialog .el-dialog__body) {
-  padding: 23px 24px 20px;
-}
-
-:global(.quota-request-dialog .el-dialog__footer) {
-  padding: 16px 24px 20px;
-  border-top: 1px solid #edf1f7;
-  background: #fbfcfe;
-}
-
-.quota-request-content :deep(.el-form-item) {
-  margin-bottom: 20px;
-}
-
-.quota-request-content :deep(.el-form-item__label) {
-  height: auto;
-  margin-bottom: 8px;
-  padding: 0;
-  color: #475569;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 20px;
-}
-
+:global(.quota-request-dialog .el-dialog__header) { position: relative; margin-right: 0; padding: 20px 24px 16px; border-bottom: 1px solid #edf1f6; }
+:global(.quota-request-dialog .el-dialog__title) { color: #202737; font-size: 18px; font-weight: 600; }
+:global(.quota-request-dialog .el-dialog__headerbtn) { top: 12px; right: 14px; width: 36px; height: 36px; border-radius: 8px; }
+:global(.quota-request-dialog .el-dialog__headerbtn:hover) { background: #f3f6fa; }
+:global(.quota-request-dialog .el-dialog__headerbtn .el-dialog__close) { color: #7a8798; font-size: 17px; }
+:global(.quota-request-dialog .el-dialog__body) { padding: 18px 24px 6px; }
+:global(.quota-request-dialog .el-dialog__footer) { padding: 12px 24px 20px; }
+:global(.quota-request-dialog .el-dialog__footer .el-button) { min-width: 64px; border-radius: 7px; }
+.quota-request-content :deep(.el-form-item) { margin-bottom: 20px; }
+.quota-request-content :deep(.el-form-item__label) { height: auto; margin-bottom: 8px; padding: 0; color: #63738a; font-size: 13px; line-height: 20px; }
 .quota-request-content :deep(.el-input__wrapper),
-.quota-request-content :deep(.el-textarea__inner) {
-  border-radius: 10px;
-  box-shadow: 0 0 0 1px #d9e1ec inset;
-  transition: box-shadow 0.2s ease, background-color 0.2s ease;
-}
-
-.quota-request-content :deep(.el-input__wrapper) {
-  min-height: 42px;
-  padding-right: 14px;
-  padding-left: 14px;
-  background: #fbfcfe;
-}
-
+.quota-request-content :deep(.el-textarea__inner) { border-radius: 7px; background: #f5f7fa; box-shadow: none; }
+.quota-request-content :deep(.el-input__wrapper) { min-height: 36px; box-sizing: border-box; }
 .quota-request-content :deep(.el-input__wrapper:hover),
-.quota-request-content :deep(.el-textarea__inner:hover) {
-  box-shadow: 0 0 0 1px #9fc7f6 inset;
-}
-
+.quota-request-content :deep(.el-textarea__inner:hover) { box-shadow: 0 0 0 1px #dce4ee inset; }
 .quota-request-content :deep(.el-input__wrapper.is-focus),
-.quota-request-content :deep(.el-textarea__inner:focus) {
-  box-shadow:
-    0 0 0 1px #409eff inset,
-    0 0 0 3px rgba(64, 158, 255, 0.1);
-}
-
-.quota-request-content :deep(.el-textarea__inner) {
-  min-height: 112px !important;
-  padding: 12px 14px 28px;
-  background: #fbfcfe;
-  color: #27364a;
-  line-height: 1.65;
-  resize: none;
-}
-
-.quota-request-content :deep(.el-input__count) {
-  right: 12px;
-  bottom: 8px;
-  padding: 0;
-  background: transparent;
-  color: #9aa6b5;
-  font-size: 12px;
-}
+.quota-request-content :deep(.el-textarea__inner:focus) { background: #fff; box-shadow: 0 0 0 1px var(--app-accent) inset, 0 0 0 3px var(--app-accent-soft); }
+.quota-request-content :deep(.el-textarea__inner) { padding: 12px 14px 28px; line-height: 1.8; resize: none; }
+.quota-request-content :deep(.el-input__count) { right: 14px; bottom: 8px; background: transparent; color: #78879b; }
 
 .quota-row {
   position: relative;
@@ -1631,8 +1482,8 @@ onBeforeUnmount(() => {
 }
 
 .quota-row--refreshing .quota-card {
-  border-color: rgba(64, 158, 255, 0.28);
-  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.08);
+  border-color: rgba(var(--app-accent-rgb), 0.28);
+  box-shadow: 0 6px 20px rgba(var(--app-accent-rgb), 0.08);
 }
 
 .quota-row--refreshing .quota-card::after {
@@ -1644,9 +1495,9 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: linear-gradient(
     90deg,
-    rgba(64, 158, 255, 0),
-    rgba(64, 158, 255, 0.9),
-    rgba(96, 219, 232, 0)
+    rgba(var(--app-accent-rgb), 0),
+    rgba(var(--app-accent-rgb), 0.9),
+    rgba(var(--app-accent-rgb), 0)
   );
   content: "";
   animation: quota-refresh-scan 1.35s ease-in-out infinite;
@@ -1672,23 +1523,28 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
+.quota-card :deep(.el-progress-circle__track) {
+  stroke: var(--app-accent-soft);
+}
+
 .quota-progress-text {
   display: flex;
   align-items: baseline;
   justify-content: center;
   gap: 1px;
+  font-variant-numeric: tabular-nums;
 }
 
 .quota-progress-text strong {
   font-size: 22px;
   font-weight: 700;
   line-height: 1;
-  color: var(--quota-accent);
+  color: var(--app-accent);
 }
 
 .quota-progress-text span {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--app-accent);
 }
 
 @keyframes quota-status-pulse {
@@ -1761,17 +1617,9 @@ onBeforeUnmount(() => {
     gap: 0;
   }
 
-  .quota-pending-head,
-  .quota-pending-amounts,
-  .quota-pending-reason,
-  .quota-pending-meta {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
-
-  .quota-pending-amounts {
-    grid-template-columns: 1fr;
-  }
+  .quota-pending-amounts { grid-template-columns: 1fr; }
+  .quota-pending-amount + .quota-pending-amount { border-top: 1px solid #e8edf4; border-left: 0; }
+  .quota-pending-meta { flex-wrap: wrap; gap: 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1787,12 +1635,12 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .task-name-text:hover,
 .task-name-text:focus {
-  color: #409eff;
+  color: var(--el-color-primary);
 }
 
 .pagination-container {
@@ -1918,7 +1766,7 @@ onBeforeUnmount(() => {
 }
 
 .detail-value.highlight {
-  color: #4050f8;
+  color: var(--app-accent);
   font-weight: 600;
   font-size: 16px;
 }
@@ -1952,7 +1800,7 @@ onBeforeUnmount(() => {
 
 .candidate-rank {
   font-weight: 600;
-  color: #4050f8;
+  color: var(--app-accent);
 }
 
 .candidate-value {
@@ -1960,21 +1808,6 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-.candidate-solution {
-  display: flex;
-  gap: 8px;
-  font-size: 13px;
-}
 
-.solution-label {
-  color: #666;
-  min-width: 70px;
-}
 
-.solution-value {
-  flex: 1;
-  color: #292929;
-  font-family: "Courier New", monospace;
-  word-break: break-all;
-}
 </style> 
