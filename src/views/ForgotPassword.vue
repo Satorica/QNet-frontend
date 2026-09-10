@@ -7,7 +7,6 @@
         <div class="forgot-password-header auth-header">
           <p class="brand-eyebrow">QUANTUM COMPUTING</p>
           <div class="logo-section">
-            <img class="logo-icon" :src="brandLogo" alt="量子Ising" width="44" height="44" />
             <h1 class="system-title">{{ isInitialSetup ? "设置登录密码" : "找回密码" }}</h1>
           </div>
         </div>
@@ -224,7 +223,6 @@ import {
   Message,
 } from "@element-plus/icons-vue";
 import LoginBackground from "../components/LoginBackground.vue";
-import brandLogo from "../assets/brand-logo.svg";
 import { authApi } from "../api/auth";
 import { getErrorCode, getErrorMessage } from "../utils/error";
 import { EMAIL_REGEX } from "../utils/validation";
@@ -551,7 +549,7 @@ onBeforeUnmount(() => {
 .step-bar :deep(.el-step__head.is-wait),
 .step-bar :deep(.el-step__title.is-wait) { color: #8395ae; border-color: #c6d5e9; }
 .step-bar :deep(.el-step__icon) { background: #ffffff; }
-.step-bar :deep(.el-step__head.is-process .el-step__icon) { background: #edf2f8; box-shadow: 0 0 0 5px rgba(var(--brand-rgb), .07); }
+.step-bar :deep(.el-step__head.is-process .el-step__icon) { background: var(--brand-primary-light-9); box-shadow: 0 0 0 5px rgba(var(--brand-rgb), .07); }
 .step-bar :deep(.el-step__line) { background: #dce4ef; }
 .step-content { margin-top: 28px; }
 .info-alert { margin-bottom: 24px; border-radius: 10px; }

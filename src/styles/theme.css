@@ -1,12 +1,12 @@
 :root {
   --app-accent: var(--el-color-primary);
-  --app-accent-secondary: #426fb5;
-  --app-accent-rgb: 53, 100, 173;
+  --app-accent-secondary: #9255ae;
+  --app-accent-rgb: 128, 83, 181;
   --app-accent-soft: var(--el-color-primary-light-9);
   --app-accent-gradient: linear-gradient(135deg, var(--app-accent), var(--app-accent-secondary));
-  --app-page-start: #f5f7fb;
-  --app-page-end: #fbfcfd;
-  --app-sidebar-start: #f1f5fa;
-  --app-border: #e0e7f0;
+  --app-page-start: #faf8fc;
+  --app-page-end: #fefdfe;
+  --app-sidebar-start: #f9f6fb;
+  --app-border: #eee9f5;
   --app-control-bg: #f2f4f7;
 }

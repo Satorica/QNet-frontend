@@ -11,8 +11,8 @@
       <el-button @click="loadUser">重新加载</el-button>
     </div>
     <template v-else>
-      <p v-if="!completed && !passwordMode" class="email-description email-intro">{{ hasEmail ? '验证新邮箱后即可更换，账号数据和登录密码保持不变。' : (reason || '绑定后即可提交求解任务，并在 Web 与小程序中使用同一账号。') }}</p>
-      <div class="email-summary">
+      <p v-if="!completed && !pendingLink" class="email-description email-intro">{{ passwordMode ? '为当前邮箱设置登录密码，之后也可继续扫码登录。' : hasEmail ? '验证新邮箱后即可更换，账号数据和登录密码保持不变。' : (reason || '绑定后即可提交求解任务，并在 Web 与小程序中使用同一账号。') }}</p>
+      <div v-if="!pendingLink" class="email-summary">
         <span class="email-summary-icon" aria-hidden="true"><el-icon><Message /></el-icon></span>
         <div class="email-summary-copy">
           <span class="email-summary-label">{{ hasEmail ? '当前绑定邮箱' : '邮箱状态' }}</span>
@@ -30,7 +30,6 @@
       </template>
 
       <el-form v-else-if="passwordMode" label-position="top" :disabled="busy" @submit.prevent="savePassword">
-        <p class="email-description">为当前邮箱设置登录密码，之后也可继续扫码登录。</p>
         <el-form-item label="登录密码">
           <el-input v-model="password" type="password" show-password autocomplete="new-password" maxlength="16" placeholder="8–16 位，包含字母和数字" />
         </el-form-item>
@@ -39,22 +38,29 @@
         </el-form-item>
       </el-form>
 
+      <div v-else-if="pendingLink" class="email-link-preview" role="status">
+        <p class="email-description email-intro">该邮箱已有账号，请确认是否合并。</p>
+        <div class="email-link-account">
+          <span class="email-summary-icon" aria-hidden="true"><el-icon><Message /></el-icon></span>
+          <div class="email-link-identity">
+            <strong>{{ pendingLink.preview.nickname }}</strong>
+            <span>{{ email }}</span>
+          </div>
+          <el-button text type="primary" aria-label="更换邮箱" :disabled="busy" @click="resetVerification">更换</el-button>
+        </div>
+        <p class="email-link-note">合并后，任务记录与额度统一保留，Web 与小程序共用同一账号。</p>
+      </div>
+
       <el-form v-else label-position="top" :disabled="busy" @submit.prevent="submit">
         <el-form-item :label="hasEmail ? '新邮箱' : '邮箱地址'" required>
           <el-input :model-value="email" type="email" autocomplete="email" maxlength="254" placeholder="请输入邮箱地址" @update:model-value="changeAddress" />
         </el-form-item>
-        <el-form-item v-if="!pendingLink" label="邮箱验证码" required>
+        <el-form-item label="邮箱验证码" required>
           <div class="email-code-row">
             <el-input v-model="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="6 位验证码" @keyup.enter="submit" />
             <el-button type="primary" plain :disabled="busy || countdown > 0" :loading="sending" @click="sendCode">{{ countdown > 0 ? `${countdown} 秒后重发` : '获取验证码' }}</el-button>
           </div>
         </el-form-item>
-        <div v-else class="email-link-preview" role="status">
-          <h3>确认绑定邮箱</h3>
-          <p>该邮箱对应 Web 端账号 <strong>{{ pendingLink.preview.nickname }}</strong>。绑定后，小程序与 Web 端将使用同一账号。</p>
-          <p>两端的任务记录和额度将统一到关联后的账号。</p>
-          <el-button text type="primary" :disabled="busy" @click="resetVerification">重新验证邮箱</el-button>
-        </div>
         <p class="email-note"><el-icon aria-hidden="true"><Lock /></el-icon><span>邮箱仅用于账号验证与登录，不会公开展示。</span></p>
         <el-button v-if="hasEmail && user?.hasPassword === false" text type="primary" :disabled="busy" @click="startPasswordSetup">设置登录密码</el-button>
       </el-form>
@@ -64,11 +70,11 @@
     </template>
     <template #footer>
       <template v-if="!loading && !loadError">
-        <el-button :disabled="busy" @click="close">{{ completed && user?.hasPassword === false ? '稍后设置' : '关闭' }}</el-button>
+        <el-button :disabled="busy" @click="close">{{ pendingLink ? '取消' : completed && user?.hasPassword === false ? '稍后设置' : '关闭' }}</el-button>
         <el-button v-if="passwordMode" type="primary" :loading="submitting" :disabled="busy && !submitting" @click="savePassword">确认设置</el-button>
         <el-button v-else-if="completed && user?.hasPassword === false" type="primary" @click="startPasswordSetup">设置登录密码</el-button>
         <el-button v-else-if="completed" type="primary" @click="close">完成</el-button>
-        <el-button v-else type="primary" :loading="submitting" :disabled="busy && !submitting" @click="submit">{{ pendingLink ? '确认绑定' : hasEmail ? '确认更换' : '确认绑定' }}</el-button>
+        <el-button v-else type="primary" :loading="submitting" :disabled="busy && !submitting" @click="submit">{{ pendingLink ? '确认合并' : hasEmail ? '确认更换' : '确认绑定' }}</el-button>
       </template>
       <el-button v-else :disabled="busy" @click="close">关闭</el-button>
     </template>
@@ -102,7 +108,7 @@ const completed = ref(false), successMessage = ref('');
 const passwordMode = ref(false), password = ref(''), passwordAgain = ref('');
 const hasEmail = computed(() => Boolean(user.value?.maskedEmail));
 const busy = computed(() => sending.value || submitting.value);
-const title = computed(() => passwordMode.value ? '设置登录密码' : completed.value ? '邮箱设置' : hasEmail.value ? '更换邮箱' : '绑定邮箱');
+const title = computed(() => passwordMode.value ? '设置登录密码' : completed.value ? '邮箱设置' : pendingLink.value ? '绑定已有账号' : hasEmail.value ? '更换邮箱' : '绑定邮箱');
 const initialIdentity = userManager.getUserInfo()?.id;
 const remember = localStorage.getItem('rememberMe') === 'true';
 let disposed = false;
@@ -307,7 +313,9 @@ onUnmounted(() => { disposed = true; resetVerification(); password.value = ''; p
 .email-settings .el-button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; }
 .email-settings .email-description { font-size: 13px; line-height: 1.8; color: var(--email-muted); margin: 0 0 20px; }
 .email-settings .email-intro { margin: -8px 0 20px; }
-.email-settings .email-summary { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 20px; background: var(--email-surface); border: 1px solid var(--email-border); border-radius: 10px; }
+.email-settings .email-summary,
+.email-settings .email-link-account { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--email-surface); border: 1px solid var(--email-border); border-radius: 10px; }
+.email-settings .email-summary { margin-bottom: 20px; }
 .email-settings .email-summary-icon { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; color: var(--app-accent); background: var(--el-bg-color); border: 1px solid var(--email-border); border-radius: 8px; font-size: 17px; }
 .email-settings .email-summary-copy { display: grid; gap: 0; min-width: 0; flex: 1; }
 .email-settings .email-summary-label { color: var(--email-muted); font-size: 12px; line-height: 16px; }
@@ -335,10 +343,11 @@ onUnmounted(() => { disposed = true; resetVerification(); password.value = ''; p
 .email-settings .email-action-error .el-alert { padding: 5px 10px; border-radius: 6px; }
 .email-settings .email-action-error .el-alert__title { line-height: 20px; }
 .email-settings .email-action-error .el-alert__icon { font-size: 14px; width: 14px; margin-right: 7px; }
-.email-settings .email-link-preview { padding: 16px; border: 1px solid var(--email-border); border-radius: 10px; margin-bottom: 20px; background: var(--email-surface); }
-.email-settings .email-link-preview h3 { margin: 0; font-size: 15px; color: var(--el-text-color-primary); }
-.email-settings .email-link-preview p { font-size: 13px; line-height: 1.8; overflow-wrap: anywhere; color: var(--email-muted); }
-.email-settings .email-link-preview .el-button { padding: 0; }
+.email-settings .email-link-identity { display: grid; gap: 0; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.email-settings .email-link-identity strong { font-size: 14px; font-weight: 600; line-height: 20px; color: var(--el-text-color-primary); }
+.email-settings .email-link-identity span { font-size: 13px; line-height: 16px; color: var(--email-muted); }
+.email-settings .email-link-account .el-button { flex-shrink: 0; padding: 0; font-size: 13px; }
+.email-settings .email-link-note { margin: 16px 0 0; font-size: 13px; line-height: 1.8; color: var(--email-muted); }
 .email-settings .email-complete { padding: 4px 4px 8px; text-align: center; }
 .email-settings .email-complete > .el-icon { font-size: 40px; color: var(--app-accent); }
 .email-settings .email-complete h3 { color: var(--el-text-color-primary); font-size: 18px; margin: 12px 0; }
@@ -348,13 +357,19 @@ onUnmounted(() => { disposed = true; resetVerification(); password.value = ''; p
 @media (max-width: 520px) {
   .el-dialog.email-settings { padding: 20px; max-height: calc(100dvh - 24px); }
   .email-settings .el-dialog__headerbtn { top: 12px; right: 12px; }
-  .email-settings .email-summary { padding: 8px 10px; gap: 8px; }
+  .email-settings .email-summary,
+  .email-settings .email-link-account { padding: 8px 10px; gap: 8px; }
   .email-settings .email-code-row { gap: 8px; }
   .email-settings .email-code-row .el-button { min-width: 108px; padding: 0 10px; }
 }
 @media (max-width: 360px) {
+  .email-settings .email-summary { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; row-gap: 0; }
+  .email-settings .email-summary > .email-summary-icon { grid-column: 1; grid-row: 1 / 3; }
+  .email-settings .email-summary-copy { display: contents; }
+  .email-settings .email-summary-label { grid-column: 2; grid-row: 1; }
+  .email-settings .email-summary-copy strong { grid-column: 2 / 4; grid-row: 2; min-width: 0; }
   .email-settings .email-summary-icon { width: 28px; height: 28px; font-size: 16px; }
-  .email-settings .email-status { padding: 2px 5px; gap: 2px; }
+  .email-settings .email-status { grid-column: 3; grid-row: 1; padding: 0 5px; gap: 2px; line-height: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .email-settings .el-input__wrapper { transition: none; }

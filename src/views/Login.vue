@@ -10,10 +10,9 @@
         <div class="login-header auth-header">
           <p class="brand-eyebrow">QUANTUM COMPUTING</p>
           <div class="logo-section">
-            <img class="logo-icon" :src="brandLogo" alt="量子Ising" width="44" height="44" />
             <h1 class="system-title">量子 <span class="brand-latin">Ising</span> 求解系统</h1>
           </div>
-          <p class="subtitle">现代化量子优化问题求解平台</p>
+          <p class="subtitle">现代化量子优化平台</p>
         </div>
 
         <div class="login-modes" role="tablist" aria-label="登录方式">
@@ -117,7 +116,6 @@ import { authApi } from "../api/auth";
 import { userManager } from "../utils/auth";
 import QrLoginPanel from "../components/QrLoginPanel.vue";
 import LoginBackground from "../components/LoginBackground.vue";
-import brandLogo from "../assets/brand-logo.svg";
 import type { UserInfo } from "../types/api";
 import { getErrorMessage } from "../utils/error";
 import { EMAIL_REGEX } from "../utils/validation";

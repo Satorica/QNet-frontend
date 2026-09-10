@@ -40,10 +40,9 @@ body .solver-workspace .solve-type-group .el-radio-button.is-active .el-radio-bu
 body .solver-workspace .el-input__wrapper,
 body .solver-workspace .el-select__wrapper { border-radius: 7px; }
 body .solver-workspace .left-column { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-body .solver-workspace .graph-data-section { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 16px 24px; }
+body .solver-workspace .graph-data-section { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 16px 24px; }
 body .solver-workspace .graph-data-section > .workspace-section-heading,
 body .solver-workspace .graph-data-section > .data-editor-grid { grid-column: 1 / -1; }
-body .solver-workspace .graph-data-section > .matrix-actions { justify-content: flex-end; align-self: end; padding-bottom: 3px; }
 body .solver-workspace .controls-row { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 16px 24px; margin: 0; min-height: 34px; }
 body .solver-workspace .ctrl-label { color: #63738a; font-size: 13px; line-height: 20px; }
 body .solver-workspace .control-item { display: grid; grid-template-columns: auto auto; align-items: center; min-width: 0; flex-shrink: 1; gap: 8px 12px; }
@@ -51,7 +50,7 @@ body .solver-workspace .control-item > .ctrl-label:first-child { grid-column: 1 
 body .solver-workspace .control-item .el-input-number,
 body .solver-workspace .control-item .el-slider { height: 36px; }
 body .solver-workspace .control-item .el-select__wrapper { min-height: 36px; }
-body .solver-workspace .matrix-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
+body .solver-workspace .matrix-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; margin: 0 0 20px; }
 body .solver-workspace .matrix-actions .el-button,
 body .solver-workspace .input-buttons .el-button { height: 30px; margin-left: 0; padding: 0 11px; border-radius: 6px; font-size: 12px; }
 body .solver-workspace .matrix-actions .el-button--primary { --el-button-bg-color: var(--app-accent-soft); --el-button-border-color: var(--el-color-primary-light-8); --el-button-text-color: var(--app-accent); }
@@ -198,8 +197,7 @@ body .solver-workspace .constraint-table .el-table__inner-wrapper::before { disp
 body .solver-workspace .matrix-formula { padding: 0; margin-bottom: 16px; border: 0; border-radius: 0; background: transparent; color: var(--workspace-muted); font-size: 12px; line-height: 1.8; }
 @media (max-width: 1250px) {
   body .solver-workspace > .el-card__body { padding: 20px; }
-  body .solver-workspace .graph-data-section { grid-template-columns: minmax(0, 1fr); }
-  body .solver-workspace .graph-data-section > .matrix-actions { justify-content: flex-start; }
+  body .solver-workspace .matrix-actions { justify-content: flex-start; }
 }
 @media (max-width: 850px) {
   body .solver-workspace .solver-empty-state { gap: 12px; padding: 16px; }

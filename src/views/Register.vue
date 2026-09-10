@@ -10,7 +10,6 @@
         <div class="register-header auth-header">
           <p class="brand-eyebrow">QUANTUM COMPUTING</p>
           <div class="logo-section">
-            <img class="logo-icon" :src="brandLogo" alt="量子Ising" width="44" height="44" />
             <h1 class="system-title">创建新账户</h1>
           </div>
           <p class="register-hint subtitle">使用邮箱和密码登录，昵称用于展示</p>
@@ -247,7 +246,6 @@ import { useRouter } from "vue-router";
 import { ElMessage, type FormInstance } from "element-plus";
 import { User, Message, Key, Lock } from "@element-plus/icons-vue";
 import LoginBackground from "../components/LoginBackground.vue";
-import brandLogo from "../assets/brand-logo.svg";
 import { authApi } from "../api/auth";
 import { EMAIL_REGEX } from "../utils/validation";
 import { getErrorCode, getErrorMessage } from "../utils/error";

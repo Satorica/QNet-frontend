@@ -1,7 +1,7 @@
 import { readonly, ref } from 'vue'
 
 export const themes = [
-  // Retain the legacy default id; the primary color matches the authentication button.
+  // Retain the legacy id for saved Deep Space Blue preferences.
   { id: 'violet', name: '深空蓝', primary: '#3564ad', secondary: '#426fb5' },
   { id: 'jade', name: '翡翠绿', primary: '#138568', secondary: '#319b75' },
   { id: 'sunset', name: '暖阳橙', primary: '#c65d20', secondary: '#dd8a30' },
@@ -13,14 +13,15 @@ export const themes = [
 
 type ThemeId = typeof themes[number]['id']
 const STORAGE_KEY = 'quantum-ising-theme'
-const currentTheme = ref<ThemeId>('violet')
+const DEFAULT_THEME_ID: ThemeId = 'iris'
+const currentTheme = ref<ThemeId>(DEFAULT_THEME_ID)
 
 const findTheme = (id: unknown) => themes.find((theme) => theme.id === id)
 
 function applyTheme(id: ThemeId) {
   const theme = findTheme(id)!
   const root = document.documentElement
-  const isDefault = id === 'violet'
+  const isDeepSpaceBlue = id === 'violet'
   const rgb = [1, 3, 5].map((offset) => parseInt(theme.primary.slice(offset, offset + 2), 16))
   const mix = (weight: number, target = 255) =>
     `rgb(${rgb.map((channel) => Math.round(channel * (1 - weight) + target * weight)).join(', ')})`
@@ -33,10 +34,10 @@ function applyTheme(id: ThemeId) {
   root.style.setProperty('--el-color-primary-dark-2', mix(0.2, 0))
   root.style.setProperty('--app-accent-secondary', theme.secondary)
   root.style.setProperty('--app-accent-rgb', rgb.join(', '))
-  root.style.setProperty('--app-page-start', isDefault ? '#f5f7fb' : mix(0.96))
-  root.style.setProperty('--app-page-end', isDefault ? '#fbfcfd' : mix(0.99))
-  root.style.setProperty('--app-sidebar-start', isDefault ? '#f1f5fa' : mix(0.95))
-  root.style.setProperty('--app-border', isDefault ? '#e0e7f0' : mix(0.87))
+  root.style.setProperty('--app-page-start', isDeepSpaceBlue ? '#f5f7fb' : mix(0.96))
+  root.style.setProperty('--app-page-end', isDeepSpaceBlue ? '#fbfcfd' : mix(0.99))
+  root.style.setProperty('--app-sidebar-start', isDeepSpaceBlue ? '#f1f5fa' : mix(0.95))
+  root.style.setProperty('--app-border', isDeepSpaceBlue ? '#e0e7f0' : mix(0.87))
   currentTheme.value = id
 }
 
@@ -44,7 +45,7 @@ function applyTheme(id: ThemeId) {
 export function initializeTheme() {
   // Authentication keeps the default brand palette even when a different skin is saved.
   const root = document.documentElement
-  const primary = themes[0].primary
+  const primary = findTheme(DEFAULT_THEME_ID)!.primary
   const rgb = [1, 3, 5].map((offset) => parseInt(primary.slice(offset, offset + 2), 16))
   root.style.setProperty('--brand-primary', primary)
   root.style.setProperty('--brand-rgb', rgb.join(', '))
@@ -60,7 +61,7 @@ export function initializeTheme() {
   } catch {
     // Restricted browser storage should not prevent the application from loading.
   }
-  applyTheme(findTheme(saved)?.id ?? 'violet')
+  applyTheme(findTheme(saved)?.id ?? DEFAULT_THEME_ID)
 }
 
 function setTheme(id: unknown) {

@@ -44,46 +44,6 @@
           </div>
 
           <!-- 距离矩阵（可非负权重） -->
-          <div class="matrix-actions">
-            <el-button
-              :type="matrixMode === 'custom' ? 'primary' : ''"
-              :disabled="solving"
-              @click="setMatrixMode('custom')"
-              >自定义</el-button
-            >
-            <el-button
-              :type="matrixMode === 'random' ? 'primary' : ''"
-              :disabled="solving"
-              @click="
-                setMatrixMode('random');
-                generateRandomMatrix();
-              "
-              >随机生成</el-button
-            >
-            <el-upload
-              ref="importUpload"
-              action="#"
-              accept=".csv,.txt,text/csv,text/plain"
-              :limit="1"
-              :show-file-list="false"
-              :disabled="solving || importing"
-              :http-request="handleFileImport"
-              :on-success="clearImportFiles"
-              :on-error="clearImportFiles"
-            >
-              <el-button
-                :disabled="solving || importing"
-                :loading="importing"
-              >
-                {{ importing ? "解析中..." : "导入数据" }}
-              </el-button>
-            </el-upload>
-            <el-button
-              :disabled="solving"
-              @click="handleTemplateDownload"
-              >下载模板</el-button
-            >
-          </div>
           <div class="data-editor-grid">
             <el-card class="matrix-card">
               <template #header>
@@ -91,6 +51,47 @@
                   <span>距离矩阵</span>
                 </div>
               </template>
+
+              <div class="matrix-actions">
+                <el-button
+                  :type="matrixMode === 'custom' ? 'primary' : ''"
+                  :disabled="solving"
+                  @click="setMatrixMode('custom')"
+                  >自定义</el-button
+                >
+                <el-button
+                  :type="matrixMode === 'random' ? 'primary' : ''"
+                  :disabled="solving"
+                  @click="
+                    setMatrixMode('random');
+                    generateRandomMatrix();
+                  "
+                  >随机生成</el-button
+                >
+                <el-upload
+                  ref="importUpload"
+                  action="#"
+                  accept=".csv,.txt,text/csv,text/plain"
+                  :limit="1"
+                  :show-file-list="false"
+                  :disabled="solving || importing"
+                  :http-request="handleFileImport"
+                  :on-success="clearImportFiles"
+                  :on-error="clearImportFiles"
+                >
+                  <el-button
+                    :disabled="solving || importing"
+                    :loading="importing"
+                  >
+                    {{ importing ? "解析中..." : "导入数据" }}
+                  </el-button>
+                </el-upload>
+                <el-button
+                  :disabled="solving"
+                  @click="handleTemplateDownload"
+                  >下载模板</el-button
+                >
+              </div>
 
               <div class="matrix-scroll" tabindex="0" aria-label="矩阵编辑区，可横向滚动">
               <div class="matrix-grid">
