@@ -130,6 +130,20 @@ defineExpose({ validate })
   width: 100%;
   min-width: 0;
 }
+.task-name-controls :deep(.el-input__wrapper) {
+  background: var(--app-control-bg);
+  box-shadow: none;
+}
+.task-name-controls :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px var(--app-border) inset;
+}
+.task-name-controls :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px var(--app-accent) inset;
+}
+.task-name-controls :deep(.el-input.is-disabled .el-input__wrapper) {
+  background: var(--app-control-bg);
+  box-shadow: none;
+}
 .task-name-error {
   font-size: 12px;
   line-height: 18px;

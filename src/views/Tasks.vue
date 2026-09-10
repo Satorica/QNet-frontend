@@ -7,6 +7,7 @@
           <div class="task-controls">
             <el-input
               v-model="taskName"
+              class="task-search-input"
               placeholder="请输入任务名称"
               style="width: 200px"
               clearable
@@ -1231,24 +1232,21 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 
-.task-controls :deep(.el-input__wrapper),
 .task-controls :deep(.el-select__wrapper) {
   min-height: 36px;
   box-sizing: border-box;
   border-radius: 7px;
-  background: #f5f7fa;
+  background: var(--app-control-bg);
   box-shadow: none;
 }
 
-.task-controls :deep(.el-input__wrapper:hover),
 .task-controls :deep(.el-select__wrapper:hover) {
-  box-shadow: 0 0 0 1px #dce4ee inset;
+  box-shadow: 0 0 0 1px var(--app-border) inset;
 }
 
-.task-controls :deep(.el-input__wrapper.is-focus),
 .task-controls :deep(.el-select__wrapper.is-focused) {
-  background: #fff;
-  box-shadow: 0 0 0 1px var(--app-accent) inset, 0 0 0 3px var(--app-accent-soft);
+  background: var(--app-control-bg);
+  box-shadow: 0 0 0 1px var(--app-accent) inset;
 }
 
 .task-controls :deep(.el-button) {
@@ -1445,12 +1443,12 @@ onBeforeUnmount(() => {
 .quota-request-content :deep(.el-form-item) { margin-bottom: 20px; }
 .quota-request-content :deep(.el-form-item__label) { height: auto; margin-bottom: 8px; padding: 0; color: #63738a; font-size: 13px; line-height: 20px; }
 .quota-request-content :deep(.el-input__wrapper),
-.quota-request-content :deep(.el-textarea__inner) { border-radius: 7px; background: #f5f7fa; box-shadow: none; }
+.quota-request-content :deep(.el-textarea__inner) { border-radius: 7px; background: var(--app-control-bg); box-shadow: none; }
 .quota-request-content :deep(.el-input__wrapper) { min-height: 36px; box-sizing: border-box; }
 .quota-request-content :deep(.el-input__wrapper:hover),
-.quota-request-content :deep(.el-textarea__inner:hover) { box-shadow: 0 0 0 1px #dce4ee inset; }
+.quota-request-content :deep(.el-textarea__inner:hover) { box-shadow: 0 0 0 1px var(--app-border) inset; }
 .quota-request-content :deep(.el-input__wrapper.is-focus),
-.quota-request-content :deep(.el-textarea__inner:focus) { background: #fff; box-shadow: 0 0 0 1px var(--app-accent) inset, 0 0 0 3px var(--app-accent-soft); }
+.quota-request-content :deep(.el-textarea__inner:focus) { background: var(--app-control-bg); box-shadow: 0 0 0 1px var(--app-accent) inset; }
 .quota-request-content :deep(.el-textarea__inner) { padding: 12px 14px 28px; line-height: 1.8; resize: none; }
 .quota-request-content :deep(.el-input__count) { right: 14px; bottom: 8px; background: transparent; color: #78879b; }
 

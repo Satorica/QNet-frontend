@@ -2,6 +2,8 @@ import axios, {
   type AxiosError,
   type InternalAxiosRequestConfig,
 } from "axios";
+import { openEmailSettings } from '../utils/emailSettings';
+import { tokenManager } from '../utils/auth';
 import type {
   ApiResponse,
   CancelTaskResponse,
@@ -53,12 +55,7 @@ const cloudApi = axios.create({
 // Token 存储在 HttpOnly Cookie 中，由后端通过 Set-Cookie 清除；
 // 前端只清理非敏感的用户信息缓存。
 const handleTokenExpired = (redirectToLogin = true) => {
-  const keys = ["userInfo", "isLoggedIn"];
-  keys.forEach((key) => {
-    sessionStorage.removeItem(key);
-    localStorage.removeItem(key);
-  });
-  localStorage.removeItem("rememberMe");
+  tokenManager.clearTokens();
 
   if (
     redirectToLogin &&
@@ -100,6 +97,15 @@ cloudApi.interceptors.response.use(
   async (error: AxiosError<ApiResponse>) => {
     const message = error.response?.data?.message || error.message;
     error.message = message;
+
+    if (error.config?.url === '/api/submit-task' && error.response?.data?.code === 'EMAIL_BINDING_REQUIRED') {
+      openEmailSettings('请先绑定邮箱后提交任务，已填写的求解参数会保留。');
+    }
+
+    // 关联票据过期只要求重新验证邮箱，不代表浏览器登录失效。
+    if (error.config?.url === '/auth/email/confirm-link' && error.response?.data?.code === 'TICKET_EXPIRED') {
+      return Promise.reject(error);
+    }
 
     if (error.response?.status !== 401) {
       return Promise.reject(error);

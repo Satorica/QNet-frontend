@@ -31,6 +31,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         "/api": createProxyConfig(),
         "/auth": createProxyConfig(),
+        "/media": createProxyConfig(),
       },
     },
     build: {

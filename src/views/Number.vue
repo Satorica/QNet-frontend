@@ -242,6 +242,7 @@
           <div class="history-actions">
             <el-input
               v-model="historyTaskName"
+              class="task-search-input"
               placeholder="请输入任务名称"
               style="width: 220px"
               clearable
@@ -571,7 +572,7 @@ import {
   isTaskDeletable,
 } from "../utils/task";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
-import { getErrorMessage } from "../utils/error";
+import { getErrorCode, getErrorMessage } from "../utils/error";
 import {
   downloadTaskResultExport,
   type TaskResultExportInfo,
@@ -870,7 +871,7 @@ const startSolve = async () => {
     }
   } catch (error) {
     if (!solveScope.isCurrent(solveToken)) return;
-    clearCustomTaskName();
+    if (getErrorCode(error) !== "EMAIL_BINDING_REQUIRED") clearCustomTaskName();
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
     addLog("求解失败：" + getErrorMessage(error, "求解失败"));

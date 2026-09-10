@@ -14,7 +14,9 @@
       <!-- 用户信息和菜单 -->
       <el-dropdown v-if="isLoggedIn" @command="handleCommand" trigger="click">
         <button type="button" class="user-info" :aria-label="`个人资料：${displayName}`">
-          <img class="avatar" :src="defaultAvatar" alt="" width="26" height="26" />
+          <el-avatar class="avatar" :size="26" :src="profile?.avatarUrl || defaultAvatar">
+            <img :src="defaultAvatar" alt="默认头像" />
+          </el-avatar>
           <span class="username">{{
             displayName
           }}</span>
@@ -28,9 +30,9 @@
                   <strong>昵称:</strong>
                   {{ displayName }}
                 </div>
-                <div v-if="userInfo?.maskedEmail">
+                <div>
                   <strong>邮箱:</strong>
-                  {{ userInfo?.maskedEmail }}
+                  {{ userInfo?.maskedEmail || '未绑定' }}
                 </div>
                 <div v-if="userInfo?.maskedPhone">
                   <strong>手机:</strong>
@@ -38,7 +40,15 @@
                 </div>
               </div>
             </el-dropdown-item>
-            <el-dropdown-item divided command="logout">
+            <el-dropdown-item divided command="profile">
+              <el-icon><User /></el-icon>
+              <span>编辑个人资料</span>
+            </el-dropdown-item>
+            <el-dropdown-item command="email">
+              <el-icon><Message /></el-icon>
+              <span>{{ userInfo?.maskedEmail ? '邮箱设置' : '绑定邮箱' }}</span>
+            </el-dropdown-item>
+            <el-dropdown-item command="logout">
               <el-icon><SwitchButton /></el-icon>
               <span>退出登录</span>
             </el-dropdown-item>
@@ -54,16 +64,22 @@
       </div>
     </div>
   </div>
+  <ProfileEditor v-if="profileEditorVisible" :user-id="userInfo?.id || ''" @close="profileEditorVisible = false" @updated="applyProfile" />
+  <EmailSettings v-if="isLoggedIn && emailSettingsVisible" :reason="emailSettingsReason" @close="emailSettingsVisible = false" @updated="refreshProfile" />
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { ArrowDown, SwitchButton } from "@element-plus/icons-vue";
+import { ArrowDown, User, Message, SwitchButton } from "@element-plus/icons-vue";
 import { userManager } from "../utils/auth";
 import defaultAvatar from "../assets/default-avatar.png";
 import ThemeSwitcher from "./ThemeSwitcher.vue";
+import ProfileEditor from "./ProfileEditor.vue";
+import EmailSettings from './EmailSettings.vue';
+import { emailSettingsVisible, emailSettingsReason, openEmailSettings } from '../utils/emailSettings';
+import { profileApi, type UserProfile } from "../api/profile";
 
 const router = useRouter();
 const currentTime = ref("");
@@ -73,8 +89,45 @@ let timer: ReturnType<typeof setInterval> | null = null;
 
 // 获取用户信息和登录状态
 const userInfo = computed(() => userManager.getUserInfo());
+const profile = ref<UserProfile | null>(null);
+const profileEditorVisible = ref(false);
+let profileRequestVersion = 0;
+const applyProfile = (value: UserProfile) => {
+  profileRequestVersion += 1;
+  profile.value = value;
+  userManager.updateNickname(value.nickname);
+};
 const displayName = computed(() => userInfo.value?.nickname?.trim() || userInfo.value?.id || '未登录');
 const isLoggedIn = computed(() => userManager.isLoggedIn());
+
+const refreshProfile = () => {
+  const version = ++profileRequestVersion;
+  void profileApi.get().then(value => {
+    if (version === profileRequestVersion) applyProfile(value);
+  }).catch(() => { /* 邮箱更新成功不受资料刷新失败影响。 */ });
+};
+
+watch(emailSettingsVisible, visible => {
+  if (visible) profileEditorVisible.value = false;
+});
+
+// Cookie 会话可能在顶栏挂载后才恢复，等待登录状态就绪再加载资料。
+watch([isLoggedIn, () => userInfo.value?.id], ([loggedIn], previous) => {
+  const version = ++profileRequestVersion;
+  profile.value = null;
+  profileEditorVisible.value = false;
+  emailSettingsVisible.value = false;
+  if (!loggedIn) {
+    // 页面内的静默会话校验失败也需要退出当前界面；首次恢复会话时不跳转。
+    if (previous?.[0]) void router.replace('/login');
+    return;
+  }
+  void profileApi.get().then((value) => {
+    if (version === profileRequestVersion) applyProfile(value);
+  }).catch(() => {
+    // 编辑器提供明确的加载失败提示和重试入口。
+  });
+}, { immediate: true });
 
 const updateClock = () => {
   const now = new Date();
@@ -94,6 +147,15 @@ const updateClock = () => {
 
 // 处理下拉菜单命令
 const handleCommand = async (command: string) => {
+  if (command === 'email') {
+    openEmailSettings();
+    return;
+  }
+  if (command === "profile") {
+    profileRequestVersion += 1;
+    profileEditorVisible.value = true;
+    return;
+  }
   if (command === "logout") {
     try {
       await ElMessageBox.confirm(
@@ -134,6 +196,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  emailSettingsVisible.value = false;
+  profileRequestVersion += 1;
   if (timer) {
     clearInterval(timer);
     timer = null;
@@ -211,16 +275,17 @@ onUnmounted(() => {
   gap: 8px;
   cursor: pointer;
   padding: 0 10px;
-  border: 1px solid #edf0f4;
+  border: 1px solid rgba(var(--app-accent-rgb), 0.1);
   border-radius: 8px;
-  background: #f8f9fb;
+  background: rgba(var(--app-accent-rgb), 0.05);
   font-family: inherit;
   transition: background-color 150ms, border-color 150ms;
 }
 
-.user-info:hover {
-  background: #f0f3f7;
-  border-color: #dfe5ed;
+.user-info:hover,
+.user-info[aria-expanded="true"] {
+  background: rgba(var(--app-accent-rgb), 0.1);
+  border-color: rgba(var(--app-accent-rgb), 0.22);
 }
 
 .user-info:focus-visible {
@@ -230,7 +295,7 @@ onUnmounted(() => {
 
 .user-chevron {
   flex-shrink: 0;
-  color: #8c95a4;
+  color: var(--app-accent);
   font-size: 11px;
 }
 
@@ -238,7 +303,7 @@ onUnmounted(() => {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  background: #e3f2fd;
+  background: var(--app-accent-soft);
   display: block;
   object-fit: cover;
   flex-shrink: 0;

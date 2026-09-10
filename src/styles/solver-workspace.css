@@ -9,11 +9,19 @@ body .main-card.solver-workspace {
 }
 body .solver-workspace > .el-card__body { padding: 26px; }
 body .solver-workspace .card-content { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 28px; }
-.solver-configuration { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); align-items: start; gap: 20px 24px; padding: 0; border-bottom: 0; }
-.solver-configuration > .workspace-section-heading { grid-column: 1 / -1; }
+.solver-configuration { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; padding: 0; border-bottom: 0; }
+.solver-configuration > .workspace-section-heading { flex-basis: 100%; }
 .workspace-section-heading { display: flex; align-items: center; gap: 9px; min-height: 24px; }
-.workspace-section-heading h2 { margin: 0; color: #34435a; font-size: 14px; font-weight: 600; }
-body .solver-workspace .task-name-field { display: grid; grid-template-columns: auto 1fr; grid-column: auto; gap: 8px; width: 100%; max-width: 360px; }
+.workspace-section-heading::before { content: ''; flex: 0 0 3px; height: 16px; border-radius: 2px; background: var(--app-accent); }
+.workspace-section-heading h2 { margin: 0; color: #29394f; font-size: 16px; font-weight: 700; line-height: 24px; }
+/* All subsection headings share one style; only section headings have an accent marker. */
+body .solver-workspace .el-card__header,
+body .solver-workspace .graph-preview-heading,
+body .solver-workspace .constraint-heading,
+body .solver-workspace .candidates-header,
+body .solver-workspace .number-list h4,
+body .solver-workspace .subset h4 { color: #526177; font-size: 14px; font-weight: 600; line-height: 20px; }
+body .solver-workspace .task-name-field { display: grid; grid-template-columns: auto 1fr; grid-column: auto; flex: 0 1 320px; gap: 8px; width: 100%; max-width: 100%; }
 body .solver-workspace .task-name-controls { grid-column: 1 / -1; grid-row: 2; }
 body .solver-workspace .task-name-note { grid-column: 2; grid-row: 1; align-self: center; line-height: 20px; }
 body .solver-workspace .task-name-label,
@@ -22,10 +30,10 @@ body .solver-workspace .algorithm-field > .label { color: #63738a; font-size: 13
 body .solver-workspace .task-name-field.has-error .el-input__wrapper { box-shadow: 0 0 0 1px var(--el-color-danger) inset; }
 body .solver-workspace .algorithm-control { display: contents; }
 body .solver-workspace .solver-model-field,
-body .solver-workspace .algorithm-field { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; margin: 0; }
+body .solver-workspace .algorithm-field { display: flex; flex-direction: column; align-items: flex-start; flex: 0 1 auto; gap: 8px; min-width: 0; max-width: 100%; margin: 0; }
 body .solver-workspace .algorithm-field .el-select { max-width: 100%; }
 body .solver-workspace .task-name-controls .el-input__wrapper { min-height: 36px; box-sizing: border-box; }
-body .solver-workspace .solve-type-group { display: flex; gap: 4px; min-height: 36px; max-width: 100%; box-sizing: border-box; padding: 3px; border: 0; border-radius: 7px; background: #f3f5f8; }
+body .solver-workspace .solve-type-group { display: flex; gap: 4px; min-height: 36px; max-width: 100%; box-sizing: border-box; padding: 3px; border: 0; border-radius: 7px; background: var(--app-control-bg); }
 body .solver-workspace .solve-type-group .el-radio-button__inner { padding: 6px 13px; border: 0; border-radius: 5px; font-size: 12px; line-height: 16px; box-shadow: none; white-space: nowrap; transition: background-color 150ms; }
 body .solver-workspace .solve-type-group .el-radio-button:not(.is-active) .el-radio-button__inner { border: 0; background: transparent; color: #6a798e; }
 body .solver-workspace .solve-type-group .el-radio-button.is-active .el-radio-button__inner { background: #fff; color: var(--app-accent); font-weight: 600; box-shadow: 0 1px 4px #273b5612; }
@@ -49,7 +57,7 @@ body .solver-workspace .input-buttons .el-button { height: 30px; margin-left: 0;
 body .solver-workspace .matrix-actions .el-button--primary { --el-button-bg-color: var(--app-accent-soft); --el-button-border-color: var(--el-color-primary-light-8); --el-button-text-color: var(--app-accent); }
 .data-editor-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; align-items: stretch; }
 body .solver-workspace .el-card { border: 0; border-radius: 0; box-shadow: none; margin: 0; min-width: 0; }
-body .solver-workspace .el-card__header { padding: 0 0 12px; border-bottom: 0; font-size: 13px; font-weight: 600; color: #3c4c62; }
+body .solver-workspace .el-card__header { padding: 0 0 12px; border-bottom: 0; }
 body .solver-workspace .el-card__body { padding: 0; }
 body .solver-workspace > .el-card__body { padding: 26px; }
 body .solver-workspace .matrix-header { min-height: 20px; }
@@ -62,7 +70,7 @@ body .solver-workspace .matrix-cell.editable { color: var(--app-accent); }
 body .solver-workspace .matrix-cell.editable:hover { background: var(--app-accent-soft); }
 body .solver-workspace .tip { margin: 14px 0 0; color: #8995a7; font-size: 11px; line-height: 1.8; }
 body .solver-workspace .graph-preview-panel { display: flex; flex-direction: column; min-width: 0; margin: 0; border: 0; border-radius: 0; background: transparent; overflow: hidden; }
-.graph-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 12px; border-bottom: 0; color: #3c4c62; font-size: 13px; font-weight: 600; }
+.graph-preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 12px; border-bottom: 0; }
 .graph-preview-heading small { color: #93a0b1; font-size: 10px; font-weight: 400; }
 body .solver-workspace .graph-preview-panel > :last-child { display: flex; flex: 1; align-items: center; justify-content: center; min-height: 340px; padding: 16px; box-sizing: border-box; border-radius: 8px; background: #f8fafc; }
 body .solver-workspace .graph-preview-panel .graph-svg { display: block; width: 100%; max-width: 400px; height: auto; max-height: 360px; }
@@ -127,7 +135,7 @@ body .solver-workspace .candidate-rank-main { font-size: 12px; color: #687b95; }
 body .solver-workspace .candidate-value,
 body .solver-workspace .candidate-value-main { color: var(--app-accent); font-size: 12px; }
 body .solver-workspace .candidates-list { margin: 0; padding: 0; border: 0; }
-body .solver-workspace .number-input-area { margin: 0; padding: 4px; border-radius: 10px; background: #f5f7fa; transition: box-shadow 150ms; }
+body .solver-workspace .number-input-area { margin: 0; padding: 4px; border-radius: 10px; background: var(--app-control-bg); transition: box-shadow 150ms; }
 /* Keep the focus ring inside the input area so the card's overflow does not clip it. */
 body .solver-workspace .number-input-area:focus-within { box-shadow: 0 0 0 1px var(--app-accent) inset; }
 body .solver-workspace .number-input-area .el-textarea__inner { padding: 16px 16px 12px; border: 0; border-radius: 7px; background: transparent; box-shadow: none; font: 14px/1.9 Consolas, monospace; }
@@ -136,20 +144,20 @@ body .solver-workspace .number-input-area .el-textarea__inner { padding: 16px 16
 body .solver-workspace .number-input-footer .input-buttons { margin: 0; }
 body .solver-workspace .input-buttons { flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 body .solver-workspace .number-list { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--workspace-line); }
-body .solver-workspace .number-list h4 { margin: 0 0 12px; color: #718198; font-size: 12px; font-weight: 500; }
+body .solver-workspace .number-list h4 { margin: 0 0 12px; }
 body .solver-workspace .number-tags { max-height: 180px; overflow: auto; }
 body .solver-workspace .number-tags .el-tag { min-width: 34px; height: 30px; border-radius: 6px; font-family: Consolas, monospace; }
 body .solver-workspace .number-stats { display: flex; flex-wrap: wrap; gap: 12px 20px; padding: 14px; margin-top: 18px; border-radius: 7px; background: #f5f8fc; color: #74859c; font-size: 12px; }
 body .solver-workspace .model-card { margin: 0; }
 body .solver-workspace .expression-form .el-form-item__label { font-size: 12px; color: #708098; }
 body .solver-workspace .expression-options { gap: 14px; }
-body .solver-workspace .constraint-heading { gap: 10px; flex-wrap: wrap; color: #3c4c62; font-size: 13px; font-weight: 500; }
+body .solver-workspace .constraint-heading { gap: 10px; flex-wrap: wrap; }
 body .solver-workspace .constraint-heading > div { display: flex; gap: 8px; }
 body .solver-workspace .constraint-heading .el-button { margin-left: 0; }
 body .solver-workspace .matrix-description { font-size: 11px; line-height: 1.8; color: #8995a7; }
 body .solver-workspace .partition-result { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 body .solver-workspace .subset { min-width: 0; margin: 0; }
-body .solver-workspace .subset h4 { margin: 4px 0 12px; color: #526177; font-size: 13px; font-weight: 500; }
+body .solver-workspace .subset h4 { margin: 4px 0 12px; }
 body .solver-workspace .result-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px 28px; padding: 16px 0 0; border-top: 1px solid var(--workspace-line); border-radius: 0; background: transparent; }
 body .solver-workspace .result-stats .stat-item { justify-content: flex-start; gap: 12px; }
 body .solver-workspace .result-stats .label { color: #8995a7; font-size: 12px; }
@@ -158,7 +166,7 @@ body .solver-workspace .model-card .expression-form .el-input__wrapper,
 body .solver-workspace .algorithm-field .el-select__wrapper,
 body .solver-workspace .graph-type-select .el-select__wrapper,
 body .solver-workspace .model-card .el-select__wrapper,
-body .solver-workspace .model-card .el-textarea__inner { border: 0; border-radius: 7px; background: #f5f7fa; box-shadow: none; }
+body .solver-workspace .model-card .el-textarea__inner { border: 0; border-radius: 7px; background: var(--app-control-bg); box-shadow: none; }
 body .solver-workspace .model-card .expression-form .el-input__wrapper,
 body .solver-workspace .algorithm-field .el-select__wrapper,
 body .solver-workspace .graph-type-select .el-select__wrapper,
@@ -168,17 +176,17 @@ body .solver-workspace .model-card .expression-form .el-input__wrapper:hover,
 body .solver-workspace .algorithm-field .el-select__wrapper:hover,
 body .solver-workspace .graph-type-select .el-select__wrapper:hover,
 body .solver-workspace .model-card .el-select__wrapper:hover,
-body .solver-workspace .model-card .el-textarea__inner:hover { box-shadow: 0 0 0 1px #dce4ee inset; }
+body .solver-workspace .model-card .el-textarea__inner:hover { box-shadow: 0 0 0 1px var(--app-border) inset; }
 body .solver-workspace .model-card .expression-form .el-input__wrapper.is-focus,
 body .solver-workspace .algorithm-field .el-select__wrapper.is-focused,
 body .solver-workspace .graph-type-select .el-select__wrapper.is-focused,
 body .solver-workspace .model-card .el-select__wrapper.is-focused,
-body .solver-workspace .model-card .el-textarea__inner:focus { background: #fff; box-shadow: 0 0 0 1px var(--app-accent) inset, 0 0 0 3px var(--app-accent-soft); }
+body .solver-workspace .model-card .el-textarea__inner:focus { background: var(--app-control-bg); box-shadow: 0 0 0 1px var(--app-accent) inset; }
 body .solver-workspace .model-card .expression-form .is-disabled .el-input__wrapper,
 body .solver-workspace .algorithm-field .el-select__wrapper.is-disabled,
 body .solver-workspace .graph-type-select .el-select__wrapper.is-disabled,
 body .solver-workspace .model-card .el-select__wrapper.is-disabled,
-body .solver-workspace .model-card .el-textarea.is-disabled .el-textarea__inner { background: #f5f7fa; box-shadow: none; }
+body .solver-workspace .model-card .el-textarea.is-disabled .el-textarea__inner { background: var(--app-control-bg); box-shadow: none; }
 body .solver-workspace .expression-form .el-form-item { margin-bottom: 20px; }
 body .solver-workspace .expression-options .example-button { margin-bottom: 20px; }
 body .solver-workspace .constraint-heading { margin-top: 24px; }

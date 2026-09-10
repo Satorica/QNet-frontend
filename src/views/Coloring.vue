@@ -214,19 +214,19 @@
 
             <div class="stats-content">
               <div class="stat-item">
-                <span class="label">节点数：</span>
+                <span class="label">节点数</span>
                 <span class="value">{{ nodeCount }}</span>
               </div>
               <div class="stat-item">
-                <span class="label">边数：</span>
+                <span class="label">边数</span>
                 <span class="value">{{ edges.length }}</span>
               </div>
               <div class="stat-item">
-                <span class="label">使用颜色：</span>
+                <span class="label">使用颜色</span>
                 <span class="value">{{ usedColors }}</span>
               </div>
               <div class="stat-item">
-                <span class="label">冲突数：</span>
+                <span class="label">冲突数</span>
                 <span class="value">{{ conflicts }}</span>
               </div>
             </div>
@@ -283,6 +283,7 @@
           <div class="history-actions">
             <el-input
               v-model="historyTaskName"
+              class="task-search-input"
               placeholder="请输入任务名称"
               style="width: 220px"
               clearable
@@ -615,7 +616,7 @@ import {
   isTaskDeletable,
 } from "../utils/task";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
-import { getErrorMessage } from "../utils/error";
+import { getErrorCode, getErrorMessage } from "../utils/error";
 import { downloadMatrixTemplate } from "../utils/dataImport";
 import {
   downloadTaskResultExport,
@@ -1367,7 +1368,7 @@ const submitSolve = async () => {
     }
   } catch (error) {
     if (!solveScope.isCurrent(solveToken)) return;
-    clearCustomTaskName();
+    if (getErrorCode(error) !== "EMAIL_BINDING_REQUIRED") clearCustomTaskName();
     addLog(`求解失败: ${getErrorMessage(error, "求解失败")}`);
     ElMessage.error(getErrorMessage(error, "求解失败"));
     statusClass.value = "status-fail";

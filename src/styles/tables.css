@@ -1,4 +1,25 @@
 /* Shared spacing for history, task, feedback and quota request lists. */
+.task-search-input .el-input__wrapper {
+  min-height: 36px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  background: var(--app-control-bg);
+  box-shadow: none;
+}
+
+.task-search-input .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--app-border) inset;
+}
+
+.task-search-input .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--app-accent) inset;
+}
+
+.task-search-input.is-disabled .el-input__wrapper {
+  background: var(--app-control-bg);
+  box-shadow: none;
+}
+
 .app-data-table {
   width: 100%;
 }

@@ -247,7 +247,7 @@
         <div class="history-header">
           <h3>任务历史</h3>
           <div class="history-actions">
-            <el-input v-model="historyTaskName" placeholder="请输入任务名称" style="width: 220px" clearable @keyup.enter="handleHistorySearch" />
+            <el-input v-model="historyTaskName" class="task-search-input" placeholder="请输入任务名称" style="width: 220px" clearable @keyup.enter="handleHistorySearch" />
             <el-button type="primary" @click="handleHistorySearch">确定</el-button>
             <el-button @click="handleHistoryReset">重置</el-button>
             <el-button type="primary" plain :disabled="historyTotal === 0" @click="handleDeleteAllTasks">全部删除</el-button>
@@ -438,7 +438,7 @@ import VirtualMatrixEditor from "../components/VirtualMatrixEditor.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { downloadMatrixTemplate } from "../utils/dataImport";
-import { getErrorMessage } from "../utils/error";
+import { getErrorCode, getErrorMessage } from "../utils/error";
 import {
   formatBestValue,
   formatCandidateValue,
@@ -973,7 +973,7 @@ const startSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!solveScope.isCurrent(token)) return;
-    clearCustomTaskName();
+    if (getErrorCode(error) !== "EMAIL_BINDING_REQUIRED") clearCustomTaskName();
     stateClass.value = "state-fail";
     stateText.value = "求解失败";
     solving.value = false;

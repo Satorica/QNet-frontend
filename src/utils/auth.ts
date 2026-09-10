@@ -1,5 +1,6 @@
 import { ElMessage, ElNotification } from 'element-plus'
 import axios from 'axios'
+import { ref } from 'vue'
 import { authApi } from '../api/auth'
 import type { UserInfo } from '../types/api'
 
@@ -11,6 +12,7 @@ export type SafeUserInfo = Pick<
 const USER_INFO_STORAGE_KEY = 'userInfo'
 const LOGIN_STATE_STORAGE_KEY = 'isLoggedIn'
 const REMEMBER_ME_STORAGE_KEY = 'rememberMe'
+const authStateVersion = ref(0)
 
 export type ServerSessionStatus = 'unknown' | 'authenticated'
 
@@ -90,10 +92,18 @@ export const tokenManager = {
         removeAuthState(localStorage)
         localStorage.removeItem(REMEMBER_ME_STORAGE_KEY)
         serverSessionManager.markUnknown()
+        authStateVersion.value += 1
     },
 }
 
 export const userManager = {
+    updateNickname: (nickname: string): void => {
+        const storage = sessionStorage.getItem(USER_INFO_STORAGE_KEY) ? sessionStorage : localStorage
+        const user = readStoredUserInfo(storage)
+        if (user) storage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(toSafeUserInfo({ ...user, nickname })))
+        authStateVersion.value += 1
+    },
+
     setUserInfo: (userInfo: UserInfo, remember = false): void => {
         const storage = remember ? localStorage : sessionStorage
         const safeUserInfo = toSafeUserInfo(userInfo)
@@ -103,9 +113,11 @@ export const userManager = {
         storage.setItem(USER_INFO_STORAGE_KEY, JSON.stringify(safeUserInfo))
         storage.setItem(LOGIN_STATE_STORAGE_KEY, 'true')
         serverSessionManager.markAuthenticated()
+        authStateVersion.value += 1
     },
 
     getUserInfo: () => {
+        void authStateVersion.value
         const storage = sessionStorage.getItem(USER_INFO_STORAGE_KEY)
             ? sessionStorage
             : localStorage
@@ -119,15 +131,17 @@ export const userManager = {
         return safeUserInfo
     },
 
-    isLoggedIn: () => (
-        sessionStorage.getItem(LOGIN_STATE_STORAGE_KEY) === 'true' ||
-        localStorage.getItem(LOGIN_STATE_STORAGE_KEY) === 'true'
-    ),
+    isLoggedIn: () => {
+        void authStateVersion.value
+        return sessionStorage.getItem(LOGIN_STATE_STORAGE_KEY) === 'true' ||
+            localStorage.getItem(LOGIN_STATE_STORAGE_KEY) === 'true'
+    },
 
     clearUserInfo: () => {
         removeAuthState(sessionStorage)
         removeAuthState(localStorage)
         serverSessionManager.markUnknown()
+        authStateVersion.value += 1
     },
 
     logout: async () => {

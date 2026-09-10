@@ -74,7 +74,7 @@
 import { computed } from 'vue'
 import { TrendCharts, Odometer, MagicStick, Location, DataAnalysis, List, Tickets, ChatDotRound, SwitchButton } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { userManager } from '../utils/auth'
 
 const router = useRouter()
@@ -85,6 +85,17 @@ const activeMenu = computed(() => {
 })
 
 const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm('确定要退出登录吗？', '退出登录', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    // 用户取消或关闭弹窗时保持登录状态。
+    return
+  }
+
   try {
     await userManager.logout()
     ElMessage.success('已退出登录')

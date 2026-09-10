@@ -68,6 +68,7 @@ export interface ApiResponse<T = undefined> {
   message?: string;
   data?: T;
   errorCode?: string;
+  code?: string;
 }
 
 export type FeedbackCategory =
