@@ -14,9 +14,17 @@ import quantumField from "../assets/login-quantum-field.webp";
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  background: #020c19;
-  /* Filter the artwork and its base together to keep mobile edges seamless. */
-  filter: hue-rotate(42deg) saturate(.45) brightness(.82);
+  isolation: isolate;
+  background: var(--auth-background);
+}
+/* Tint the artwork and its base together without affecting the form or QR code. */
+.quantum-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--brand-primary);
+  mix-blend-mode: color;
+  opacity: .42;
 }
 .quantum-art {
   width: 100%;
@@ -25,6 +33,7 @@ import quantumField from "../assets/login-quantum-field.webp";
   inset: 0;
   object-fit: cover;
   object-position: center;
+  filter: grayscale(1) brightness(.82);
 }
 /* Keep orbital detail above the form on narrow screens. */
 @media (max-width: 768px) {
