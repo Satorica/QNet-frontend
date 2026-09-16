@@ -456,9 +456,11 @@
             <div class="detail-row">
               <span class="detail-label">求解时间：</span>
               <span class="detail-value">{{
-                taskDetailResults.runtime
-                  ? taskDetailResults.runtime.toFixed(2) + "s"
-                  : selectedTask.solveTime || "--"
+                formatSolveTime(
+                  typeof taskDetailResults.runtime === "number"
+                    ? `${taskDetailResults.runtime}s`
+                    : selectedTask.solveTime
+                )
               }}</span>
             </div>
             <div class="detail-row">
@@ -574,6 +576,7 @@ import {
   type UploadRequestOptions,
 } from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName";
+import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import { formatBestValue, formatSolveTime } from "../utils/format";
 import {
   createSolveLogController,
@@ -622,7 +625,7 @@ const cityCount = ref(8);
 const algorithm = ref("nearest");
 const temperature = ref(500);
 const solveType = ref<ModelType>("classic");
-const methodType = ref<MethodType>("sa");
+const methodType = useAlgorithmSelection("tsp");
 const solving = ref(false);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
@@ -967,7 +970,7 @@ const _startSolve = async () => {
     const result = await executeTSPAlgorithm();
 
     const endTime = Date.now();
-    const duration = ((endTime - startTime) / 1000).toFixed(2);
+    const duration = (endTime - startTime) / 1000;
 
     currentRoute.value = result.route;
     bestRoute.value = result.route;
@@ -975,7 +978,7 @@ const _startSolve = async () => {
 
     statusClass.value = "status-success";
     statusText.value = "求解成功";
-    solveTime.value = `${duration}s`;
+    solveTime.value = formatSolveTime(`${duration}s`);
 
     addLog("求解完成");
   } catch (error) {
@@ -1470,7 +1473,7 @@ const pollTaskStatus = async (
       if (statusResponse.state === "completed") {
         // 任务完成
         const endTime = Date.now();
-        const duration = ((endTime - startTime) / 1000).toFixed(2);
+        const duration = (endTime - startTime) / 1000;
         const runtime = statusResponse.results?.runtime;
         const displaySolveTime =
           typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : formatSolveTime(`${duration}s`);

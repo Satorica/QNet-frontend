@@ -437,6 +437,7 @@ import {
 } from "../api";
 import VirtualMatrixEditor from "../components/VirtualMatrixEditor.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
+import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
 import { downloadMatrixTemplate } from "../utils/dataImport";
 import { getErrorCode, getErrorMessage } from "../utils/error";
@@ -466,7 +467,6 @@ import { createSolveLogController, SOLVE_LOG_IDLE_MESSAGE } from "../utils/solve
 import { getDeleteAllResultMessage, isDialogDismissed, isTaskDeletable } from "../utils/task";
 import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
-  MethodType,
   ModelType,
   TaskCandidate,
   TaskHistoryItem,
@@ -498,7 +498,7 @@ interface GeneralResultExportContext {
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 const taskNameField = ref<InstanceType<typeof TaskNameField>>();
 const solveType = ref<ModelType>("classic");
-const methodType = ref<MethodType>("sa");
+const methodType = useAlgorithmSelection("general");
 const matrixSize = ref(4);
 const directMatrixSize = ref(4);
 const inputMode = ref<InputMode>("expression");

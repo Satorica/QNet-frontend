@@ -424,9 +424,11 @@
             <div class="detail-row">
               <span class="detail-label">求解时间：</span>
               <span class="detail-value">{{
-                taskDetailResults.runtime
-                  ? taskDetailResults.runtime.toFixed(2) + "s"
-                  : selectedTask.solveTime || "--"
+                formatSolveTime(
+                  typeof taskDetailResults.runtime === "number"
+                    ? `${taskDetailResults.runtime}s`
+                    : selectedTask.solveTime
+                )
               }}</span>
             </div>
             <div class="detail-row">
@@ -542,6 +544,7 @@ import {
 } from "element-plus";
 import MaxCutGraph from "../components/MaxCutGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
+import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import {
   formatBestValue,
   formatCandidateValue,
@@ -566,7 +569,6 @@ import {
 } from "../utils/resultExport";
 import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
-  MethodType,
   ModelType,
   TaskCandidate,
   TaskDeleteFilters,
@@ -589,7 +591,7 @@ const taskNameField = ref<InstanceType<typeof TaskNameField>>();
 
 // 响应式数据
 const solveType = ref<ModelType>("classic");
-const methodType = ref<MethodType>("sa");
+const methodType = useAlgorithmSelection("maxcut");
 const matrixSize = ref(6);
 const editMode = ref("custom");
 const matrix = ref<number[][]>([]);
@@ -971,7 +973,7 @@ const pollTaskStatus = async (taskId: string, startTime: number, solveToken: num
       if (statusResponse.state === "completed") {
         // 任务完成
         const endTime = Date.now();
-        const duration = ((endTime - startTime) / 1000).toFixed(2);
+        const duration = (endTime - startTime) / 1000;
         const runtime = statusResponse.results?.runtime;
         const displaySolveTime =
           typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : formatSolveTime(`${duration}s`);

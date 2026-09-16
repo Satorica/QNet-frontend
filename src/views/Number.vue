@@ -447,9 +447,11 @@
             <div class="detail-row">
               <span class="detail-label">求解时间：</span>
               <span class="detail-value">{{
-                taskDetailResults.runtime
-                  ? taskDetailResults.runtime.toFixed(2) + "s"
-                  : selectedTask.solveTime || "--"
+                formatSolveTime(
+                  typeof taskDetailResults.runtime === "number"
+                    ? `${taskDetailResults.runtime}s`
+                    : selectedTask.solveTime
+                )
               }}</span>
             </div>
             <div class="detail-row">
@@ -558,6 +560,7 @@ import {
 } from "../api";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useCustomTaskName } from "../stores/customTaskName";
+import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import {
   formatBestValue,
   formatCandidateValue,
@@ -586,7 +589,6 @@ import {
 import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
   CandidateDisplay,
-  MethodType,
   ModelType,
   NumberPartitionResult,
   TaskDeleteFilters,
@@ -614,7 +616,7 @@ const numberInput = ref("");
 const numbers = ref<number[]>([]);
 const numberSize = ref(NUMBER_DEFAULT_SIZE);
 const solveType = ref<ModelType>("classic");
-const methodType = ref<MethodType>("sa");
+const methodType = useAlgorithmSelection("number_partition");
 const solving = ref(false);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
@@ -908,7 +910,7 @@ const pollTaskStatus = async (
       if (statusResponse.state === "completed") {
         // 任务完成
         const endTime = Date.now();
-        const duration = ((endTime - startTime) / 1000).toFixed(2);
+        const duration = (endTime - startTime) / 1000;
         const runtime = statusResponse.results?.runtime;
         const displaySolveTime =
           typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : formatSolveTime(`${duration}s`);

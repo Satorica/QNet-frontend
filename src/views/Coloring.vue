@@ -487,9 +487,11 @@
             <div class="detail-row">
               <span class="detail-label">求解时间：</span>
               <span class="detail-value">{{
-                taskDetailResults.runtime
-                  ? taskDetailResults.runtime.toFixed(2) + "s"
-                  : selectedTask.solveTime || "--"
+                formatSolveTime(
+                  typeof taskDetailResults.runtime === "number"
+                    ? `${taskDetailResults.runtime}s`
+                    : selectedTask.solveTime
+                )
               }}</span>
             </div>
             <div class="detail-row">
@@ -605,6 +607,7 @@ import {
 } from "element-plus";
 import ColoringGraph from "../components/ColoringGraph.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
+import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import { formatCandidateValue, formatSolveTime } from "../utils/format";
 import {
   createSolveLogController,
@@ -627,7 +630,6 @@ import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
   GraphEdge,
   GraphNode,
-  MethodType,
   ModelType,
   TaskCandidate,
   TaskDeleteFilters,
@@ -702,7 +704,7 @@ const selectedNodes = ref<number[]>([]);
 
 // 求解相关
 const solveType = ref<ModelType>("classic");
-const methodType = ref<MethodType>("sa");
+const methodType = useAlgorithmSelection("coloring");
 const solving = ref(false);
 const solveTime = ref("--");
 const currentTaskId = ref<string | null>(null);
@@ -1404,7 +1406,7 @@ const pollTaskStatus = async (
       if (statusResponse.state === "completed") {
         // 任务完成
         const endTime = Date.now();
-        const duration = ((endTime - startTime) / 1000).toFixed(2);
+        const duration = (endTime - startTime) / 1000;
         const runtime = statusResponse.results?.runtime;
         const displaySolveTime =
           typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : formatSolveTime(`${duration}s`);

@@ -143,6 +143,11 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="solveTime" label="求解时间" width="108" fixed="right">
+          <template #default="{ row }">
+            {{ formatSolveTime(row.solveTime) }}
+          </template>
+        </el-table-column>
         <el-table-column
           label="操作"
           fixed="right"
@@ -453,9 +458,11 @@
             <div class="detail-row">
               <span class="detail-label">求解时间：</span>
               <span class="detail-value">{{
-                taskDetailResults.runtime
-                  ? taskDetailResults.runtime.toFixed(2) + "s"
-                  : selectedTask.solveTime || "--"
+                formatSolveTime(
+                  typeof taskDetailResults.runtime === "number"
+                    ? `${taskDetailResults.runtime}s`
+                    : selectedTask.solveTime
+                )
               }}</span>
             </div>
             <div
@@ -569,7 +576,7 @@ import {
   isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task";
-import { formatCandidateValue, toFiniteNumber } from "../utils/format";
+import { formatCandidateValue, formatSolveTime, toFiniteNumber } from "../utils/format";
 import { createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadTaskResultExport } from "../utils/resultExport";
