@@ -44,7 +44,7 @@
           </div>
 
           <!-- 距离矩阵（可非负权重） -->
-          <div class="data-editor-grid">
+          <div class="data-editor-grid" :style="{ '--matrix-columns': distanceMatrix.length }">
             <el-card class="matrix-card">
               <template #header>
                 <div class="matrix-header">

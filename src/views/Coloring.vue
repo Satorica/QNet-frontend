@@ -72,7 +72,7 @@
           </div>
 
           <!-- 邻接矩阵 -->
-          <div class="data-editor-grid">
+          <div class="data-editor-grid" :style="{ '--matrix-columns': adjacencyMatrix.length }">
             <el-card class="matrix-card">
               <template #header>
                 <div class="matrix-header">

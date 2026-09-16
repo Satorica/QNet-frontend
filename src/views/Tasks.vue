@@ -196,7 +196,7 @@
       <div class="quota-panel">
         <div class="quota-panel-header">
           <div class="quota-panel-heading">
-            <div class="quota-panel-title">计算额度</div>
+            <div class="quota-panel-title">剩余可用额度</div>
             <div class="quota-panel-meta">
               <div
                 class="quota-panel-status"
@@ -244,24 +244,22 @@
             v-for="card in quotaCards"
             :key="card.key"
             class="quota-item quota-card"
+            :class="[
+              `quota-card--${card.key}`,
+              { 'quota-card--wide': Number(card.available) > 9999 },
+            ]"
+            role="group"
+            :aria-label="`${card.label}剩余额度 ${card.available} 次`"
           >
             <div class="quota-card-label">
+              <span class="quota-card-mark" aria-hidden="true"></span>
               <div class="quota-card-name">{{ card.label }}</div>
-              <div class="quota-card-type">剩余额度</div>
             </div>
 
-            <el-progress
-              type="circle"
-              :width="96"
-              :stroke-width="7"
-              :percentage="card.percentage"
-              color="var(--app-accent)"
-            >
-              <div class="quota-progress-text">
-                <strong>{{ card.available }}</strong>
-                <span>/{{ card.total }}</span>
-              </div>
-            </el-progress>
+            <div class="quota-balance">
+              <strong>{{ card.available }}</strong>
+              <span>次</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1093,23 +1091,13 @@ const quotaStatusText = computed(() => {
 const quotaCards = computed(() =>
   modelTypeOptions.map((type) => {
     const quotaData = quotaSummary.value?.models?.[type];
-    const fallbackTotal = type === "classic" ? 200 : 100;
-    const total = quotaData?.total
-      ?? quotaData?.default
-      ?? quotaSummary.value?.defaultQuotas?.[type]
-      ?? fallbackTotal;
     const hasAvailable = Number.isFinite(Number(quotaData?.available));
     const available = hasAvailable ? Number(quotaData?.available) : "--";
 
     return {
       key: type,
       label: quotaData?.label || getModelTypeText(type),
-      total,
       available,
-      percentage:
-        hasAvailable && total > 0
-          ? Math.min(Math.max(Math.round((Number(available) / total) * 100), 0), 100)
-          : 0,
     };
   })
 );
@@ -1454,8 +1442,9 @@ onBeforeUnmount(() => {
 
 .quota-row {
   position: relative;
-  display: flex;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .quota-item {
@@ -1464,85 +1453,98 @@ onBeforeUnmount(() => {
 }
 
 .quota-card {
+  --quota-tone: var(--app-accent);
+  --quota-tone-rgb: var(--app-accent-rgb);
+  --quota-surface: #f8f9fc;
   position: relative;
-  overflow: hidden;
   display: flex;
-  flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 22px;
-  border-radius: 16px;
-  background: #ffffff;
-  border: 1px solid rgba(232, 237, 248, 0.95);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  gap: 24px;
+  min-height: 104px;
+  overflow: hidden;
+  padding: 22px 26px;
+  border: 1px solid rgba(var(--quota-tone-rgb), 0.13);
+  border-radius: 13px;
+  background: var(--quota-surface);
+  box-shadow: 0 5px 16px rgba(15, 23, 42, 0.035);
+  box-sizing: border-box;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.quota-card--classic {
+  --quota-surface: rgba(var(--app-accent-rgb), 0.035);
+}
+
+.quota-card--quantum {
+  --quota-surface: rgba(var(--app-accent-rgb), 0.065);
+}
+
+.quota-card:hover {
+  border-color: rgba(var(--quota-tone-rgb), 0.24);
+  box-shadow: 0 8px 22px rgba(var(--quota-tone-rgb), 0.075);
+  transform: translateY(-1px);
 }
 
 .quota-row--refreshing .quota-card {
-  border-color: rgba(var(--app-accent-rgb), 0.28);
-  box-shadow: 0 6px 20px rgba(var(--app-accent-rgb), 0.08);
-}
-
-.quota-row--refreshing .quota-card::after {
-  position: absolute;
-  top: 0;
-  left: -36%;
-  width: 36%;
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    rgba(var(--app-accent-rgb), 0),
-    rgba(var(--app-accent-rgb), 0.9),
-    rgba(var(--app-accent-rgb), 0)
-  );
-  content: "";
-  animation: quota-refresh-scan 1.35s ease-in-out infinite;
+  border-color: rgba(var(--quota-tone-rgb), 0.24);
+  opacity: 0.72;
 }
 
 .quota-card-label {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
 }
 
+.quota-card-mark {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+  background: var(--quota-tone);
+}
+
 .quota-card-name {
-  color: #1f2937;
+  color: #344258;
   font-size: 14px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 20px;
 }
 
-.quota-card-type {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.quota-card :deep(.el-progress-circle__track) {
-  stroke: var(--app-accent-soft);
-}
-
-.quota-progress-text {
+.quota-balance {
   display: flex;
   align-items: baseline;
-  justify-content: center;
-  gap: 1px;
+  gap: 7px;
+  flex: 0 0 auto;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.quota-progress-text strong {
-  font-size: 22px;
+.quota-balance strong {
+  max-width: 100%;
+  color: var(--quota-tone);
+  font-size: 36px;
   font-weight: 700;
+  letter-spacing: -0.035em;
   line-height: 1;
-  color: var(--app-accent);
 }
 
-.quota-progress-text span {
-  font-size: 12px;
-  color: var(--app-accent);
+.quota-balance span {
+  color: #718096;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.quota-card--wide .quota-balance {
+  gap: 5px;
+}
+
+.quota-card--wide .quota-balance strong {
+  font-size: 28px;
+  letter-spacing: -0.04em;
 }
 
 @keyframes quota-status-pulse {
@@ -1557,23 +1559,9 @@ onBeforeUnmount(() => {
   }
 }
 
-@keyframes quota-refresh-scan {
-  from {
-    left: -36%;
-  }
-  to {
-    left: 100%;
-  }
-}
-
 @media (max-width: 900px) {
   .quota-row {
-    flex-wrap: wrap;
-  }
-
-  .quota-item {
-    flex: 1 1 calc(50% - 7px);
-    min-width: 260px;
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1621,8 +1609,7 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .quota-panel-status.is-updating .quota-status-dot,
-  .quota-row--refreshing .quota-card::after {
+  .quota-panel-status.is-updating .quota-status-dot {
     animation: none;
   }
 }
