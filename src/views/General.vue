@@ -13,7 +13,7 @@
                 <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
               </el-radio-group>
             </div>
-            <div class="algorithm-field">
+            <div v-if="solveType === 'classic'" class="algorithm-field">
               <span class="label">算法类型</span>
               <el-select v-model="methodType" :disabled="solving" style="width: 220px">
                 <el-option
@@ -901,7 +901,7 @@ const startSolve = async () => {
   solveTaskResults.value = null;
   resultExportContext.value = null;
   currentTaskId.value = null;
-  resetSolveLogs(`开始求解一般优化问题（求解模型：${getModelTypeText(solveType.value)}，算法类型：${getMethodTypeText(methodType.value)}，${activeMatrixSize.value}个变量）`);
+  resetSolveLogs(`开始求解一般优化问题（求解模型：${getModelTypeText(solveType.value)}${solveType.value === "classic" ? `，算法类型：${getMethodTypeText(methodType.value)}` : ""}，${activeMatrixSize.value}个变量）`);
   try {
     const submittedTaskName = taskName;
     const submittedModelType = solveType.value;

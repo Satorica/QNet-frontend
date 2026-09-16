@@ -185,9 +185,13 @@ export const checkServerStatus = async () => {
 export const submitTask = async (
   taskData: TaskSubmitRequest,
 ): Promise<TaskSubmitResponse> => {
+  const payload = { ...taskData };
+  if (payload.modelType !== "classic") {
+    delete payload.methodType;
+  }
   const response = await cloudApi.post<Omit<TaskSubmitResponse, "usePolling">>(
     "/api/submit-task",
-    taskData,
+    payload,
   );
   return { ...response.data, usePolling: true };
 };

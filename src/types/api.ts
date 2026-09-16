@@ -213,7 +213,8 @@ interface TaskSubmitRequestBase {
   taskName: string;
   problemType: ProblemType;
   modelType: ModelType;
-  methodType: MethodType;
+  // Only classical computation sends an algorithm selection to the backend.
+  methodType?: MethodType;
   matrixSize: number;
   adjacencyMatrix: number[] | number[][];
 }

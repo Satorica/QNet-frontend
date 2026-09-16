@@ -11,7 +11,7 @@ export interface TaskResultExportInfo {
   taskName: string;
   problemType: ProblemType;
   modelType: ModelType;
-  methodType: MethodType;
+  methodType?: MethodType;
   matrixSize: number;
   timestamp: string | null;
   status: TaskStatus;
@@ -87,14 +87,27 @@ export const downloadTaskResultExport = <T>(
   results: T,
   derivedResult: unknown = null
 ) => {
-  const normalizedTaskInfo = {
+  const normalizedTaskInfo: TaskResultExportInfo & { methodTypeText?: string } = {
     ...taskInfo,
-    methodTypeText: getMethodTypeText(taskInfo.methodType),
     timestamp: formatExportDateTime(taskInfo.timestamp),
   };
+  let normalizedInput = input;
+  if (taskInfo.modelType === "classic") {
+    normalizedTaskInfo.methodTypeText = getMethodTypeText(taskInfo.methodType);
+  } else {
+    delete normalizedTaskInfo.methodType;
+    delete normalizedTaskInfo.methodTypeText;
+    // Current TSP exports and historical inputs can also contain algorithm fields.
+    if (input && typeof input === "object" && !Array.isArray(input)) {
+      const inputCopy = { ...input } as Record<string, unknown>;
+      delete inputCopy.methodType;
+      delete inputCopy.methodTypeText;
+      normalizedInput = inputCopy;
+    }
+  }
   const data = {
     taskInfo: normalizedTaskInfo,
-    input,
+    input: normalizedInput,
     results: normalizeTaskResultsForExport(results),
     derivedResult,
   };
