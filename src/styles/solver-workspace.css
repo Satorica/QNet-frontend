@@ -112,13 +112,11 @@ body .solver-workspace .right-column > .candidates-card,
 body .solver-workspace .right-column > .candidates-result-card { order: 2; }
 body .solver-workspace .right-column > .stats-card { order: 3; }
 body .solver-workspace .right-column > .log-card { order: 4; }
-/* Graph solvers keep candidates and logs together in one fixed two-column row. */
-body .solver-workspace .graph-data-section + .right-column { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 18px; align-items: start; }
-body .solver-workspace .graph-data-section + .right-column > * { grid-column: 1 / -1; }
-body .solver-workspace .graph-data-section + .right-column > .result-card,
-body .solver-workspace .graph-data-section + .right-column > .candidates-card { grid-column: 1; grid-row: 3; }
-body .solver-workspace .graph-data-section + .right-column > .log-card { grid-column: 2; grid-row: 3; order: 2; }
-body .solver-workspace .graph-data-section + .right-column > :is(.result-card, .candidates-card, .log-card) > .el-card__header { display: grid; align-items: center; min-height: 38px; box-sizing: border-box; }
+/* All solvers keep candidates and logs together in one fixed two-column row. */
+body .solver-workspace .solver-results-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; min-width: 0; align-items: start; order: 2; }
+body .solver-workspace .solver-results-row > .el-card { grid-column: 1; grid-row: 1; }
+body .solver-workspace .solver-results-row > .log-card { grid-column: 2; }
+body .solver-workspace .solver-results-row > .el-card > .el-card__header { display: grid; align-items: center; min-height: 38px; box-sizing: border-box; }
 body .solver-workspace .result-header { gap: 8px; }
 body .solver-workspace .result-header .el-button { height: 26px; padding: 0 8px; border-radius: 5px; font-size: 11px; }
 body .solver-workspace .solver-empty-state { display: flex; align-items: center; justify-content: center; gap: 16px; min-height: 112px; padding: 12px 20px; box-sizing: border-box; border-radius: 8px; background: #f8fafc; text-align: left; }

@@ -204,45 +204,45 @@
             </div>
           </el-card>
 
-          <!-- 算法日志 -->
-          <SolverLog :logs="logs" />
-
           <!-- 候选结果 -->
-          <el-card class="candidates-card">
-            <template #header>
-              <div class="result-header">
-                <span>候选结果</span>
-                <el-button
-                  :disabled="solveCandidates.length === 0"
-                  @click="exportResults"
-                  >结果导出</el-button
+          <div class="solver-results-row">
+            <el-card class="candidates-card">
+              <template #header>
+                <div class="result-header">
+                  <span>候选结果</span>
+                  <el-button
+                    :disabled="solveCandidates.length === 0"
+                    @click="exportResults"
+                    >结果导出</el-button
+                  >
+                </div>
+              </template>
+              <CandidateEmptyState v-if="solveCandidates.length === 0" :solving="solving" :status="statusText" />
+              <div v-else class="candidates-list">
+                <div
+                  v-for="(candidate, index) in solveCandidates"
+                  :key="index"
+                  class="candidate-item"
                 >
-              </div>
-            </template>
-            <CandidateEmptyState v-if="solveCandidates.length === 0" :solving="solving" :status="statusText" />
-            <div v-else class="candidates-list">
-              <div
-                v-for="(candidate, index) in solveCandidates"
-                :key="index"
-                class="candidate-item"
-              >
-                <div class="candidate-header">
-                  <span class="candidate-rank"
-                    >候选解 {{ candidate.rank ?? index + 1 }}</span
-                  >
-                  <span class="candidate-value"
-                    >路径长度：{{ formatPathLength(candidate.value) }}</span
-                  >
-                </div>
-                <div class="candidate-solution">
-                  <span class="solution-label">解向量：</span>
-                  <span class="solution-value">{{
-                    JSON.stringify(candidate.solution)
-                  }}</span>
+                  <div class="candidate-header">
+                    <span class="candidate-rank"
+                      >候选解 {{ candidate.rank ?? index + 1 }}</span
+                    >
+                    <span class="candidate-value"
+                      >路径长度：{{ formatPathLength(candidate.value) }}</span
+                    >
+                  </div>
+                  <div class="candidate-solution">
+                    <span class="solution-label">解向量：</span>
+                    <span class="solution-value">{{
+                      JSON.stringify(candidate.solution)
+                    }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </el-card>
+            </el-card>
+            <SolverLog :logs="logs" />
+          </div>
         </div>
       </div>
     </el-card>

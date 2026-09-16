@@ -195,43 +195,45 @@
             </div>
           </el-card>
 
-          <!-- 算法日志 -->
-          <el-card class="candidates-result-card">
-            <template #header>
-              <div class="result-header">
-                <span>候选结果</span>
-                <el-button
-                  :disabled="!result || !resultExportContext"
-                  @click="exportResults"
-                  >结果导出</el-button
+          <!-- 候选结果与求解日志固定并排 -->
+          <div class="solver-results-row">
+            <el-card class="candidates-result-card">
+              <template #header>
+                <div class="result-header">
+                  <span>候选结果</span>
+                  <el-button
+                    :disabled="!result || !resultExportContext"
+                    @click="exportResults"
+                    >结果导出</el-button
+                  >
+                </div>
+              </template>
+              <CandidateEmptyState v-if="candidates.length === 0" :solving="solving" :status="statusText" />
+              <div class="candidates-list-main">
+                <div
+                  v-for="(candidate, index) in candidates"
+                  :key="index"
+                  class="candidate-item-main"
                 >
-              </div>
-            </template>
-            <CandidateEmptyState v-if="candidates.length === 0" :solving="solving" :status="statusText" />
-            <div class="candidates-list-main">
-              <div
-                v-for="(candidate, index) in candidates"
-                :key="index"
-                class="candidate-item-main"
-              >
-                <div class="candidate-header-main">
-                  <span class="candidate-rank-main"
-                    >候选解 {{ index + 1 }}</span
-                  >
-                  <span class="candidate-value-main"
-                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
-                  >
-                </div>
-                <div class="candidate-solution-main">
-                  <span class="solution-label-main">解向量：</span>
-                  <span class="solution-value-main">{{
-                    candidate.solution || "--"
-                  }}</span>
+                  <div class="candidate-header-main">
+                    <span class="candidate-rank-main"
+                      >候选解 {{ index + 1 }}</span
+                    >
+                    <span class="candidate-value-main"
+                      >目标值：{{ formatCandidateValue(candidate.value) }}</span
+                    >
+                  </div>
+                  <div class="candidate-solution-main">
+                    <span class="solution-label-main">解向量：</span>
+                    <span class="solution-value-main">{{
+                      candidate.solution || "--"
+                    }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </el-card>
-          <SolverLog :logs="logs" />
+            </el-card>
+            <SolverLog :logs="logs" />
+          </div>
         </div>
       </div>
     </el-card>

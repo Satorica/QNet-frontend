@@ -170,45 +170,45 @@
             </div>
           </div>
 
-          <!-- 日志 -->
-          <SolverLog :logs="logs" />
-
           <!-- 候选结果 -->
-          <el-card class="result-card">
-            <template #header>
-              <div class="result-header">
-                <span>候选结果</span>
-                <el-button
-                  :disabled="candidates.length === 0"
-                  @click="exportResults"
-                  >结果导出</el-button
-                >
-              </div>
-            </template>
-            <CandidateEmptyState v-if="candidates.length === 0" :solving="solving" :status="stateText" />
-            <div class="candidates">
-              <div
-                v-for="(candidate, index) in candidates"
-                :key="index"
-                class="candidate-item"
-              >
-                <div class="candidate-header">
-                  <span class="candidate-rank">候选解 {{ index + 1 }}</span>
-                  <span class="candidate-value"
-                    >目标值：{{ formatCandidateValue(candidate.value) }}</span
+          <div class="solver-results-row">
+            <el-card class="result-card">
+              <template #header>
+                <div class="result-header">
+                  <span>候选结果</span>
+                  <el-button
+                    :disabled="candidates.length === 0"
+                    @click="exportResults"
+                    >结果导出</el-button
                   >
                 </div>
-                <div class="candidate-solution">
-                  <span class="solution-label">解向量：</span>
-                  <span class="solution-value">{{
-                    candidate.solution == null
-                      ? "--"
-                      : JSON.stringify(candidate.solution)
-                  }}</span>
+              </template>
+              <CandidateEmptyState v-if="candidates.length === 0" :solving="solving" :status="stateText" />
+              <div class="candidates">
+                <div
+                  v-for="(candidate, index) in candidates"
+                  :key="index"
+                  class="candidate-item"
+                >
+                  <div class="candidate-header">
+                    <span class="candidate-rank">候选解 {{ index + 1 }}</span>
+                    <span class="candidate-value"
+                      >目标值：{{ formatCandidateValue(candidate.value) }}</span
+                    >
+                  </div>
+                  <div class="candidate-solution">
+                    <span class="solution-label">解向量：</span>
+                    <span class="solution-value">{{
+                      candidate.solution == null
+                        ? "--"
+                        : JSON.stringify(candidate.solution)
+                    }}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </el-card>
+            </el-card>
+            <SolverLog :logs="logs" />
+          </div>
         </div>
       </div>
     </el-card>
