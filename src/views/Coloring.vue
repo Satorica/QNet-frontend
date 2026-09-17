@@ -34,8 +34,8 @@
               <span class="ctrl-label">节点数量</span>
               <el-input-number
                 v-model="nodeCount"
-                :min="3"
-                :max="24"
+                :min="2"
+                :max="16"
                 :disabled="solving"
                 style="width: 130px"
               />
@@ -203,7 +203,7 @@
               <div class="state-text">{{ statusText }}</div>
             </div>
 
-            <div class="solve-time">求解时间：{{ solveTime }}</div>
+            <TaskTiming :results="solveTaskResults" :device-time="solveTime" />
             </div>
           </div>
 
@@ -356,10 +356,19 @@
             {{ row.usedColors ?? "--" }}
           </template>
         </el-table-column>
-        <el-table-column prop="solveTime" label="求解时间" width="108">
+        <el-table-column prop="total_time" label="总时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.total_time) }}</template>
+        </el-table-column>
+        <el-table-column prop="solveTime" label="设备求解时间" width="145">
           <template #default="{ row }">
             {{ formatSolveTime(row.solveTime) }}
           </template>
+        </el-table-column>
+        <el-table-column prop="device_communication_time" label="设备通信时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.device_communication_time) }}</template>
+        </el-table-column>
+        <el-table-column prop="postprocess_time" label="后处理时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.postprocess_time) }}</template>
         </el-table-column>
         <el-table-column prop="taskId" label="操作" width="156" align="center" fixed="right" class-name="table-actions">
           <template #default="{ row }">
@@ -484,16 +493,7 @@
             </div>
           </template>
           <div class="detail-content">
-            <div class="detail-row">
-              <span class="detail-label">求解时间：</span>
-              <span class="detail-value">{{
-                formatSolveTime(
-                  typeof taskDetailResults.runtime === "number"
-                    ? `${taskDetailResults.runtime}s`
-                    : selectedTask.solveTime
-                )
-              }}</span>
-            </div>
+            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" />
             <div class="detail-row">
               <span class="detail-label">使用颜色数：</span>
               <span class="detail-value highlight">{{
@@ -585,6 +585,7 @@
 </template>
 
 <script setup lang="ts">
+import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
 import SolverLog from "../components/SolverLog.vue";
@@ -1341,7 +1342,7 @@ const submitSolve = async () => {
     addLog("提交任务中");
 
     // 提交任务到后端
-    const submitResponse = await submitTask(taskData);
+    const submitResponse = await submitTask(taskData, submittedAt);
     if (!solveScope.isCurrent(solveToken)) return;
 
     if (submitResponse.success) {
@@ -1405,11 +1406,9 @@ const pollTaskStatus = async (
 
       if (statusResponse.state === "completed") {
         // 任务完成
-        const endTime = Date.now();
-        const duration = (endTime - startTime) / 1000;
         const runtime = statusResponse.results?.runtime;
         const displaySolveTime =
-          typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : formatSolveTime(`${duration}s`);
+          typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : "--";
 
         solveTime.value = displaySolveTime;
         solving.value = false;

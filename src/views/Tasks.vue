@@ -143,10 +143,19 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="solveTime" label="求解时间" width="108" fixed="right">
+        <el-table-column prop="total_time" label="总时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.total_time) }}</template>
+        </el-table-column>
+        <el-table-column prop="solveTime" label="设备求解时间" width="145">
           <template #default="{ row }">
             {{ formatSolveTime(row.solveTime) }}
           </template>
+        </el-table-column>
+        <el-table-column prop="device_communication_time" label="设备通信时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.device_communication_time) }}</template>
+        </el-table-column>
+        <el-table-column prop="postprocess_time" label="后处理时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.postprocess_time) }}</template>
         </el-table-column>
         <el-table-column
           label="操作"
@@ -455,16 +464,7 @@
             </div>
           </template>
           <div class="detail-content">
-            <div class="detail-row">
-              <span class="detail-label">求解时间：</span>
-              <span class="detail-value">{{
-                formatSolveTime(
-                  typeof taskDetailResults.runtime === "number"
-                    ? `${taskDetailResults.runtime}s`
-                    : selectedTask.solveTime
-                )
-              }}</span>
-            </div>
+            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" />
             <div
               class="detail-row"
               v-if="selectedTask.problemType === 'coloring'"
@@ -557,6 +557,7 @@
 </template>
 
 <script setup lang="ts">
+import TaskTiming from "../components/TaskTiming.vue";
 import { computed, ref, onMounted, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Refresh } from "@element-plus/icons-vue";

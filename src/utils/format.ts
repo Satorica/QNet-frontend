@@ -32,19 +32,19 @@ export function formatCandidateValue(value: unknown): string {
 }
 
 const solveTimeFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 3,
-  maximumFractionDigits: 3,
+  minimumFractionDigits: 5,
+  maximumFractionDigits: 5,
   useGrouping: false,
 });
 
-/** 求解时间（可带末尾 s）；按四舍五入固定保留三位小数。 */
+/** 求解时间（可带末尾 s）；按四舍五入固定保留五位小数。 */
 export function formatSolveTime(value: unknown): string {
   if (value === null || value === undefined || value === "") return "--";
   let str = String(value).trim();
   const hasSuffix = str.endsWith("s");
   if (hasSuffix) str = str.slice(0, -1);
   const num = toFiniteNumber(str);
-  if (num === null) return "--";
+  if (num === null || num < 0) return "--";
   const formatted = solveTimeFormatter.format(num);
   return hasSuffix ? formatted + "s" : formatted;
 }

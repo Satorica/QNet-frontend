@@ -181,11 +181,37 @@ export const checkServerStatus = async () => {
   }
 };
 
+interface TaskClockProbe { receivedAtMs: number; sentAtMs: number }
+
+// 使用往返中点校时，消除设备时钟的固定偏差；单向网络不对称会产生估算误差。
+const getClientTaskTiming = async (startedAt: number) => {
+  const before = Date.now();
+  try {
+    const { data } = await cloudApi.get<{ data: TaskClockProbe }>("/api/tasks/clock");
+    const clock = data.data;
+    const after = Date.now();
+    const roundTrip = after - before;
+    const serverDuration = clock.sentAtMs - clock.receivedAtMs;
+    if (![startedAt, clock.receivedAtMs, clock.sentAtMs].every(Number.isFinite)
+      || startedAt > before || roundTrip < 0 || serverDuration < 0 || serverDuration > roundTrip) return undefined;
+    return {
+      startedAtServerMs: (clock.receivedAtMs + clock.sentAtMs) / 2 - ((before - startedAt) + roundTrip / 2),
+      uncertaintyMs: (roundTrip - serverDuration) / 2,
+    };
+  } catch {
+    // 校时服务不可用不阻断求解，后端仍保存稳定的接收至完成耗时。
+    return undefined;
+  }
+};
+
 // 提交任务
 export const submitTask = async (
   taskData: TaskSubmitRequest,
+  startedAt = Date.now(),
 ): Promise<TaskSubmitResponse> => {
   const payload = { ...taskData };
+  const clientTiming = await getClientTaskTiming(startedAt);
+  if (clientTiming) Object.assign(payload, { clientTiming });
   if (payload.modelType !== "classic") {
     delete payload.methodType;
   }

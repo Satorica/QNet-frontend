@@ -560,7 +560,7 @@ export const applyGeneralConstraintsToQubo = (options: {
 
   const matrix = options.matrix.map((row) => row.map(Number));
   const slackVariableNames: string[] = [];
-  const maxSize = options.maxSize ?? 50;
+  const maxSize = options.maxSize ?? 256;
 
   const reservedVariableNames = new Set(options.variableNames);
   let nextSlackVariableIndex = originalSize + 1;

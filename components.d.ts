@@ -59,6 +59,7 @@ declare module 'vue' {
     SolverEmptyState: typeof import('./src/components/SolverEmptyState.vue')['default']
     SolverLog: typeof import('./src/components/SolverLog.vue')['default']
     TaskNameField: typeof import('./src/components/TaskNameField.vue')['default']
+    TaskTiming: typeof import('./src/components/TaskTiming.vue')['default']
     ThemeSwitcher: typeof import('./src/components/ThemeSwitcher.vue')['default']
     TopBar: typeof import('./src/components/TopBar.vue')['default']
     TSPGraph: typeof import('./src/components/TSPGraph.vue')['default']

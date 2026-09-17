@@ -244,6 +244,9 @@ export interface TaskCandidate {
 }
 
 export interface TaskResults {
+  total_time?: number;
+  device_communication_time?: number;
+  postprocess_time?: number;
   runtime?: number;
   candidates?: TaskCandidate[];
   /** 算法节点状态码：2 开始求解，3 求解等待中，4 求解成功，5 求解失败。 */
@@ -295,6 +298,9 @@ export interface TaskHistoryItem {
   status: TaskStatus;
   matrixSize: number;
   timestamp: string | null;
+  total_time?: string | null;
+  device_communication_time?: string | null;
+  postprocess_time?: string | null;
   solveTime?: string | null;
   message?: string | null;
   usedColors?: number | null;

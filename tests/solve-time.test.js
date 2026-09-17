@@ -12,13 +12,14 @@ const exports = {};
 runInNewContext(code, { exports });
 const { formatSolveTime } = exports;
 
-test('solve times round half up to three decimals and retain the seconds suffix', () => {
+test('solve times round half up to five decimals and retain the seconds suffix', () => {
   for (const [input, expected] of [
-    ['0.0044s', '0.004s'], ['0.0045s', '0.005s'],
-    ['1.2345s', '1.235s'], ['1.0005s', '1.001s'],
-    ['9.9995s', '10.000s'], ['12.34567s', '12.346s'],
-    ['0s', '0.000s'], ['2s', '2.000s'],
-    [0, '0.000'], [1.2345, '1.235'], [' 0.0045s ', '0.005s'],
+    ['0.0044s', '0.00440s'], ['0.0045s', '0.00450s'],
+    ['1.2345s', '1.23450s'], ['1.0005s', '1.00050s'],
+    ['9.9995s', '9.99950s'], ['12.34567s', '12.34567s'],
+    ['0.000005s', '0.00001s'], ['9.999995s', '10.00000s'],
+    ['0.13949499999999998s', '0.13949s'], ['0s', '0.00000s'], ['2s', '2.00000s'],
+    [0, '0.00000'], [1.2345, '1.23450'], [' 0.0045s ', '0.00450s'],
   ]) assert.equal(formatSolveTime(input), expected, String(input));
 });
 

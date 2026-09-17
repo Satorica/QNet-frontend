@@ -35,7 +35,7 @@
               <el-input-number
                 v-model="activeMatrixSize"
                 :min="2"
-                :max="50"
+                :max="256"
                 :disabled="solving || importing"
                 style="width: 130px"
                 @change="resizeActiveMatrix"
@@ -211,7 +211,7 @@
               <div class="state-icon" :class="stateClass"></div>
               <div class="state-text">{{ stateText }}</div>
             </div>
-            <div class="solve-time">求解时间：{{ solveTime }}</div>
+            <TaskTiming :results="solveTaskResults" :device-time="solveTime" />
             </div>
           </div>
 
@@ -277,8 +277,17 @@
         <el-table-column prop="bestValue" label="最优值" min-width="100" show-overflow-tooltip>
           <template #default="{ row }">{{ formatBestValue(row.bestValue) }}</template>
         </el-table-column>
-        <el-table-column prop="solveTime" label="求解时间" width="108">
+        <el-table-column prop="total_time" label="总时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.total_time) }}</template>
+        </el-table-column>
+        <el-table-column prop="solveTime" label="设备求解时间" width="145">
           <template #default="{ row }">{{ formatSolveTime(row.solveTime) }}</template>
+        </el-table-column>
+        <el-table-column prop="device_communication_time" label="设备通信时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.device_communication_time) }}</template>
+        </el-table-column>
+        <el-table-column prop="postprocess_time" label="后处理时间" width="145">
+          <template #default="{ row }">{{ formatSolveTime(row.postprocess_time) }}</template>
         </el-table-column>
         <el-table-column prop="taskId" label="操作" width="156" align="center" fixed="right" class-name="table-actions">
           <template #default="{ row }">
@@ -356,14 +365,7 @@
             </div>
           </template>
           <div class="detail-content">
-            <div class="detail-row">
-              <span class="detail-label">求解时间：</span>
-              <span class="detail-value">{{ formatSolveTime(
-                typeof taskDetailResults.runtime === "number"
-                  ? `${taskDetailResults.runtime}s`
-                  : selectedTask.solveTime
-              ) }}</span>
-            </div>
+            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" />
             <div class="detail-row">
               <span class="detail-label">最优目标值：</span>
               <span class="detail-value highlight">{{ formatCandidateValue(selectedTask.bestValue) }}</span>
@@ -420,6 +422,7 @@
 </template>
 
 <script setup lang="ts">
+import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
 import SolverLog from "../components/SolverLog.vue";
@@ -674,7 +677,7 @@ const buildExpressionQubo = () => {
     variableNames: names,
     expressionForm: expressionForm.value,
     domain: variableDomain.value,
-    maxSize: 50,
+    maxSize: 256,
   });
 
   return { ...constrainedResult, activeConstraints };
@@ -829,7 +832,7 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
     if (!solveScope.isCurrent(token) || currentTaskId.value !== taskId) return;
     if (response.state === "completed") {
       const runtime = response.results?.runtime;
-      solveTime.value = typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : formatSolveTime(`${(Date.now() - startedAt) / 1000}s`);
+      solveTime.value = typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : "--";
       candidates.value = response.results?.candidates || [];
       solveTaskResults.value = response.results || null;
       stateClass.value = "state-success";
@@ -911,7 +914,7 @@ const startSolve = async () => {
     const expressionResult = preparedExpressionResult;
     const submittedMatrix = expressionResult.matrix;
     const submittedMatrixSize = submittedMatrix.length;
-    if (submittedMatrixSize < 2 || submittedMatrixSize > 50 || submittedMatrix.some((row) => row.length !== submittedMatrixSize || row.some((value) => !Number.isFinite(value)))) {
+    if (submittedMatrixSize < 2 || submittedMatrixSize > 256 || submittedMatrix.some((row) => row.length !== submittedMatrixSize || row.some((value) => !Number.isFinite(value)))) {
       throw new Error("QUBO矩阵数据不完整");
     }
     if (submittedMatrix.some((row) => row.some((value) => Math.abs(value) > 100000))) {
@@ -925,8 +928,8 @@ const startSolve = async () => {
       slackVariables: expressionResult.slackVariableNames,
       domain: submittedInputMode === "matrix" ? "binary" : variableDomain.value,
       sense: submittedInputMode === "matrix" ? "minimize" : objectiveSense.value,
-      expression: submittedInputMode === "matrix" ? "" : objectiveExpression.value,
-      matrixObjective: submittedInputMode === "matrix"
+      expression: submittedInputMode === "expression" && expressionForm.value === "scalar" ? objectiveExpression.value : "",
+      matrixObjective: submittedInputMode === "matrix" || expressionForm.value === "scalar"
         ? { kind: "quadratic", weightMatrix: "", linearVector: "", constant: "0" }
         : {
           kind: matrixObjectiveKind.value,
@@ -948,7 +951,7 @@ const startSolve = async () => {
       generalInput,
     };
     addLog("提交任务中");
-    const response = await submitTask(payload);
+    const response = await submitTask(payload, startedAt);
     if (!solveScope.isCurrent(token)) return;
     if (!response.success) throw new Error(response.message || "任务提交失败");
     clearCustomTaskName();
