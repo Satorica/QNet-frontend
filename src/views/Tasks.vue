@@ -116,7 +116,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="methodType" label="算法类型" width="124">
-          <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
+          <template #default="{ row }">{{ getTaskListMethodTypeText(row.modelType, row.methodType) }}</template>
         </el-table-column>
         <el-table-column
           prop="timestamp"
@@ -152,10 +152,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="device_communication_time" label="设备通信时间" width="145">
-          <template #default="{ row }">{{ formatSolveTime(row.device_communication_time) }}</template>
+          <template #default="{ row }">{{ formatDeviceOverheadTime(row.device_communication_time, row.modelType, row.status === "completed") }}</template>
         </el-table-column>
         <el-table-column prop="postprocess_time" label="后处理时间" width="145">
-          <template #default="{ row }">{{ formatSolveTime(row.postprocess_time) }}</template>
+          <template #default="{ row }">{{ formatDeviceOverheadTime(row.postprocess_time, row.modelType, row.status === "completed") }}</template>
         </el-table-column>
         <el-table-column
           label="操作"
@@ -464,7 +464,7 @@
             </div>
           </template>
           <div class="detail-content">
-            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" />
+            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" :model-type="selectedTask.modelType" />
             <div
               class="detail-row"
               v-if="selectedTask.problemType === 'coloring'"
@@ -577,11 +577,11 @@ import {
   isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task";
-import { formatCandidateValue, formatSolveTime, toFiniteNumber } from "../utils/format";
+import { formatCandidateValue, formatDeviceOverheadTime, formatSolveTime, toFiniteNumber } from "../utils/format";
 import { createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadTaskResultExport } from "../utils/resultExport";
-import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
+import { getMethodTypeText, getTaskListMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
   MethodType,
   ModelType,
@@ -1166,7 +1166,7 @@ const exportTaskDetail = () => {
       taskName: selectedTask.value.taskName,
       problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
-      methodType: selectedTask.value.methodType,
+      methodType: selectedTask.value.methodType ?? undefined,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,

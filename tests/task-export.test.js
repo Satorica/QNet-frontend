@@ -11,6 +11,13 @@ const typeExports = {};
 runInNewContext(compile('../src/types/api.ts'), { exports: typeExports });
 const code = compile('../src/utils/resultExport.ts');
 
+test('task lists display no algorithm for quantum models', () => {
+  assert.equal(typeExports.getTaskListMethodTypeText('quantum', 'sa'), '-');
+  assert.equal(typeExports.getTaskListMethodTypeText('quantum', 'tabu'), '-');
+  assert.equal(typeExports.getTaskListMethodTypeText('classic', 'sa'), '模拟退火');
+  assert.equal(typeExports.getTaskListMethodTypeText('classic', 'tabu'), '禁忌搜索');
+});
+
 function fixture() {
   let downloaded;
   const clicks = [], revoked = [];

@@ -24,6 +24,11 @@ export const getMethodTypeText = (
 ): string => METHOD_TYPE_OPTIONS.find(({ value }) => value === methodType)?.label
   || methodType
   || "--";
+
+export const getTaskListMethodTypeText = (
+  modelType: ModelType,
+  methodType: MethodType | string | null | undefined,
+): string => modelType === "quantum" ? "-" : getMethodTypeText(methodType);
 export type ProblemType = "maxcut" | "number_partition" | "coloring" | "tsp" | "general";
 export type MatrixImportProblemType = "maxcut" | "coloring" | "tsp";
 export type MatrixImportTemplateProblemType = MatrixImportProblemType | "general";
@@ -294,7 +299,7 @@ export interface TaskHistoryItem {
   taskName: string;
   problemType: ProblemType;
   modelType: ModelType;
-  methodType: MethodType;
+  methodType?: MethodType | null;
   status: TaskStatus;
   matrixSize: number;
   timestamp: string | null;

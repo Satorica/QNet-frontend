@@ -10,7 +10,7 @@ const code = ts.transpileModule(
 ).outputText;
 const exports = {};
 runInNewContext(code, { exports });
-const { formatSolveTime } = exports;
+const { formatDeviceOverheadTime, formatSolveTime } = exports;
 
 test('solve times round half up to five decimals and retain the seconds suffix', () => {
   for (const [input, expected] of [
@@ -27,4 +27,15 @@ test('missing and invalid solve times stay empty instead of becoming zero', () =
   for (const input of [null, undefined, '', ' ', '--', 's', NaN, Infinity, true]) {
     assert.equal(formatSolveTime(input), '--', String(input));
   }
+});
+
+test('completed classic tasks show zero for device overhead timings', () => {
+  assert.equal(formatDeviceOverheadTime(undefined, 'classic', true), '0.00000s');
+  assert.equal(formatDeviceOverheadTime(null, 'classic', true), '0.00000s');
+  assert.equal(formatDeviceOverheadTime(undefined, 'classic', false), '--');
+});
+
+test('quantum device overhead timings preserve API values and missing placeholders', () => {
+  assert.equal(formatDeviceOverheadTime('0.00036s', 'quantum', true), '0.00036s');
+  assert.equal(formatDeviceOverheadTime(undefined, 'quantum', true), '--');
 });

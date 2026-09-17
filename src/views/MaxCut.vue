@@ -166,7 +166,7 @@
               <div class="state-text">{{ stateText }}</div>
             </div>
 
-            <TaskTiming :results="solveTaskResults" :device-time="solveTime" />
+            <TaskTiming :results="solveTaskResults" :device-time="solveTime" :model-type="resultExportContext?.taskInfo.modelType ?? solveType" />
             </div>
           </div>
 
@@ -273,7 +273,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="methodType" label="算法类型" width="124">
-          <template #default="{ row }">{{ getMethodTypeText(row.methodType) }}</template>
+          <template #default="{ row }">{{ getTaskListMethodTypeText(row.modelType, row.methodType) }}</template>
         </el-table-column>
         <el-table-column prop="timestamp" label="提交时间" width="176">
           <template #default="{ row }">
@@ -302,10 +302,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="device_communication_time" label="设备通信时间" width="145">
-          <template #default="{ row }">{{ formatSolveTime(row.device_communication_time) }}</template>
+          <template #default="{ row }">{{ formatDeviceOverheadTime(row.device_communication_time, row.modelType, row.status === "completed") }}</template>
         </el-table-column>
         <el-table-column prop="postprocess_time" label="后处理时间" width="145">
-          <template #default="{ row }">{{ formatSolveTime(row.postprocess_time) }}</template>
+          <template #default="{ row }">{{ formatDeviceOverheadTime(row.postprocess_time, row.modelType, row.status === "completed") }}</template>
         </el-table-column>
         <el-table-column prop="taskId" label="操作" width="156" align="center" fixed="right" class-name="table-actions">
           <template #default="{ row }">
@@ -430,7 +430,7 @@
             </div>
           </template>
           <div class="detail-content">
-            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" />
+            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" :model-type="selectedTask.modelType" />
             <div class="detail-row">
               <span class="detail-label">最优目标值：</span>
               <span class="detail-value highlight">{{
@@ -549,6 +549,7 @@ import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import {
   formatBestValue,
   formatCandidateValue,
+  formatDeviceOverheadTime,
   formatSolveTime,
 } from "../utils/format";
 import {
@@ -568,7 +569,7 @@ import {
   downloadTaskResultExport,
   type TaskResultExportInfo,
 } from "../utils/resultExport";
-import { getMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
+import { getMethodTypeText, getTaskListMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
   ModelType,
   TaskCandidate,
@@ -1414,7 +1415,7 @@ const exportTaskDetail = () => {
       taskName: selectedTask.value.taskName,
       problemType: selectedTask.value.problemType,
       modelType: selectedTask.value.modelType,
-      methodType: selectedTask.value.methodType,
+      methodType: selectedTask.value.methodType ?? undefined,
       matrixSize: selectedTask.value.matrixSize,
       timestamp: selectedTask.value.timestamp,
       status: selectedTask.value.status,

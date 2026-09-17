@@ -48,3 +48,16 @@ export function formatSolveTime(value: unknown): string {
   const formatted = solveTimeFormatter.format(num);
   return hasSuffix ? formatted + "s" : formatted;
 }
+
+/**
+ * 设备通信与后处理仅发生在量子设备链路中。
+ * 已产生结果的经典计算统一展示为零；未产生结果时仍保留缺省占位符。
+ */
+export function formatDeviceOverheadTime(
+  value: unknown,
+  modelType: "classic" | "quantum" | null | undefined,
+  hasResult = true,
+): string {
+  if (modelType === "classic" && hasResult) return formatSolveTime("0s");
+  return formatSolveTime(value);
+}

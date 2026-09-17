@@ -9,12 +9,13 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { TaskResults } from "../types/api";
-import { formatSolveTime } from "../utils/format";
+import type { ModelType, TaskResults } from "../types/api";
+import { formatDeviceOverheadTime, formatSolveTime } from "../utils/format";
 
 const props = defineProps<{
   results?: TaskResults | null;
   deviceTime?: string | null;
+  modelType?: ModelType | null;
 }>();
 const duration = (value: unknown) =>
   typeof value === "number" ? formatSolveTime(`${value}s`) : "--";
@@ -22,8 +23,16 @@ const items = computed(() => [
   { label: "总时间", value: duration(props.results?.total_time) },
   { label: "设备求解时间", value: props.results?.runtime == null
     ? formatSolveTime(props.deviceTime) : duration(props.results.runtime) },
-  { label: "设备通信时间", value: duration(props.results?.device_communication_time) },
-  { label: "后处理时间", value: duration(props.results?.postprocess_time) },
+  { label: "设备通信时间", value: formatDeviceOverheadTime(
+    props.results?.device_communication_time,
+    props.modelType,
+    props.results != null,
+  ) },
+  { label: "后处理时间", value: formatDeviceOverheadTime(
+    props.results?.postprocess_time,
+    props.modelType,
+    props.results != null,
+  ) },
 ]);
 </script>
 
