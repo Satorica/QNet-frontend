@@ -49,6 +49,7 @@ declare module 'vue' {
     ElTag: typeof import('element-plus/es')['ElTag']
     ElUpload: typeof import('element-plus/es')['ElUpload']
     EmailSettings: typeof import('./src/components/EmailSettings.vue')['default']
+    GraphMatrixEditor: typeof import('./src/components/GraphMatrixEditor.vue')['default']
     LoginBackground: typeof import('./src/components/LoginBackground.vue')['default']
     MaxCutGraph: typeof import('./src/components/MaxCutGraph.vue')['default']
     ProfileEditor: typeof import('./src/components/ProfileEditor.vue')['default']

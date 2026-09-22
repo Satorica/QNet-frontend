@@ -93,30 +93,12 @@
                 >
               </div>
 
-              <div class="matrix-scroll" tabindex="0" aria-label="矩阵编辑区，可横向滚动">
-              <div class="matrix-grid">
-                <div
-                  v-for="(row, i) in distanceMatrix"
-                  :key="i"
-                  class="matrix-row"
-                >
-                  <div
-                    v-for="(cell, j) in row"
-                    :key="j"
-                    class="matrix-cell"
-                    :class="{
-                      editable:
-                        !solving &&
-                        (matrixMode === 'custom' || matrixMode === 'random') &&
-                        i !== j,
-                    }"
-                    @click="toggleMatrixCell(i, j)"
-                  >
-                    {{ cell }}
-                  </div>
-                </div>
-              </div>
-              </div>
+              <GraphMatrixEditor
+                :matrix="distanceMatrix"
+                :disabled="solving || importing || (matrixMode !== 'custom' && matrixMode !== 'random')"
+                matrix-label="距离矩阵"
+                @cell-click="toggleMatrixCell"
+              />
               <div class="tip">点击单元格编辑距离，非对角线距离需 ≥ 0.1（对称）。</div>
             </el-card>
 
@@ -554,12 +536,14 @@
 </template>
 
 <script setup lang="ts">
+import type { TaskSolveLog } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
 import SolverLog from "../components/SolverLog.vue";
 import { ref, computed, onBeforeUnmount } from "vue";
 import TSPGraph from "../components/TSPGraph.vue";
+import GraphMatrixEditor from "../components/GraphMatrixEditor.vue";
 import {
   submitTask,
   getTaskStatus,
@@ -579,10 +563,7 @@ import {
 import { useCustomTaskName } from "../stores/customTaskName";
 import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import { formatBestValue, formatDeviceOverheadTime, formatSolveTime } from "../utils/format";
-import {
-  createSolveLogController,
-  SOLVE_LOG_IDLE_MESSAGE,
-} from "../utils/solveLog";
+import { createSolveLogController } from "../utils/solveLog";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
@@ -632,8 +613,8 @@ const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const solveTime = ref("--");
 const iterations = ref(0);
-const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
-const { addLog, resetSolveLogs, addTaskProgressLog } =
+const logs = ref<TaskSolveLog[]>([]);
+const { resetSolveLogs, syncTaskLogs } =
   createSolveLogController(logs);
 const currentTaskId = ref<string | null>(null);
 const solveCandidates = ref<TaskCandidate[]>([]);
@@ -796,7 +777,7 @@ const generateCities = () => {
 
   currentRoute.value = [];
   bestRoute.value = [];
-  addLog(`生成${cityCount.value}个城市，按距离矩阵布局`);
+
 };
 
 const layoutCitiesByDistanceMatrix = (matrix: number[][] = distanceMatrix.value) => {
@@ -947,7 +928,7 @@ const layoutCitiesByDistanceMatrix = (matrix: number[][] = distanceMatrix.value)
 const _clearRoute = () => {
   currentRoute.value = [];
   bestRoute.value = [];
-  addLog("清除所有路径");
+
 };
 
 const resetSolveStatus = () => {
@@ -964,7 +945,6 @@ const _startSolve = async () => {
   iterations.value = 0;
 
   const startTime = Date.now();
-  addLog(`开始使用${algorithm.value}算法求解TSP`);
 
   try {
     // 执行求解算法
@@ -981,11 +961,10 @@ const _startSolve = async () => {
     statusText.value = "求解成功";
     solveTime.value = formatSolveTime(`${duration}s`);
 
-    addLog("求解完成");
   } catch (error) {
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
-    addLog("求解失败：" + getErrorMessage(error, "求解失败"));
+    ElMessage.error(getErrorMessage(error, "求解失败"));
   } finally {
     solving.value = false;
   }
@@ -1138,16 +1117,13 @@ const _stepSolve = () => {
       if (calculateRouteDistance(newRoute) < calculateRouteDistance(route)) {
         currentRoute.value = newRoute;
         improved = true;
-        addLog(`2-opt优化：交换段[${i + 1},${j}]，距离减少`);
+
         break;
       }
     }
     if (improved) break;
   }
 
-  if (!improved) {
-    addLog("2-opt优化：未找到更好的解");
-  }
 };
 
 const _resetToWorst = () => {
@@ -1159,20 +1135,20 @@ const _resetToWorst = () => {
   }
 
   currentRoute.value = route;
-  addLog("重置为随机路径");
+
 };
 
 const handleCityMove = (cityId: number, newX: number, newY: number) => {
   if (cities.value[cityId]) {
     cities.value[cityId].x = newX;
     cities.value[cityId].y = newY;
-    addLog(`移动城市${cityId}到新位置`);
+
   }
 };
 
 const handleRouteChange = (newRoute: number[]) => {
   currentRoute.value = newRoute;
-  addLog("手动修改路径");
+
 };
 
 const onCityClick = async (cityId: number) => {
@@ -1218,7 +1194,7 @@ const setEdgeWeight = (i: number, j: number, w: number) => {
   distanceMatrix.value[a][b] = nextWeight;
   distanceMatrix.value[b][a] = nextWeight;
   layoutCitiesByDistanceMatrix();
-  addLog(`设置边 (${a}, ${b}) = ${nextWeight}`);
+
   // 修改边权时清除路径结果
   currentRoute.value = [];
   bestRoute.value = [];
@@ -1235,7 +1211,7 @@ const setMatrixMode = (mode: "custom" | "random") => {
   bestRoute.value = [];
   solveCandidates.value = [];
   resetSolveStatus();
-  addLog("切换矩阵模式，清除路径结果");
+
 };
 
 const MIN_DISTANCE_WEIGHT = 0.1;
@@ -1272,14 +1248,14 @@ const generateRandomMatrix = () => {
   bestRoute.value = [];
   solveCandidates.value = [];
   resetSolveStatus();
-  addLog("随机生成距离矩阵（对角线为0，其余单元格均为非零距离）");
+
 };
 
 const handleTemplateDownload = async () => {
   try {
     await downloadMatrixTemplate("tsp");
   } catch (error) {
-    addLog(`模板下载失败：${getErrorMessage(error, "请稍后重试")}`);
+    ElMessage.error(getErrorMessage(error, "模板下载失败"));
   }
 };
 
@@ -1293,7 +1269,7 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
   try {
     const imported = await parseProblemImportFile("tsp", file);
     if (solving.value) {
-      addLog("导入已取消：任务正在求解");
+
       return;
     }
     cityCount.value = imported.matrixSize;
@@ -1304,18 +1280,10 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
     bestRoute.value = [];
     solveCandidates.value = [];
     resetSolveStatus();
-    let edgeCount = 0;
-    for (let i = 0; i < imported.matrixSize; i++) {
-      for (let j = i + 1; j < imported.matrixSize; j++) {
-        if (imported.adjacencyMatrix[i][j] > 0) edgeCount++;
-      }
-    }
-    addLog(
-      `数据导入成功：${imported.matrixSize}×${imported.matrixSize}距离矩阵，${edgeCount}条非零边`,
-    );
+
   } catch (error) {
     const message = getErrorMessage(error, "请稍后重试");
-    addLog(`导入失败：${message}`);
+
     ElMessage.error(`导入失败：${message}`);
     throw error instanceof Error ? error : new Error("导入失败");
   } finally {
@@ -1395,9 +1363,7 @@ const submitSolve = async () => {
     solveCandidates.value = [];
     solveTaskResults.value = null;
     const start = Date.now();
-    resetSolveLogs(
-      `开始求解旅行商问题（求解模型：${getModelTypeText(solveType.value)}${solveType.value === "classic" ? `，算法类型：${getMethodTypeText(methodType.value)}` : ""}，${cityCount.value}个城市）`
-    );
+    resetSolveLogs();
 
     const payload: TaskSubmitRequest = {
       taskName: submittedTaskName,
@@ -1409,10 +1375,10 @@ const submitSolve = async () => {
       adjacencyMatrix: distanceMatrix.value,
     };
 
-    addLog("提交任务中");
-    const res = await submitTask(payload, submittedAt);
+    const res = await submitTask(payload);
     if (!solveScope.isCurrent(solveToken)) return;
     if (res?.success) {
+      syncTaskLogs(res.solveLogs);
       clearCustomTaskName();
       currentTaskId.value = res.taskId;
       if (resultExportContext.value) {
@@ -1424,7 +1390,7 @@ const submitSolve = async () => {
           },
         };
       }
-      addLog("任务已提交，等待结果");
+
       loadTaskHistory();
 
       // 开始轮询任务状态
@@ -1442,7 +1408,7 @@ const submitSolve = async () => {
     if (getErrorCode(e) !== "EMAIL_BINDING_REQUIRED") clearCustomTaskName();
     statusClass.value = "status-fail";
     statusText.value = "提交失败";
-    addLog("提交失败：" + getErrorMessage(e, "提交失败"));
+
     ElMessage.error(getErrorMessage(e, "提交失败"));
     solving.value = false;
   }
@@ -1471,6 +1437,7 @@ const pollTaskStatus = async (
         !solving.value
       ) return;
 
+      syncTaskLogs(statusResponse.solveLogs);
       if (statusResponse.state === "completed") {
         // 任务完成
         const runtime = statusResponse.results?.runtime;
@@ -1498,9 +1465,6 @@ const pollTaskStatus = async (
           bestRoute.value = route;
           currentRoute.value = route;
 
-          addLog("求解完成");
-        } else {
-          addLog("求解完成，但未返回候选解");
         }
         loadTaskHistory();
       } else if (
@@ -1512,16 +1476,12 @@ const pollTaskStatus = async (
         statusText.value =
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
-        addLog(
-          statusResponse.state === "cancelled"
-            ? "任务已取消"
-            : `求解失败：${statusResponse.message || "任务失败"}`
-        );
+
         loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         statusText.value = "计算中...";
-        addTaskProgressLog("processing");
+
         solveScope.schedule(solveToken, poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
@@ -1529,15 +1489,16 @@ const pollTaskStatus = async (
             ? `(队列第${statusResponse.queuePosition}位)`
             : ""
         }`;
-        addTaskProgressLog("queued", statusResponse.queuePosition);
+
         solveScope.schedule(solveToken, poll, pollInterval);
       }
     } catch (error) {
       if (!solveScope.isCurrent(solveToken)) return;
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
+      ElMessage.error(getErrorMessage(error, "无法获取任务状态"));
       solving.value = false;
-      addLog("无法获取任务状态: " + getErrorMessage(error, "未知错误"));
+
       loadTaskHistory();
     }
   };
@@ -1556,15 +1517,16 @@ const cancelSolve = async () => {
 
     const res = await cancelTask(taskId);
     if (currentTaskId.value !== taskId) return;
+    syncTaskLogs(res.solveLogs);
     if (res?.success === false) {
       ElMessage.warning(res?.message || "取消失败");
-      addLog(`取消失败：${res?.message || "取消失败"}`);
+
       // 任务刚好完成时继续保留轮询，让完成分支回填结果。
       if (res.taskStatus === "completed") {
         if (solving.value) {
           statusClass.value = "status-running";
           statusText.value = "正在获取结果";
-          addLog("任务已完成，正在获取最终结果");
+
         }
         loadTaskHistory();
         return;
@@ -1580,7 +1542,7 @@ const cancelSolve = async () => {
     }
 
     ElMessage.success(res?.message || "任务已取消");
-    addLog("任务已取消");
+
     solving.value = false;
     solveScope.invalidate();
     statusClass.value = "status-fail";
@@ -1589,7 +1551,7 @@ const cancelSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      addLog("取消任务失败: " + getErrorMessage(error, "取消任务失败"));
+
       ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
@@ -1653,9 +1615,9 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
       taskHistory.value = [];
       historyTotal.value = 0;
     }
-  } catch (error) {
+  } catch {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
+
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
@@ -1804,7 +1766,7 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
     const response = await deleteTask(row.taskId);
     if (response.success) {
       ElMessage.success("任务删除成功");
-      addLog(`任务已删除: ${row.taskId}`);
+
       const targetPage =
         taskHistory.value.length === 1 && historyCurrentPage.value > 1
           ? historyCurrentPage.value - 1
@@ -1815,13 +1777,13 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
       });
     } else {
       ElMessage.error(response.message || "删除任务失败");
-      addLog(`删除任务失败: ${response.message}`);
+
     }
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
       ElMessage.error(getErrorMessage(error, "删除任务失败"));
-      addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
+
     }
   }
 };
@@ -1880,7 +1842,7 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
+
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   } finally {
     if (taskDetailRequestGuard.isLatest(requestId)) {
@@ -2014,47 +1976,6 @@ onBeforeUnmount(() => {
 .matrix-actions {
   display: flex;
   gap: 8px;
-}
-
-.matrix-grid {
-  display: inline-block;
-  border: 1px solid #e6eaf5;
-  border-radius: 8px;
-  overflow: hidden;
-  margin-top: 12px;
-}
-
-.matrix-row {
-  display: flex;
-}
-
-.matrix-cell {
-  width: 36px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid #e6eaf5;
-  border-bottom: 1px solid #e6eaf5;
-  font-size: 12px;
-  background: #fafbfc;
-}
-
-.matrix-cell.editable {
-  cursor: pointer;
-  background: #ffffff;
-}
-
-.matrix-cell.editable:hover {
-  background: var(--app-accent-soft);
-}
-
-.matrix-row:last-child .matrix-cell {
-  border-bottom: none;
-}
-
-.matrix-cell:last-child {
-  border-right: none;
 }
 
 .tip {
@@ -2427,8 +2348,6 @@ onBeforeUnmount(() => {
   font-weight: 600;
   font-size: 14px;
 }
-
-
 
 @media (max-width: 780px) {
   .algorithm-control {

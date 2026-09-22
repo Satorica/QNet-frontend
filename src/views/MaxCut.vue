@@ -94,22 +94,11 @@
                 >
               </div>
 
-              <div class="matrix-scroll" tabindex="0" aria-label="矩阵编辑区，可横向滚动">
-              <div class="matrix-grid">
-                <div v-for="(row, i) in matrix" :key="i" class="matrix-row">
-                  <div
-                    v-for="(cell, j) in row"
-                    :key="j"
-                    class="matrix-cell"
-                    :class="{ editable: !solving && i !== j }"
-                    @click="toggleCell(i, j)"
-                  >
-                    {{ formatMatrixCell(cell) }}
-                  </div>
-                </div>
-              </div>
-
-              </div>
+              <GraphMatrixEditor
+                :matrix="matrix"
+                :disabled="solving || importing"
+                @cell-click="toggleCell"
+              />
               <div class="tip">
                 矩阵与图同步；点矩阵改权重（0-30，1位小数），点两节点连/删边。
               </div>
@@ -522,11 +511,12 @@
 </template>
 
 <script setup lang="ts">
+import type { TaskSolveLog } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
 import SolverLog from "../components/SolverLog.vue";
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
 import {
   submitTask,
   getTaskStatus,
@@ -544,6 +534,7 @@ import {
   type UploadRequestOptions,
 } from "element-plus";
 import MaxCutGraph from "../components/MaxCutGraph.vue";
+import GraphMatrixEditor from "../components/GraphMatrixEditor.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
 import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import {
@@ -552,10 +543,7 @@ import {
   formatDeviceOverheadTime,
   formatSolveTime,
 } from "../utils/format";
-import {
-  createSolveLogController,
-  SOLVE_LOG_IDLE_MESSAGE,
-} from "../utils/solveLog";
+import { createSolveLogController } from "../utils/solveLog";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
@@ -601,8 +589,8 @@ const solving = ref(false);
 const stateClass = ref("state-idle");
 const stateText = ref("等待求解");
 const solveTime = ref("--");
-const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
-const { addLog, resetSolveLogs, addTaskProgressLog } =
+const logs = ref<TaskSolveLog[]>([]);
+const { resetSolveLogs, syncTaskLogs } =
   createSolveLogController(logs);
 const candidates = ref<TaskCandidate[]>([]);
 const solveTaskResults = ref<TaskResults | null>(null);
@@ -638,17 +626,6 @@ const edges = ref<WeightedGraphEdge[]>([]);
 const selectedNodes = ref<number[]>([]);
 const partition = ref<Record<number, 0 | 1>>({});
 const MAX_ADJACENCY_WEIGHT = 30;
-
-// 计算属性
-const edgeCount = computed(() => {
-  let count = 0;
-  for (let i = 0; i < matrix.value.length; i++) {
-    for (let j = i + 1; j < matrix.value[i].length; j++) {
-      if (Number(matrix.value[i][j]) !== 0) count++;
-    }
-  }
-  return count;
-});
 
 const normalizeAdjacencyWeight = (value: unknown): number => Number(Number(value).toFixed(1));
 
@@ -727,7 +704,7 @@ const setEditMode = (mode: "custom" | "random") => {
   if (solving.value) return;
   editMode.value = mode;
   invalidateCurrentResult();
-  addLog("切换编辑模式，清除分区结果");
+
 };
 
 const setEdgeWeight = (i: number, j: number, weight: number) => {
@@ -738,7 +715,7 @@ const setEdgeWeight = (i: number, j: number, weight: number) => {
   matrix.value[j][i] = normalizedWeight;
   syncEdgesFromMatrix();
   invalidateCurrentResult();
-  addLog(`设置边 (${i}, ${j}) = ${normalizedWeight}`);
+
 };
 
 // 弹窗输入并校验边权重（0~MAX_ADJACENCY_WEIGHT，最多 1 位小数），返回有效数值或 null
@@ -836,9 +813,7 @@ const openEdgeDialog = async (a: number, b: number) => {
   const weight = await promptEdgeWeight(i, j, "编辑边权重");
   if (weight !== null) {
     setEdgeWeight(i, j, weight);
-    if (weight === 0) {
-      addLog(`删除边 (${i}, ${j})（权重设为 0）`);
-    }
+
   }
 };
 
@@ -846,7 +821,7 @@ const handleTemplateDownload = async () => {
   try {
     await downloadMatrixTemplate("maxcut");
   } catch (error) {
-    addLog(`模板下载失败：${getErrorMessage(error, "请稍后重试")}`);
+    ElMessage.error(getErrorMessage(error, "模板下载失败"));
   }
 };
 
@@ -861,7 +836,7 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
   try {
     const imported = await parseProblemImportFile("maxcut", file);
     if (solving.value) {
-      addLog("导入已取消：任务正在求解");
+
       return;
     }
     matrixSize.value = imported.matrixSize;
@@ -869,12 +844,10 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
     generateNodes();
     syncEdgesFromMatrix();
     invalidateCurrentResult();
-    addLog(
-      `数据导入成功：${imported.matrixSize}×${imported.matrixSize}邻接矩阵，${edgeCount.value}条边`,
-    );
+
   } catch (error) {
     const message = getErrorMessage(error, "请稍后重试");
-    addLog(`导入失败：${message}`);
+
     ElMessage.error(`导入失败：${message}`);
     throw error instanceof Error ? error : new Error("导入失败");
   } finally {
@@ -911,9 +884,7 @@ const startSolve = async () => {
   stateText.value = "求解中";
 
   const startTime = Date.now();
-  resetSolveLogs(
-    `开始求解图分割问题（求解模型：${getModelTypeText(solveType.value)}${solveType.value === "classic" ? `，算法类型：${getMethodTypeText(methodType.value)}` : ""}，${matrixSize.value}个节点，${edgeCount.value}条边）`
-  );
+  resetSolveLogs();
 
   try {
     // 准备任务数据
@@ -927,11 +898,12 @@ const startSolve = async () => {
     };
 
     // 提交任务到后端
-    addLog("提交任务中");
-    const submitResponse = await submitTask(taskData, submittedAt);
+
+    const submitResponse = await submitTask(taskData);
     if (!solveScope.isCurrent(solveToken)) return;
 
     if (submitResponse.success) {
+      syncTaskLogs(submitResponse.solveLogs);
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
       if (resultExportContext.value) {
@@ -943,7 +915,7 @@ const startSolve = async () => {
           },
         };
       }
-      addLog("任务已提交，等待结果");
+
       loadTaskHistory();
 
       // 开始轮询任务状态
@@ -956,7 +928,7 @@ const startSolve = async () => {
     if (getErrorCode(error) !== "EMAIL_BINDING_REQUIRED") clearCustomTaskName();
     stateClass.value = "state-fail";
     stateText.value = "求解失败";
-    addLog("求解失败: " + getErrorMessage(error, "求解失败"));
+
     ElMessage.error(getErrorMessage(error, "求解失败"));
     solving.value = false;
   }
@@ -980,6 +952,7 @@ const pollTaskStatus = async (taskId: string, startTime: number, solveToken: num
         !solving.value
       ) return;
 
+      syncTaskLogs(statusResponse.solveLogs);
       if (statusResponse.state === "completed") {
         // 任务完成
         const runtime = statusResponse.results?.runtime;
@@ -1016,11 +989,6 @@ const pollTaskStatus = async (taskId: string, startTime: number, solveToken: num
           }
         }
 
-        addLog(
-          resultCandidates.length > 0
-            ? "求解完成"
-            : "求解完成，但未返回候选解"
-        );
         loadTaskHistory();
       } else if (
         statusResponse.state === "failed" ||
@@ -1031,15 +999,11 @@ const pollTaskStatus = async (taskId: string, startTime: number, solveToken: num
         stateText.value =
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
-        addLog(
-          statusResponse.state === "cancelled"
-            ? "任务已取消"
-            : `求解失败：${statusResponse.message || "任务失败"}`
-        );
+
         loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         stateText.value = "计算中...";
-        addTaskProgressLog("processing");
+
         solveScope.schedule(solveToken, poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         stateText.value = `计算中${
@@ -1047,15 +1011,16 @@ const pollTaskStatus = async (taskId: string, startTime: number, solveToken: num
             ? `(队列第${statusResponse.queuePosition}位)`
             : ""
         }`;
-        addTaskProgressLog("queued", statusResponse.queuePosition);
+
         solveScope.schedule(solveToken, poll, pollInterval);
       }
     } catch (error) {
       if (!solveScope.isCurrent(solveToken)) return;
       stateClass.value = "state-fail";
       stateText.value = "连接失败";
+      ElMessage.error(getErrorMessage(error, "无法获取任务状态"));
       solving.value = false;
-      addLog("无法获取任务状态: " + getErrorMessage(error, "未知错误"));
+
       loadTaskHistory();
     }
   };
@@ -1075,15 +1040,16 @@ const cancelSolve = async () => {
 
     const res = await cancelTask(taskId);
     if (currentTaskId.value !== taskId) return;
+    syncTaskLogs(res.solveLogs);
     if (res?.success === false) {
       ElMessage.warning(res?.message || "取消失败");
-      addLog(`取消失败：${res?.message || "取消失败"}`);
+
       // 任务刚好完成时继续保留轮询，让完成分支回填结果。
       if (res.taskStatus === "completed") {
         if (solving.value) {
           stateClass.value = "state-running";
           stateText.value = "正在获取结果";
-          addLog("任务已完成，正在获取最终结果");
+
         }
         loadTaskHistory();
         return;
@@ -1099,7 +1065,7 @@ const cancelSolve = async () => {
     }
 
     ElMessage.success(res?.message || "任务已取消");
-    addLog("任务已取消");
+
     solving.value = false;
     solveScope.invalidate();
     stateClass.value = "state-fail";
@@ -1108,7 +1074,7 @@ const cancelSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      addLog("取消任务失败: " + getErrorMessage(error, "取消任务失败"));
+
       ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
@@ -1161,9 +1127,9 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
       taskHistory.value = [];
       historyTotal.value = 0;
     }
-  } catch (error) {
+  } catch {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
+
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
@@ -1312,7 +1278,7 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
     const response = await deleteTask(row.taskId);
     if (response.success) {
       ElMessage.success("任务删除成功");
-      addLog(`任务已删除: ${row.taskId}`);
+
       const targetPage =
         taskHistory.value.length === 1 && historyCurrentPage.value > 1
           ? historyCurrentPage.value - 1
@@ -1323,13 +1289,13 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
       });
     } else {
       ElMessage.error(response.message || "删除任务失败");
-      addLog(`删除任务失败: ${response.message}`);
+
     }
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
       ElMessage.error(getErrorMessage(error, "删除任务失败"));
-      addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
+
     }
   }
 };
@@ -1388,7 +1354,7 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    addLog(`获取任务详情失败: ${getErrorMessage(error, "未知错误")}`);
+
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   } finally {
     if (taskDetailRequestGuard.isLatest(requestId)) {
@@ -1521,47 +1487,6 @@ onBeforeUnmount(() => {
 .matrix-actions {
   display: flex;
   gap: 8px;
-}
-
-.matrix-grid {
-  display: inline-block;
-  border: 1px solid #e6eaf5;
-  border-radius: 8px;
-  overflow: hidden;
-  margin-top: 12px;
-}
-
-.matrix-row {
-  display: flex;
-}
-
-.matrix-cell {
-  width: 36px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid #e6eaf5;
-  border-bottom: 1px solid #e6eaf5;
-  font-size: 12px;
-  background: #fafbfc;
-}
-
-.matrix-cell.editable {
-  cursor: pointer;
-  background: #ffffff;
-}
-
-.matrix-cell.editable:hover {
-  background: var(--app-accent-soft);
-}
-
-.matrix-row:last-child .matrix-cell {
-  border-bottom: none;
-}
-
-.matrix-cell:last-child {
-  border-right: none;
 }
 
 .tip {
@@ -1841,8 +1766,6 @@ onBeforeUnmount(() => {
   font-weight: 600;
   font-size: 14px;
 }
-
-
 
 @media (max-width: 780px) {
   .algorithm-control {

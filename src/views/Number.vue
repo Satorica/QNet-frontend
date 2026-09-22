@@ -545,6 +545,7 @@
 </template>
 
 <script setup lang="ts">
+import type { TaskSolveLog } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
@@ -568,10 +569,7 @@ import {
   formatDeviceOverheadTime,
   formatSolveTime,
 } from "../utils/format";
-import {
-  createSolveLogController,
-  SOLVE_LOG_IDLE_MESSAGE,
-} from "../utils/solveLog";
+import { createSolveLogController } from "../utils/solveLog";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
@@ -624,8 +622,8 @@ const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const solveTime = ref("--");
 const result = ref<NumberPartitionResult | null>(null);
-const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
-const { addLog, resetSolveLogs, addTaskProgressLog } =
+const logs = ref<TaskSolveLog[]>([]);
+const { resetSolveLogs, syncTaskLogs } =
   createSolveLogController(logs);
 const currentTaskId = ref<string | null>(null);
 const candidates = ref<CandidateDisplay[]>([]);
@@ -729,12 +727,12 @@ const parseNumbers = () => {
     numbers.value = parsedNumbers;
     // 清除之前的结果
     clearSolveResult();
-    addLog(`解析得到${numbers.value.length}个数字`);
+
     ElMessage.success(`成功解析${numbers.value.length}个数字`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "数字解析失败";
     ElMessage.warning(message);
-    addLog(message);
+
   }
 };
 
@@ -751,7 +749,7 @@ const generateRandomNumbers = () => {
   numberInput.value = newNumbers.join(", ");
   // 清除之前的结果
   clearSolveResult();
-  addLog(`随机生成${count}个数字`);
+
 };
 
 const clearNumbers = () => {
@@ -759,16 +757,15 @@ const clearNumbers = () => {
   numbers.value = [];
   numberInput.value = "";
   clearSolveResult();
-  addLog("已清空数字列表");
+
 };
 
 const removeNumber = (index: number) => {
   if (solving.value) return;
-  const removed = numbers.value[index];
   numbers.value.splice(index, 1);
   numberInput.value = numbers.value.join(", ");
   clearSolveResult();
-  addLog(`移除数字：${removed}`);
+
 };
 
 const getNumberTagType = (num: number): TagType => {
@@ -830,9 +827,7 @@ const startSolve = async () => {
   };
 
   const startTime = Date.now();
-  resetSolveLogs(
-    `开始求解数分问题（求解模型：${getModelTypeText(solveType.value)}${solveType.value === "classic" ? `，算法类型：${getMethodTypeText(methodType.value)}` : ""}，${parsedNumbers.length}个数字）`
-  );
+  resetSolveLogs();
 
   try {
     // 准备任务数据
@@ -846,11 +841,12 @@ const startSolve = async () => {
     };
 
     // 提交任务到后端
-    addLog("提交任务中");
-    const submitResponse = await submitTask(taskData, submittedAt);
+
+    const submitResponse = await submitTask(taskData);
     if (!solveScope.isCurrent(solveToken)) return;
 
     if (submitResponse.success) {
+      syncTaskLogs(submitResponse.solveLogs);
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
       if (resultExportContext.value) {
@@ -862,7 +858,7 @@ const startSolve = async () => {
           },
         };
       }
-      addLog("任务已提交，等待结果");
+
       loadTaskHistory();
 
       // 开始轮询任务状态
@@ -880,7 +876,7 @@ const startSolve = async () => {
     if (getErrorCode(error) !== "EMAIL_BINDING_REQUIRED") clearCustomTaskName();
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
-    addLog("求解失败：" + getErrorMessage(error, "求解失败"));
+
     ElMessage.error(getErrorMessage(error, "求解失败"));
     solving.value = false;
   }
@@ -909,6 +905,7 @@ const pollTaskStatus = async (
         !solving.value
       ) return;
 
+      syncTaskLogs(statusResponse.solveLogs);
       if (statusResponse.state === "completed") {
         // 任务完成
         const runtime = statusResponse.results?.runtime;
@@ -968,9 +965,6 @@ const pollTaskStatus = async (
             solution: JSON.stringify(c.solution),
           }));
 
-          addLog("求解完成");
-        } else {
-          addLog("求解完成，但未返回候选解");
         }
         loadTaskHistory();
       } else if (
@@ -982,16 +976,12 @@ const pollTaskStatus = async (
         statusText.value =
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
-        addLog(
-          statusResponse.state === "cancelled"
-            ? "任务已取消"
-            : `求解失败：${statusResponse.message || "任务失败"}`
-        );
+
         loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         statusText.value = "计算中...";
-        addTaskProgressLog("processing");
+
         solveScope.schedule(solveToken, poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
@@ -999,15 +989,16 @@ const pollTaskStatus = async (
             ? `(队列第${statusResponse.queuePosition}位)`
             : ""
         }`;
-        addTaskProgressLog("queued", statusResponse.queuePosition);
+
         solveScope.schedule(solveToken, poll, pollInterval);
       }
     } catch (error) {
       if (!solveScope.isCurrent(solveToken)) return;
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
+      ElMessage.error(getErrorMessage(error, "无法获取任务状态"));
       solving.value = false;
-      addLog("无法获取任务状态: " + getErrorMessage(error, "未知错误"));
+
       loadTaskHistory();
     }
   };
@@ -1026,15 +1017,16 @@ const cancelSolve = async () => {
 
     const res = await cancelTask(taskId);
     if (currentTaskId.value !== taskId) return;
+    syncTaskLogs(res.solveLogs);
     if (res?.success === false) {
       ElMessage.warning(res?.message || "取消失败");
-      addLog(`取消失败：${res?.message || "取消失败"}`);
+
       // 任务刚好完成时继续保留轮询，让完成分支回填结果。
       if (res.taskStatus === "completed") {
         if (solving.value) {
           statusClass.value = "status-running";
           statusText.value = "正在获取结果";
-          addLog("任务已完成，正在获取最终结果");
+
         }
         loadTaskHistory();
         return;
@@ -1050,7 +1042,7 @@ const cancelSolve = async () => {
     }
 
     ElMessage.success(res?.message || "任务已取消");
-    addLog("任务已取消");
+
     solving.value = false;
     solveScope.invalidate();
     statusClass.value = "status-fail";
@@ -1059,7 +1051,7 @@ const cancelSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      addLog("取消任务失败: " + getErrorMessage(error, "取消任务失败"));
+
       ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
@@ -1115,9 +1107,9 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
       taskHistory.value = [];
       historyTotal.value = 0;
     }
-  } catch (error) {
+  } catch {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
+
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
@@ -1266,7 +1258,7 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
     const response = await deleteTask(row.taskId);
     if (response.success) {
       ElMessage.success("任务删除成功");
-      addLog(`任务已删除: ${row.taskId}`);
+
       const targetPage =
         taskHistory.value.length === 1 && historyCurrentPage.value > 1
           ? historyCurrentPage.value - 1
@@ -1277,13 +1269,13 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
       });
     } else {
       ElMessage.error(response.message || "删除任务失败");
-      addLog(`删除任务失败: ${response.message}`);
+
     }
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
       ElMessage.error(getErrorMessage(error, "删除任务失败"));
-      addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
+
     }
   }
 };
@@ -1342,7 +1334,7 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
+
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   } finally {
     if (taskDetailRequestGuard.isLatest(requestId)) {
@@ -1674,9 +1666,6 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
-
-
-
 /* 任务历史列表 */
 .history-card {
   margin-top: 20px;
@@ -1819,8 +1808,6 @@ onBeforeUnmount(() => {
   font-weight: 600;
   font-size: 14px;
 }
-
-
 
 @media (max-width: 780px) {
   .algorithm-control {

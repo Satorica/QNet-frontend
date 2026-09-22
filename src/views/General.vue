@@ -422,6 +422,7 @@
 </template>
 
 <script setup lang="ts">
+import type { TaskSolveLog } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
@@ -467,7 +468,7 @@ import {
   downloadTaskResultExport,
   type TaskResultExportInfo,
 } from "../utils/resultExport";
-import { createSolveLogController, SOLVE_LOG_IDLE_MESSAGE } from "../utils/solveLog";
+import { createSolveLogController } from "../utils/solveLog";
 import { getDeleteAllResultMessage, isDialogDismissed, isTaskDeletable } from "../utils/task";
 import { getMethodTypeText, getTaskListMethodTypeText, METHOD_TYPE_OPTIONS } from "../types/api";
 import type {
@@ -535,14 +536,14 @@ const solving = ref(false);
 const stateClass = ref("state-idle");
 const stateText = ref("等待求解");
 const solveTime = ref("--");
-const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
+const logs = ref<TaskSolveLog[]>([]);
 const candidates = ref<TaskCandidate[]>([]);
 const solveTaskResults = ref<TaskResults | null>(null);
 const resultExportContext = ref<GeneralResultExportContext | null>(null);
 const currentTaskId = ref<string | null>(null);
 const cancelingTaskId = ref<string | null>(null);
 const solveScope = createAsyncScope();
-const { addLog, resetSolveLogs, addTaskProgressLog } = createSolveLogController(logs);
+const { resetSolveLogs, syncTaskLogs } = createSolveLogController(logs);
 
 const taskHistory = ref<TaskHistoryItem[]>([]);
 const historyLoading = ref(false);
@@ -747,7 +748,7 @@ const loadMaxCutExample = () => {
   solveTaskResults.value = null;
   resultExportContext.value = null;
   currentTaskId.value = null;
-  addLog("已加载4自旋 MaxCut 示例：W为四节点环图C4权重矩阵，变量域±1，目标为最大化割边权重。");
+
   ElMessage.success("已加载4自旋 MaxCut 示例");
 };
 
@@ -757,7 +758,7 @@ const handleTemplateDownload = async () => {
     await downloadMatrixTemplate("general");
   } catch (error) {
     const message = getErrorMessage(error, "模板下载失败，请稍后重试");
-    addLog(`模板下载失败：${message}`);
+
     ElMessage.error(message);
   }
 };
@@ -831,6 +832,7 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
   try {
     const response = await getTaskStatus(taskId);
     if (!solveScope.isCurrent(token) || currentTaskId.value !== taskId) return;
+    syncTaskLogs(response.solveLogs);
     if (response.state === "completed") {
       const runtime = response.results?.runtime;
       solveTime.value = typeof runtime === "number" ? formatSolveTime(`${runtime}s`) : "--";
@@ -839,7 +841,7 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
       stateClass.value = "state-success";
       stateText.value = "求解成功";
       solving.value = false;
-      addLog(candidates.value.length ? "求解完成" : "求解完成，但未返回候选解");
+
       loadTaskHistory();
       return;
     }
@@ -847,17 +849,18 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
       stateClass.value = "state-fail";
       stateText.value = response.state === "failed" ? "求解失败" : "已取消";
       solving.value = false;
-      addLog(response.state === "failed" ? `求解失败：${response.message || "任务失败"}` : "任务已取消");
+
       loadTaskHistory();
       return;
     }
-    addTaskProgressLog(response.state === "processing" ? "processing" : "queued", response.queuePosition);
+
     solveScope.schedule(token, () => pollTaskStatus(taskId, startedAt, token), 1200);
   } catch (error) {
     stateClass.value = "state-fail";
     stateText.value = "连接失败";
+    ElMessage.error(getErrorMessage(error, "无法获取任务状态"));
     solving.value = false;
-    addLog(`无法获取任务状态: ${getErrorMessage(error, "未知错误")}`);
+
   }
 };
 
@@ -886,7 +889,7 @@ const startSolve = async () => {
     solveTaskResults.value = null;
     resultExportContext.value = null;
     currentTaskId.value = null;
-    resetSolveLogs(`输入校验未通过：${message}`);
+    resetSolveLogs();
     ElMessage.warning({
       message,
       duration: 8000,
@@ -905,7 +908,7 @@ const startSolve = async () => {
   solveTaskResults.value = null;
   resultExportContext.value = null;
   currentTaskId.value = null;
-  resetSolveLogs(`开始求解一般优化问题（求解模型：${getModelTypeText(solveType.value)}${solveType.value === "classic" ? `，算法类型：${getMethodTypeText(methodType.value)}` : ""}，${activeMatrixSize.value}个变量）`);
+  resetSolveLogs();
   try {
     const submittedTaskName = taskName;
     const submittedModelType = solveType.value;
@@ -951,9 +954,10 @@ const startSolve = async () => {
       adjacencyMatrix: submittedMatrix,
       generalInput,
     };
-    addLog("提交任务中");
-    const response = await submitTask(payload, startedAt);
+
+    const response = await submitTask(payload);
     if (!solveScope.isCurrent(token)) return;
+    syncTaskLogs(response.solveLogs);
     if (!response.success) throw new Error(response.message || "任务提交失败");
     clearCustomTaskName();
     currentTaskId.value = response.taskId;
@@ -973,7 +977,7 @@ const startSolve = async () => {
         generalInput,
       },
     };
-    addLog("任务已提交，等待结果");
+
     solveScope.schedule(token, () => pollTaskStatus(response.taskId, startedAt, token), 350);
     loadTaskHistory();
   } catch (error) {
@@ -983,7 +987,7 @@ const startSolve = async () => {
     stateText.value = "求解失败";
     solving.value = false;
     const message = getErrorMessage(error, "求解失败");
-    addLog(`求解失败: ${message}`);
+
     ElMessage.error(message);
   }
 };
@@ -1001,6 +1005,7 @@ const cancelSolve = async () => {
     cancelingTaskId.value = taskId;
     const response = await cancelTask(taskId);
     if (currentTaskId.value !== taskId) return;
+    syncTaskLogs(response.solveLogs);
     if (response.success === false) {
       ElMessage.warning(response.message || "取消失败");
       if (response.taskStatus === "completed") {
@@ -1010,7 +1015,7 @@ const cancelSolve = async () => {
         }
         stateClass.value = "state-running";
         stateText.value = "正在获取结果";
-        addLog("任务已完成，正在获取最终结果");
+
         loadTaskHistory();
         return;
       }
@@ -1027,7 +1032,7 @@ const cancelSolve = async () => {
     solving.value = false;
     stateClass.value = "state-fail";
     stateText.value = "已取消";
-    addLog("任务已取消");
+
     solveScope.invalidate();
     ElMessage.success(response.message || "任务已取消");
     loadTaskHistory();
@@ -1050,11 +1055,11 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
     taskHistory.value = response.success && response.data ? response.data.tasks || [] : [];
     historyTotal.value = response.success && response.data ? response.data.total || 0 : 0;
     appliedHistoryTaskName.value = taskName;
-  } catch (error) {
+  } catch {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
     taskHistory.value = [];
     historyTotal.value = 0;
-    addLog(`加载任务历史失败: ${getErrorMessage(error, "未知错误")}`);
+
   } finally {
     if (taskHistoryRequestGuard.isLatest(requestId)) historyLoading.value = false;
   }
@@ -1127,7 +1132,7 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    addLog(`获取任务详情失败: ${getErrorMessage(error, "未知错误")}`);
+
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   } finally {
     if (taskDetailRequestGuard.isLatest(requestId)) {

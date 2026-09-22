@@ -263,6 +263,7 @@ export interface TaskResults {
 }
 
 export interface TaskSubmitResponse extends ApiResponse {
+  solveLogs?: TaskSolveLog[];
   taskId: string;
   queuePosition?: number;
   quotaSummary?: QuotaSummary;
@@ -270,6 +271,7 @@ export interface TaskSubmitResponse extends ApiResponse {
 }
 
 export interface TaskStatusResponse {
+  solveLogs?: TaskSolveLog[];
   taskId: string;
   state: TaskStatus;
   taskName?: string;
@@ -285,12 +287,14 @@ export type CancelTaskResponse =
       success: true;
       message?: string;
       cancelled: true;
+      solveLogs?: TaskSolveLog[];
       taskStatus: "cancelled";
     }
   | {
       success: false;
       message?: string;
       cancelled?: false;
+      solveLogs?: TaskSolveLog[];
       taskStatus: TaskStatus;
     };
 
@@ -370,6 +374,7 @@ export interface TaskInfo {
 }
 
 export interface TaskDetail {
+  solveLogs?: TaskSolveLog[];
   taskId: string;
   taskName: string;
   state: TaskStatus;
@@ -386,4 +391,13 @@ export interface TaskDetail {
     candidateCount: number;
   };
   results?: TaskResults;
+}
+
+export interface TaskSolveLog {
+  sequence: number;
+  state: "received" | TaskStatus;
+  message: string;
+  timestampNs: string;
+  timestamp: string;
+  elapsedSeconds: number;
 }

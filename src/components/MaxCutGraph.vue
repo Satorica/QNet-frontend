@@ -2,13 +2,9 @@
   <div ref="graphContainer" class="maxcut-graph">
     <svg :width="width" :height="height" :viewBox="`0 0 ${width} ${height}`" class="graph-svg">
       <!-- 边 -->
-      <line
-        v-for="(edge, index) in edges"
-        :key="`edge-${index}`"
-        :x1="nodes[edge.source]?.x"
-        :y1="nodes[edge.source]?.y"
-        :x2="nodes[edge.target]?.x"
-        :y2="nodes[edge.target]?.y"
+      <path
+        :d="edgePath"
+        fill="none"
         stroke="#B8C2D1"
         stroke-width="1.5"
         opacity="0.6"
@@ -61,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 
 interface GraphNode {
   id: number;
@@ -97,6 +93,14 @@ const graphContainer = ref<HTMLDivElement | null>(null);
 const width = 400;
 const height = 360;
 const nodeRadius = 12;
+
+// Edge geometry is independent of selection/partition and uses one SVG element.
+const edgePath = computed(() => props.edges.map((edge) => {
+  const from = props.nodes[edge.source];
+  const to = props.nodes[edge.target];
+  if (!from || !to) return "";
+  return `M${from.x.toFixed(1)} ${from.y.toFixed(1)}L${to.x.toFixed(1)} ${to.y.toFixed(1)}`;
+}).join(""));
 
 // 根据分区着色 - 使用更鲜明的颜色
 const getNodeColor = (nodeId: number) => {

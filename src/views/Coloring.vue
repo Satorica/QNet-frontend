@@ -121,30 +121,11 @@
                 >
               </div>
 
-              <div class="matrix-scroll" tabindex="0" aria-label="矩阵编辑区，可横向滚动">
-              <div class="matrix-grid">
-                <div
-                  v-for="(row, i) in adjacencyMatrix"
-                  :key="i"
-                  class="matrix-row"
-                >
-                  <div
-                    v-for="(cell, j) in row"
-                    :key="j"
-                    class="matrix-cell"
-                    :class="{
-                      editable:
-                        !solving &&
-                        (matrixMode === 'custom' || matrixMode === 'random') &&
-                        i !== j,
-                    }"
-                    @click="toggleMatrixCell(i, j)"
-                  >
-                    {{ cell }}
-                  </div>
-                </div>
-              </div>
-              </div>
+              <GraphMatrixEditor
+                :matrix="adjacencyMatrix"
+                :disabled="solving || importing || (matrixMode !== 'custom' && matrixMode !== 'random')"
+                @cell-click="toggleMatrixCell"
+              />
               <div class="tip">
                 点击单元格切换边关系（对称），会覆盖当前图结构
               </div>
@@ -585,6 +566,7 @@
 </template>
 
 <script setup lang="ts">
+import type { TaskSolveLog } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
@@ -607,13 +589,11 @@ import {
   type UploadRequestOptions,
 } from "element-plus";
 import ColoringGraph from "../components/ColoringGraph.vue";
+import GraphMatrixEditor from "../components/GraphMatrixEditor.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
 import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import { formatCandidateValue, formatDeviceOverheadTime, formatSolveTime } from "../utils/format";
-import {
-  createSolveLogController,
-  SOLVE_LOG_IDLE_MESSAGE,
-} from "../utils/solveLog";
+import { createSolveLogController } from "../utils/solveLog";
 import {
   getDeleteAllResultMessage,
   isDialogDismissed,
@@ -657,8 +637,8 @@ const edgeDensity = ref(0.3);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const conflicts = ref("--");
-const logs = ref([SOLVE_LOG_IDLE_MESSAGE]);
-const { addLog, resetSolveLogs, addTaskProgressLog } =
+const logs = ref<TaskSolveLog[]>([]);
+const { resetSolveLogs, syncTaskLogs } =
   createSolveLogController(logs);
 
 const nodes = ref<GraphNode[]>([]);
@@ -919,9 +899,7 @@ const generateGraph = () => {
   // 图结构变化后清理旧求解结果
   invalidateCurrentResult();
   selectedNodes.value = [];
-  addLog(
-    `生成${graphType.value}图，${nodeCount.value}个节点，${edges.value.length}条边`
-  );
+
 };
 
 const generateRandomGraph = () => {
@@ -1005,10 +983,10 @@ const toggleEdge = (a: number, b: number) => {
   );
   if (idx >= 0) {
     edges.value.splice(idx, 1);
-    addLog(`移除边 (${i}, ${j})`);
+
   } else {
     edges.value.push({ source: i, target: j });
-    addLog(`新增边 (${i}, ${j})`);
+
   }
   // 同步矩阵
   syncMatrixFromEdges();
@@ -1024,7 +1002,7 @@ const _clearEdges = () => {
   syncMatrixFromEdges();
   invalidateCurrentResult();
   // validateColoring() // 移除前端冲突检测
-  addLog("清空所有边");
+
 };
 
 // 矩阵 <-> 边 同步
@@ -1057,7 +1035,7 @@ const setMatrixMode = (mode: "custom" | "random") => {
   if (solving.value) return;
   matrixMode.value = mode;
   invalidateCurrentResult();
-  addLog("切换矩阵模式，清除当前结果");
+
 };
 
 const generateRandomMatrix = () => {
@@ -1080,14 +1058,14 @@ const generateRandomMatrix = () => {
     nodes.value = createRandomLayout();
   }
   invalidateCurrentResult();
-  addLog("随机生成邻接矩阵并覆盖当前图结构");
+
 };
 
 const handleTemplateDownload = async () => {
   try {
     await downloadMatrixTemplate("coloring");
   } catch (error) {
-    addLog(`模板下载失败：${getErrorMessage(error, "请稍后重试")}`);
+    ElMessage.error(getErrorMessage(error, "模板下载失败"));
   }
 };
 
@@ -1101,7 +1079,7 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
   try {
     const imported = await parseProblemImportFile("coloring", file);
     if (solving.value) {
-      addLog("导入已取消：任务正在求解");
+
       return;
     }
     if (nodeCount.value !== imported.matrixSize) {
@@ -1112,12 +1090,10 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
     rebuildNodesLayout();
     syncEdgesFromMatrix();
     invalidateCurrentResult();
-    addLog(
-      `数据导入成功：${imported.matrixSize}×${imported.matrixSize}邻接矩阵，${edges.value.length}条边`,
-    );
+
   } catch (error) {
     const message = getErrorMessage(error, "请稍后重试");
-    addLog(`导入失败：${message}`);
+
     ElMessage.error(`导入失败：${message}`);
     throw error instanceof Error ? error : new Error("导入失败");
   } finally {
@@ -1160,7 +1136,7 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
     const response = await deleteTask(row.taskId);
     if (response.success) {
       ElMessage.success("任务删除成功");
-      addLog(`任务已删除: ${row.taskId}`);
+
       const targetPage =
         taskHistory.value.length === 1 && historyCurrentPage.value > 1
           ? historyCurrentPage.value - 1
@@ -1171,13 +1147,13 @@ const handleDeleteTask = async (row: TaskHistoryItem) => {
       });
     } else {
       ElMessage.error(response.message || "删除任务失败");
-      addLog(`删除任务失败: ${response.message}`);
+
     }
   } catch (error) {
     // 用户取消删除或删除失败
     if (error !== "cancel") {
       ElMessage.error(getErrorMessage(error, "删除任务失败"));
-      addLog(`删除任务失败: ${getErrorMessage(error, "未知错误")}`);
+
     }
   }
 };
@@ -1236,7 +1212,7 @@ const handleViewTaskDetail = async (row: TaskHistoryItem) => {
     }
   } catch (error) {
     if (!taskDetailRequestGuard.isLatest(requestId)) return;
-    addLog("获取任务详情失败: " + getErrorMessage(error, "未知错误"));
+
     ElMessage.error(getErrorMessage(error, "获取任务详情失败"));
   } finally {
     if (taskDetailRequestGuard.isLatest(requestId)) {
@@ -1291,7 +1267,7 @@ const handleNodeColor = (nodeId: number, colorIndex: number) => {
 const submitSolve = async () => {
   if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
   if (nodes.value.length === 0) {
-    addLog("请先生成图结构");
+
     return;
   }
 
@@ -1324,9 +1300,7 @@ const submitSolve = async () => {
   currentTaskId.value = null;
 
   const startTime = Date.now();
-  resetSolveLogs(
-    `开始求解图着色问题（求解模型：${getModelTypeText(solveType.value)}${solveType.value === "classic" ? `，算法类型：${getMethodTypeText(methodType.value)}` : ""}，${nodeCount.value}个节点，${edges.value.length}条边）`
-  );
+  resetSolveLogs();
 
   try {
     // 准备任务数据
@@ -1339,13 +1313,12 @@ const submitSolve = async () => {
       adjacencyMatrix: adjacencyMatrix.value,
     };
 
-    addLog("提交任务中");
-
     // 提交任务到后端
-    const submitResponse = await submitTask(taskData, submittedAt);
+    const submitResponse = await submitTask(taskData);
     if (!solveScope.isCurrent(solveToken)) return;
 
     if (submitResponse.success) {
+      syncTaskLogs(submitResponse.solveLogs);
       clearCustomTaskName();
       currentTaskId.value = submitResponse.taskId;
       if (resultExportContext.value) {
@@ -1357,7 +1330,7 @@ const submitSolve = async () => {
           },
         };
       }
-      addLog("任务已提交，等待结果");
+
       loadTaskHistory();
 
       // 开始轮询任务状态
@@ -1373,7 +1346,7 @@ const submitSolve = async () => {
   } catch (error) {
     if (!solveScope.isCurrent(solveToken)) return;
     if (getErrorCode(error) !== "EMAIL_BINDING_REQUIRED") clearCustomTaskName();
-    addLog(`求解失败: ${getErrorMessage(error, "求解失败")}`);
+
     ElMessage.error(getErrorMessage(error, "求解失败"));
     statusClass.value = "status-fail";
     statusText.value = "求解失败";
@@ -1404,6 +1377,7 @@ const pollTaskStatus = async (
         !solving.value
       ) return;
 
+      syncTaskLogs(statusResponse.solveLogs);
       if (statusResponse.state === "completed") {
         // 任务完成
         const runtime = statusResponse.results?.runtime;
@@ -1437,11 +1411,10 @@ const pollTaskStatus = async (
           statusClass.value = "status-success";
           statusText.value = "求解成功";
 
-          addLog("求解完成");
         } else {
           statusClass.value = "status-warning";
           statusText.value = "无候选解";
-          addLog("求解完成，但未返回候选解");
+
         }
         loadTaskHistory();
       } else if (
@@ -1453,16 +1426,12 @@ const pollTaskStatus = async (
         statusText.value =
           statusResponse.state === "cancelled" ? "已取消" : "求解失败";
         solving.value = false;
-        addLog(
-          statusResponse.state === "cancelled"
-            ? "任务已取消"
-            : `求解失败：${statusResponse.message || "任务失败"}`
-        );
+
         loadTaskHistory();
       } else if (statusResponse.state === "processing") {
         // 任务处理中
         statusText.value = "计算中...";
-        addTaskProgressLog("processing");
+
         solveScope.schedule(solveToken, poll, pollInterval);
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
@@ -1470,15 +1439,16 @@ const pollTaskStatus = async (
             ? `(队列第${statusResponse.queuePosition}位)`
             : ""
         }`;
-        addTaskProgressLog("queued", statusResponse.queuePosition);
+
         solveScope.schedule(solveToken, poll, pollInterval);
       }
     } catch (error) {
       if (!solveScope.isCurrent(solveToken)) return;
       statusClass.value = "status-fail";
       statusText.value = "连接失败";
+      ElMessage.error(getErrorMessage(error, "无法获取任务状态"));
       solving.value = false;
-      addLog("无法获取任务状态: " + getErrorMessage(error, "未知错误"));
+
       loadTaskHistory();
     }
   };
@@ -1497,15 +1467,16 @@ const cancelSolve = async () => {
 
     const res = await cancelTaskAPI(taskId);
     if (currentTaskId.value !== taskId) return;
+    syncTaskLogs(res.solveLogs);
     if (res?.success === false) {
       ElMessage.warning(res?.message || "取消失败");
-      addLog(`取消失败：${res?.message || "取消失败"}`);
+
       // 任务刚好完成时继续保留轮询，让完成分支回填结果。
       if (res.taskStatus === "completed") {
         if (solving.value) {
           statusClass.value = "status-running";
           statusText.value = "正在获取结果";
-          addLog("任务已完成，正在获取最终结果");
+
         }
         loadTaskHistory();
         return;
@@ -1521,7 +1492,7 @@ const cancelSolve = async () => {
     }
 
     ElMessage.success(res?.message || "任务已取消");
-    addLog("任务已取消");
+
     solving.value = false;
     solveScope.invalidate();
     statusClass.value = "status-fail";
@@ -1530,7 +1501,7 @@ const cancelSolve = async () => {
     loadTaskHistory();
   } catch (error) {
     if (!isDialogDismissed(error)) {
-      addLog("取消任务失败: " + getErrorMessage(error, "取消任务失败"));
+
       ElMessage.error(getErrorMessage(error, "取消任务失败"));
     }
   } finally {
@@ -1619,7 +1590,7 @@ const _solveClassic = async (graph: { nodes: GraphNode[]; edges: GraphEdge[] }) 
 const _clearColoring = () => {
   invalidateCurrentResult();
   selectedNodes.value = [];
-  addLog("清空结果/颜色");
+
 };
 
 // 监听节点数变化，重建矩阵
@@ -1665,9 +1636,9 @@ const loadTaskHistory = async (params: TaskHistoryParams = {}) => {
       taskHistory.value = [];
       historyTotal.value = 0;
     }
-  } catch (error) {
+  } catch {
     if (!taskHistoryRequestGuard.isLatest(requestId)) return;
-    addLog("加载任务历史失败: " + getErrorMessage(error, "未知错误"));
+
     taskHistory.value = [];
     historyTotal.value = 0;
   } finally {
@@ -1838,40 +1809,6 @@ onBeforeUnmount(() => {
 .matrix-actions {
   display: flex;
   gap: 8px;
-}
-.matrix-grid {
-  display: inline-block;
-  border: 1px solid #e6eaf5;
-  border-radius: 8px;
-  overflow: hidden;
-  margin-top: 12px;
-}
-.matrix-row {
-  display: flex;
-}
-.matrix-cell {
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-right: 1px solid #e6eaf5;
-  border-bottom: 1px solid #e6eaf5;
-  font-size: 12px;
-  background: #fafbfc;
-}
-.matrix-cell.editable {
-  cursor: pointer;
-  background: #ffffff;
-}
-.matrix-cell.editable:hover {
-  background: var(--app-accent-soft);
-}
-.matrix-row:last-child .matrix-cell {
-  border-bottom: none;
-}
-.matrix-cell:last-child {
-  border-right: none;
 }
 .tip {
   color: #8c8fa3;
@@ -2168,9 +2105,6 @@ onBeforeUnmount(() => {
   font-weight: 600;
   font-size: 14px;
 }
-
-
-
 
 .controls-row {
   display: flex;

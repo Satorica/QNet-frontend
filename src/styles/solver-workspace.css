@@ -54,11 +54,12 @@ body .solver-workspace .matrix-actions { display: flex; flex-wrap: wrap; align-i
 body .solver-workspace .matrix-actions .el-button,
 body .solver-workspace .input-buttons .el-button { height: 30px; margin-left: 0; padding: 0 11px; border-radius: 6px; font-size: 12px; }
 body .solver-workspace .matrix-actions .el-button--primary { --el-button-bg-color: var(--app-accent-soft); --el-button-border-color: var(--el-color-primary-light-8); --el-button-text-color: var(--app-accent); }
-/* Grow the column minimum with the matrix so larger problems wrap before clipping. */
+/* Match GraphMatrixEditor's compact 44px cells, including the fixed row header.
+   Grow the column minimum with the matrix so only larger problems wrap. */
 .data-editor-grid {
-  --matrix-cell-width: 36px;
+  --matrix-cell-width: 44px;
   --matrix-panel-padding: 20px;
-  --editor-min-width: max(340px, calc(var(--matrix-columns, 6) * var(--matrix-cell-width) + 2 * var(--matrix-panel-padding) + 2px));
+  --editor-min-width: max(340px, calc((var(--matrix-columns, 6) + 1) * var(--matrix-cell-width) + 2 * var(--matrix-panel-padding) + 2px));
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--editor-min-width)), 1fr));
   gap: 18px;
@@ -131,10 +132,10 @@ body .solver-workspace .solver-empty-state { display: flex; align-items: center;
 body .solver-workspace .solver-log > .el-card__body { padding: 6px 16px; border-radius: 8px; background: #f8fafc; }
 body .solver-workspace .solver-log.is-empty > .el-card__body { padding: 0; }
 body .solver-workspace .solver-log .log-entries { max-height: 280px; overflow: auto; scrollbar-width: thin; }
-body .solver-workspace .solver-log-row { display: grid; grid-template-columns: 6px 66px minmax(0, 1fr); align-items: baseline; gap: 12px; margin: 0; padding: 11px 2px; border: 0; color: #738298; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+body .solver-workspace .solver-log-row { display: grid; grid-template-columns: 6px max-content minmax(0, 1fr); align-items: baseline; gap: 12px; margin: 0; padding: 11px 2px; border: 0; color: #738298; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.solver-log-time { color: #93a0b1; font-family: Consolas, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
 body .solver-workspace .solver-log-row:last-child { border-bottom: 0; }
 .solver-log-dot { width: 5px; height: 5px; align-self: start; margin-top: 8px; border-radius: 50%; background: #ced7e3; }
-.solver-log-time { color: #93a0b1; font-family: Consolas, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .is-latest .solver-log-dot { background: var(--app-accent); }
 .is-latest .solver-log-message { color: #4d617b; }
 body .solver-workspace .stats-content { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 20px; }
@@ -230,4 +231,33 @@ body .solver-workspace .matrix-formula { padding: 0; margin-bottom: 16px; border
 }
 @media (prefers-reduced-motion: reduce) {
   body .solver-workspace *, body .solver-workspace *::before { animation: none !important; transition: none !important; }
+}
+
+/* Keep the page and matrix scrollbars visually consistent. */
+:is(.main-layout .el-main, .matrix-data-viewport)::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+:is(.main-layout .el-main, .matrix-data-viewport)::-webkit-scrollbar-track,
+:is(.main-layout .el-main, .matrix-data-viewport)::-webkit-scrollbar-corner {
+  background: #f8fafc;
+}
+:is(.main-layout .el-main, .matrix-data-viewport)::-webkit-scrollbar-thumb {
+  border: 2px solid #f8fafc;
+  border-radius: 999px;
+  background: #c4bdcf;
+}
+:is(.main-layout .el-main, .matrix-data-viewport)::-webkit-scrollbar-thumb:hover {
+  background: #a49ab5;
+}
+:is(.main-layout .el-main, .matrix-data-viewport)::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+@supports not selector(::-webkit-scrollbar) {
+  :is(.main-layout .el-main, .matrix-data-viewport) {
+    scrollbar-width: thin;
+    scrollbar-color: #c4bdcf #f8fafc;
+  }
 }

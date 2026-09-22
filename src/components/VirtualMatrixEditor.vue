@@ -2,11 +2,15 @@
   <div
     class="virtual-matrix-editor"
     :style="{
-      '--matrix-content-width': `${40 + canvasWidth}px`,
-      '--matrix-content-height': `${canvasHeight}px`,
+      '--matrix-axis-width': `${cellWidth}px`,
+      '--matrix-cell-height': `${cellHeight}px`,
+      '--matrix-content-width': `${cellWidth + canvasWidth + verticalScrollbarSize + 2}px`,
+      '--matrix-content-height': `${canvasHeight + horizontalScrollbarSize}px`,
+      '--matrix-scrollbar-width': `${verticalScrollbarSize}px`,
+      '--matrix-scrollbar-height': `${horizontalScrollbarSize}px`,
     }"
   >
-    <div class="matrix-corner"></div>
+    <div class="matrix-corner" aria-label="行号 / 列号">行/列</div>
     <div class="column-header-viewport">
       <div
         class="column-header-canvas"
@@ -68,14 +72,16 @@
           @focusin="hoveredCell = { row: cell.row, column: cell.column }"
           @focusout="hoveredCell = null"
         >
-          <el-input-number
-            :model-value="matrix[cell.row]?.[cell.column] ?? 0"
-            :controls="false"
-            :precision="3"
-            :disabled="disabled"
-            :aria-label="`QUBO矩阵第${cell.row + 1}行第${cell.column + 1}列`"
-            @update:model-value="updateCell(cell.row, cell.column, $event)"
-          />
+          <slot name="cell" :row="cell.row" :column="cell.column" :value="matrix[cell.row]?.[cell.column] ?? 0">
+            <el-input-number
+              :model-value="matrix[cell.row]?.[cell.column] ?? 0"
+              :controls="false"
+              :precision="3"
+              :disabled="disabled"
+              :aria-label="`QUBO矩阵第${cell.row + 1}行第${cell.column + 1}列`"
+              @update:model-value="updateCell(cell.row, cell.column, $event)"
+            />
+          </slot>
         </div>
       </div>
     </div>
@@ -94,28 +100,30 @@ const props = defineProps<{
   matrix: number[][];
   labels: string[];
   disabled?: boolean;
+  compact?: boolean;
 }>();
 
 const emit = defineEmits<{
   (event: "update-cell", payload: MatrixCell & { value: number }): void;
 }>();
 
-const CELL_HEIGHT = 36;
 const OVERSCAN = 2;
 
 const viewportRef = ref<HTMLElement | null>(null);
 const viewportWidth = ref(640);
 const viewportHeight = ref(420);
+const horizontalScrollbarSize = ref(0);
+const verticalScrollbarSize = ref(0);
 const scrollLeft = ref(0);
 const scrollTop = ref(0);
 const hoveredCell = ref<MatrixCell | null>(null);
 let resizeObserver: ResizeObserver | null = null;
 
 const size = computed(() => props.matrix.length);
-const cellWidth = computed(() => Math.max(60, 92 - Math.max(0, size.value - 4) * 5));
-const cellHeight = CELL_HEIGHT;
+const cellWidth = computed(() => props.compact ? 44 : Math.max(60, 92 - Math.max(0, size.value - 4) * 5));
+const cellHeight = computed(() => props.compact ? 28 : 36);
 const canvasWidth = computed(() => size.value * cellWidth.value);
-const canvasHeight = computed(() => size.value * cellHeight);
+const canvasHeight = computed(() => size.value * cellHeight.value);
 
 const visibleColumnRange = computed(() => {
   const start = Math.max(0, Math.floor(scrollLeft.value / cellWidth.value) - OVERSCAN);
@@ -127,10 +135,10 @@ const visibleColumnRange = computed(() => {
 });
 
 const visibleRowRange = computed(() => {
-  const start = Math.max(0, Math.floor(scrollTop.value / cellHeight) - OVERSCAN);
+  const start = Math.max(0, Math.floor(scrollTop.value / cellHeight.value) - OVERSCAN);
   const end = Math.min(
     size.value,
-    Math.ceil((scrollTop.value + viewportHeight.value) / cellHeight) + OVERSCAN,
+    Math.ceil((scrollTop.value + viewportHeight.value) / cellHeight.value) + OVERSCAN,
   );
   return { start, end };
 });
@@ -160,6 +168,8 @@ const syncViewportSize = () => {
   if (!viewport) return;
   viewportWidth.value = viewport.clientWidth;
   viewportHeight.value = viewport.clientHeight;
+  horizontalScrollbarSize.value = viewport.offsetHeight - viewport.clientHeight;
+  verticalScrollbarSize.value = viewport.offsetWidth - viewport.clientWidth;
 };
 
 const handleScroll = (event: Event) => {
@@ -203,9 +213,10 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 <style scoped>
 .virtual-matrix-editor {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr);
-  grid-template-rows: 36px min(var(--matrix-content-height), 46vh, 480px);
+  grid-template-columns: var(--matrix-axis-width) minmax(0, 1fr);
+  grid-template-rows: var(--matrix-cell-height) min(var(--matrix-content-height), 46vh, 480px);
   width: min(100%, var(--matrix-content-width));
+  box-sizing: border-box;
   overflow: hidden;
   border: 1px solid #dbe3f0;
   border-radius: 10px;
@@ -221,6 +232,10 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 }
 
 .matrix-corner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
   z-index: 3;
   border-right: 1px solid #dbe3f0;
   border-bottom: 1px solid #dbe3f0;
@@ -233,10 +248,12 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 }
 
 .column-header-viewport {
+  margin-right: var(--matrix-scrollbar-width);
   border-bottom: 1px solid #dbe3f0;
 }
 
 .row-header-viewport {
+  margin-bottom: var(--matrix-scrollbar-height);
   border-right: 1px solid #dbe3f0;
 }
 
@@ -258,13 +275,13 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 
 .column-header {
   top: 0;
-  height: 36px;
+  height: var(--matrix-cell-height);
   border-right: 1px solid #dbe3f0;
 }
 
 .row-header {
   left: 0;
-  width: 40px;
+  width: var(--matrix-axis-width);
   border-bottom: 1px solid #dbe3f0;
 }
 
@@ -280,6 +297,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
   overflow: auto;
   overscroll-behavior: contain;
 }
+
 
 .matrix-data-canvas {
   position: relative;
@@ -341,7 +359,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 
 @media (max-width: 720px) {
   .virtual-matrix-editor {
-    grid-template-rows: 36px min(var(--matrix-content-height), 52vh, 360px);
+    grid-template-rows: var(--matrix-cell-height) min(var(--matrix-content-height), 52vh, 360px);
   }
 }
 </style>

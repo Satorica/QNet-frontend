@@ -11,17 +11,16 @@ const code = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 
-test('task start includes pre-submit time and network estimate despite client clock skew', async () => {
-  for (const skew of [-28_800_000, 39_600_000]) {
-    const times = [1000 + skew, 1200 + skew];
-    let sent;
+test('submissions use backend receipt timing without a clock probe or client timestamp', async () => {
+  for (const modelType of ['classic', 'quantum']) {
+    const requests = [];
     const client = {
       interceptors: { request: { use() {} }, response: { use() {} } },
       async get(url) {
-        assert.equal(url, '/api/tasks/clock');
-        return { data: { data: { receivedAtMs: 1100, sentAtMs: 1100 } } };
+        requests.push({ method: 'GET', url });
+        throw new Error('Clock service unavailable');
       },
-      async post(_url, payload) { sent = payload; return { data: { taskId: 't1' } }; },
+      async post(url, payload) { requests.push({ method: 'POST', url, payload }); return { data: { taskId: 't1' } }; },
     };
     const mocks = {
       axios: { default: { create: () => client } },
@@ -29,11 +28,13 @@ test('task start includes pre-submit time and network estimate despite client cl
       '../utils/auth': { tokenManager: {} },
     };
     const exports = {};
-    runInNewContext(code, { exports, require: name => mocks[name], Date: { now: () => times.shift() } });
-    const input = Object.freeze({ modelType: 'quantum' });
-    await exports.submitTask(input, 900 + skew);
-    assert.equal(sent.clientTiming.startedAtServerMs, 900);
-    assert.equal(sent.clientTiming.uncertaintyMs, 100);
+    runInNewContext(code, { exports, require: name => mocks[name], Date: { now: () => { throw new Error('Device clock must not affect submission'); } } });
+    const input = Object.freeze({ modelType });
+    assert.equal((await exports.submitTask(input)).taskId, 't1');
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].method, 'POST');
+    assert.equal(requests[0].url, '/api/submit-task');
+    assert.equal(Object.hasOwn(requests[0].payload, 'clientTiming'), false);
     assert.equal(Object.hasOwn(input, 'clientTiming'), false);
   }
 });
