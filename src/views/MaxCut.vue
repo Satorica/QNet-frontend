@@ -624,6 +624,7 @@ const taskDetailLoading = ref(false);
 const nodes = ref<GraphNode[]>([]);
 const edges = ref<WeightedGraphEdge[]>([]);
 const selectedNodes = ref<number[]>([]);
+const edgeDialogOpen = ref(false);
 const partition = ref<Record<number, 0 | 1>>({});
 const MAX_ADJACENCY_WEIGHT = 30;
 
@@ -786,8 +787,8 @@ const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
 };
 
 // 节点点击事件处理
-const onGraphNodeClick = (nodeId: number) => {
-  if (solving.value) return;
+const onGraphNodeClick = async (nodeId: number) => {
+  if (solving.value || edgeDialogOpen.value) return;
   if (selectedNodes.value.includes(nodeId)) {
     selectedNodes.value = selectedNodes.value.filter((id) => id !== nodeId);
   } else {
@@ -800,8 +801,13 @@ const onGraphNodeClick = (nodeId: number) => {
 
   if (selectedNodes.value.length === 2) {
     const [a, b] = selectedNodes.value;
-    selectedNodes.value = [];
-    openEdgeDialog(a, b);
+    edgeDialogOpen.value = true;
+    try {
+      await openEdgeDialog(a, b);
+    } finally {
+      selectedNodes.value = [];
+      edgeDialogOpen.value = false;
+    }
   }
 };
 
@@ -810,7 +816,7 @@ const openEdgeDialog = async (a: number, b: number) => {
   if (a === b) return;
   const i = Math.min(a, b);
   const j = Math.max(a, b);
-  const weight = await promptEdgeWeight(i, j, "编辑边权重");
+  const weight = await promptEdgeWeight(i, j, `编辑节点 ${i} 与 ${j} 的边权重`);
   if (weight !== null) {
     setEdgeWeight(i, j, weight);
 
