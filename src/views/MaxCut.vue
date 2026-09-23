@@ -380,7 +380,7 @@
                 getModelTypeText(selectedTask.modelType)
               }}</span>
             </div>
-            <div class="detail-row">
+            <div v-if="selectedTask.modelType === 'classic'" class="detail-row">
               <span class="detail-label">算法类型：</span>
               <span class="detail-value">{{ getMethodTypeText(selectedTask.methodType) }}</span>
             </div>
