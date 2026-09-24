@@ -1168,7 +1168,7 @@ const onCityClick = async (cityId: number) => {
     const [a, b] = selectedNodes.value;
     const { value } = await ElMessageBox.prompt(
       "请输入边长度（最小 0.1）",
-      "设置边权",
+      `编辑节点 ${a} 与 ${b} 的边长度`,
       {
         inputValue: String(distanceMatrix.value[a][b] || MIN_DISTANCE_WEIGHT),
         inputPattern: /^(?:0\.[1-9]\d*|[1-9]\d*(?:\.\d+)?)$/,
@@ -1300,7 +1300,7 @@ const toggleMatrixCell = async (i: number, j: number) => {
     return;
   const { value } = await ElMessageBox.prompt(
     "请输入边长度（最小 0.1）",
-    "编辑矩阵单元",
+    `编辑节点 ${i} 与 ${j} 的边长度`,
     {
       inputValue: String(distanceMatrix.value[i][j] || MIN_DISTANCE_WEIGHT),
       inputPattern: /^(?:0\.[1-9]\d*|[1-9]\d*(?:\.\d+)?)$/,

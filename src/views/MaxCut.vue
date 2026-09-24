@@ -752,7 +752,7 @@ const promptEdgeWeight = async (i: number, j: number, title = "编辑矩阵单�
 const toggleCell = async (i: number, j: number) => {
   if (solving.value) return;
   if (i === j) return;
-  const weight = await promptEdgeWeight(i, j, "编辑矩阵单元");
+  const weight = await promptEdgeWeight(i, j, `编辑节点 ${i} 与 ${j} 的边权重`);
   if (weight !== null) {
     setEdgeWeight(i, j, weight);
   }
