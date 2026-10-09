@@ -143,19 +143,10 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="total_time" label="总时间" width="145">
-          <template #default="{ row }">{{ formatSolveTime(row.total_time) }}</template>
-        </el-table-column>
         <el-table-column prop="solveTime" label="设备求解时间" width="145">
           <template #default="{ row }">
             {{ formatSolveTime(row.solveTime) }}
           </template>
-        </el-table-column>
-        <el-table-column prop="device_communication_time" label="设备通信时间" width="145">
-          <template #default="{ row }">{{ formatDeviceOverheadTime(row.device_communication_time, row.modelType, row.status === "completed") }}</template>
-        </el-table-column>
-        <el-table-column prop="postprocess_time" label="后处理时间" width="145">
-          <template #default="{ row }">{{ formatDeviceOverheadTime(row.postprocess_time, row.modelType, row.status === "completed") }}</template>
         </el-table-column>
         <el-table-column
           label="操作"
@@ -464,7 +455,7 @@
             </div>
           </template>
           <div class="detail-content">
-            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" :model-type="selectedTask.modelType" />
+            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" />
             <div
               class="detail-row"
               v-if="selectedTask.problemType === 'coloring'"
@@ -577,7 +568,7 @@ import {
   isTaskCancellable,
   isTaskDeletable,
 } from "../utils/task";
-import { formatCandidateValue, formatDeviceOverheadTime, formatSolveTime, toFiniteNumber } from "../utils/format";
+import { formatCandidateValue, formatSolveTime, toFiniteNumber } from "../utils/format";
 import { createLatestRequestGuard } from "../utils/asyncScope";
 import { getErrorMessage } from "../utils/error";
 import { downloadTaskResultExport } from "../utils/resultExport";

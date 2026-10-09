@@ -211,7 +211,7 @@
               <div class="state-icon" :class="stateClass"></div>
               <div class="state-text">{{ stateText }}</div>
             </div>
-            <TaskTiming :results="solveTaskResults" :device-time="solveTime" :model-type="resultExportContext?.taskInfo.modelType ?? solveType" />
+            <TaskTiming :results="solveTaskResults" :device-time="solveTime" />
             </div>
           </div>
 
@@ -277,17 +277,8 @@
         <el-table-column prop="bestValue" label="最优值" min-width="100" show-overflow-tooltip>
           <template #default="{ row }">{{ formatBestValue(row.bestValue) }}</template>
         </el-table-column>
-        <el-table-column prop="total_time" label="总时间" width="145">
-          <template #default="{ row }">{{ formatSolveTime(row.total_time) }}</template>
-        </el-table-column>
         <el-table-column prop="solveTime" label="设备求解时间" width="145">
           <template #default="{ row }">{{ formatSolveTime(row.solveTime) }}</template>
-        </el-table-column>
-        <el-table-column prop="device_communication_time" label="设备通信时间" width="145">
-          <template #default="{ row }">{{ formatDeviceOverheadTime(row.device_communication_time, row.modelType, row.status === "completed") }}</template>
-        </el-table-column>
-        <el-table-column prop="postprocess_time" label="后处理时间" width="145">
-          <template #default="{ row }">{{ formatDeviceOverheadTime(row.postprocess_time, row.modelType, row.status === "completed") }}</template>
         </el-table-column>
         <el-table-column prop="taskId" label="操作" width="156" align="center" fixed="right" class-name="table-actions">
           <template #default="{ row }">
@@ -365,7 +356,7 @@
             </div>
           </template>
           <div class="detail-content">
-            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" :model-type="selectedTask.modelType" />
+            <TaskTiming :results="taskDetailResults" :device-time="selectedTask.solveTime" />
             <div class="detail-row">
               <span class="detail-label">最优目标值：</span>
               <span class="detail-value highlight">{{ formatCandidateValue(selectedTask.bestValue) }}</span>
@@ -448,7 +439,6 @@ import { getErrorCode, getErrorMessage } from "../utils/error";
 import {
   formatBestValue,
   formatCandidateValue,
-  formatDeviceOverheadTime,
   formatSolveTime,
   toFiniteNumber,
 } from "../utils/format";
