@@ -208,7 +208,6 @@ export const businessErrors: Record<string, { code: string; description: string;
     { code: 'TASK_NAME_EXISTS', description: '任务名称已存在。', resolution: '更换名称，或省略 taskName 自动生成。' },
     { code: 'INVALID_IDEMPOTENCY_KEY', description: '提交标识格式不正确。', resolution: '使用 1–128 个无空白 ASCII 字符。' },
     { code: 'IDEMPOTENCY_CONFLICT', description: '同一提交标识已关联不同参数。', resolution: '重试保留原参数；提交新任务使用新标识。' },
-    { code: 'TASK_SUBMIT_IN_PROGRESS', description: '本账号的同一模型有任务正在提交。', resolution: '稍后使用相同标识及参数重试。' },
     { code: 'TASK_QUEUE_FULL', description: '任务队列已满。', resolution: '稍后使用相同提交标识重试。' },
     { code: 'ACCOUNT_MERGING', description: '账号合并正在进行。', resolution: '等待合并完成后重新创建密钥。' },
   ],
