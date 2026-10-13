@@ -1,4 +1,31 @@
-:root {
+/* Keep application tokens above component styles loaded on route changes. */
+html:root {
+  /* Local fonts only: Latin UI glyphs first, then native Chinese sans-serif. */
+  --app-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Hiragino Sans GB", "Noto Sans CJK SC", "WenQuanYi Micro Hei", sans-serif;
+  --app-font-family-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Noto Sans CJK SC", monospace;
+  --app-font-body: 14px;
+  --app-font-small: 13px;
+  --app-font-caption: 12px;
+  --app-font-mono: 13px;
+  --app-font-page-title: 22px;
+  --app-font-section-title: 18px;
+  --app-font-subtitle: 15px;
+  --app-weight-regular: 400;
+  --app-weight-medium: 500;
+  --app-weight-semibold: 600;
+  --app-line-body: 1.65;
+  --app-line-heading: 1.5;
+  --app-line-reading: 1.8;
+  --el-font-family: var(--app-font-family);
+  --el-font-size-extra-large: var(--app-font-page-title);
+  --el-font-size-large: var(--app-font-section-title);
+  --el-font-size-base: var(--app-font-body);
+  --el-font-size-medium: 16px;
+  --el-font-size-small: var(--app-font-small);
+  --el-font-size-extra-small: var(--app-font-caption);
+  --el-text-color-primary: #263449;
+  --el-text-color-regular: #465369;
+  --el-text-color-secondary: #626f80;
   --app-accent: var(--el-color-primary);
   --app-accent-secondary: #9255ae;
   --app-accent-rgb: 128, 83, 181;
@@ -9,4 +36,77 @@
   --app-sidebar-start: #f9f6fb;
   --app-border: #eee9f5;
   --app-control-bg: #f2f4f7;
+}
+
+body {
+  font-family: var(--app-font-family);
+  font-size: var(--app-font-body);
+  font-weight: var(--app-weight-regular);
+  line-height: var(--app-line-body);
+  color: var(--el-text-color-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+.el-input .el-input__inner,
+.el-textarea .el-textarea__inner {
+  font-family: var(--app-font-family);
+}
+
+/* Explicit hierarchy avoids browser-default h3 sizing and heavy Chinese bold. */
+:where(h1, h2, h3, h4, h5, h6) {
+  font-weight: var(--app-weight-semibold);
+  line-height: var(--app-line-heading);
+  letter-spacing: 0;
+}
+
+:where(strong, b) { font-weight: var(--app-weight-semibold); }
+
+body :is(.task-header, .history-header, .page-header, .feedback-card-header) h3 {
+  font-size: var(--app-font-page-title);
+  font-weight: var(--app-weight-semibold);
+  line-height: var(--app-line-heading);
+  letter-spacing: 0;
+}
+
+body :is(.el-dialog__title, .el-message-box__title) {
+  font-size: var(--app-font-section-title);
+  font-weight: var(--app-weight-semibold);
+  line-height: var(--app-line-heading);
+  letter-spacing: 0;
+}
+
+.el-button { font-weight: var(--app-weight-medium); }
+.el-form-item__label { font-weight: var(--app-weight-medium); }
+
+/* Include controls rendered in body-level dropdowns and dialogs. */
+.el-select,
+.el-dropdown-menu,
+.el-popper,
+.el-message,
+.el-notification,
+.el-message-box,
+.el-dialog {
+  font-family: var(--app-font-family);
+}
+
+.el-input__inner,
+.el-textarea__inner,
+.el-input-number,
+.el-pagination {
+  font-variant-numeric: tabular-nums;
+}
+
+:where(code, pre, kbd, samp) {
+  font-family: var(--app-font-family-mono);
+  font-variant-numeric: tabular-nums;
 }

@@ -1526,7 +1526,7 @@ onBeforeUnmount(() => {
   max-width: 100%;
   color: var(--quota-tone);
   font-size: 36px;
-  font-weight: 700;
+  font-weight: var(--app-weight-semibold);
   letter-spacing: -0.035em;
   line-height: 1;
 }

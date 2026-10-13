@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => {
   });
 
   return {
+    // 并行验证服务可指定独立缓存，避免覆盖正在运行的主开发服务。
+    cacheDir: env.QNET_VITE_CACHE_DIR || "node_modules/.vite",
     plugins: [
       vue(),
       AutoImport({
@@ -29,7 +31,7 @@ export default defineConfig(({ mode }) => {
     ],
     server: {
       proxy: {
-        "/api": createProxyConfig(),
+        "^/api(?:/|$)": createProxyConfig(),
         "/auth": createProxyConfig(),
         "/media": createProxyConfig(),
       },

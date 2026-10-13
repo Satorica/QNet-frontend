@@ -112,14 +112,12 @@ watch(emailSettingsVisible, visible => {
 });
 
 // Cookie 会话可能在顶栏挂载后才恢复，等待登录状态就绪再加载资料。
-watch([isLoggedIn, () => userInfo.value?.id], ([loggedIn], previous) => {
+watch([isLoggedIn, () => userInfo.value?.id], ([loggedIn]) => {
   const version = ++profileRequestVersion;
   profile.value = null;
   profileEditorVisible.value = false;
   emailSettingsVisible.value = false;
   if (!loggedIn) {
-    // 页面内的静默会话校验失败也需要退出当前界面；首次恢复会话时不跳转。
-    if (previous?.[0]) void router.replace('/login');
     return;
   }
   void profileApi.get().then((value) => {
@@ -236,11 +234,11 @@ onUnmounted(() => {
 
 .time {
   font-size: 24px;
-  font-weight: 600;
+  font-weight: var(--app-weight-medium);
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--app-accent);
-  letter-spacing: 0.4px;
+  letter-spacing: 0;
 }
 
 .date-col {
@@ -252,16 +250,16 @@ onUnmounted(() => {
 }
 
 .weekday {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  line-height: 1.2;
+  line-height: 1.4;
   color: #718097;
 }
 
 .date-line {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
-  line-height: 1.2;
+  line-height: 1.4;
   font-variant-numeric: tabular-nums;
   color: #718097;
 }
@@ -312,7 +310,7 @@ onUnmounted(() => {
 .username {
   display: inline-block;
   line-height: 20px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: #292929;
   max-width: 120px;
@@ -328,7 +326,7 @@ onUnmounted(() => {
 
 .user-details div {
   margin: 6px 0;
-  font-size: 13px;
+  font-size: 14px;
   color: #606266;
 }
 

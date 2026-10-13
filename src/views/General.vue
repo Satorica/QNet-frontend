@@ -1222,7 +1222,7 @@ onBeforeUnmount(() => {
 .expression-tip { margin-top: -3px; margin-bottom: 14px; }
 .matrix-formula { padding: 10px 12px; margin-bottom: 14px; border-left: 3px solid var(--el-color-primary); background: var(--app-accent-soft); color: var(--app-accent); font-size: 13px; line-height: 1.6; }
 .matrix-kind-select { width: min(100%, 300px); }
-.matrix-textarea :deep(.el-textarea__inner) { font-family: "SFMono-Regular", Consolas, monospace; line-height: 1.55; }
+.matrix-textarea :deep(.el-textarea__inner) { font-family: var(--app-font-family-mono); line-height: 1.55; }
 .vector-fields { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 12px; }
 .constraint-heading { margin: 2px 0 10px; color: #292929; font-weight: 500; }
 .constraint-table { width: 100%; }

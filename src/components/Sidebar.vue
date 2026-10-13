@@ -1,178 +1,278 @@
 <template>
-  <div class="sidebar">
-    <div class="sidebar-top">
-      <!-- 品牌区域 -->
-      <div class="brand">
+  <div class="sidebar" :class="{ collapsed }">
+    <div class="sidebar-brand">
+      <img class="brand-mark" :src="brandLogo" :alt="collapsed ? '量子 Ising 求解系统' : ''" />
+      <div v-if="!collapsed" class="brand">
         <div class="title">量子 Ising 求解系统</div>
         <div class="subtitle">可视化求解与任务管理</div>
       </div>
-
-      <!-- 导航菜单 -->
-      <el-menu
-        :default-active="activeMenu"
-        class="nav-menu"
-        router
-        background-color="transparent"
-        text-color="#8C8FA3"
-        active-text-color="var(--app-accent)"
-      >
-        <el-menu-item index="/maxcut">
-          <el-icon><TrendCharts /></el-icon>
-          <span>图分割问题</span>
-        </el-menu-item>
-        <el-menu-item index="/number">
-          <el-icon><Odometer /></el-icon>
-          <span>数分问题</span>
-        </el-menu-item>
-        <el-menu-item index="/coloring">
-          <el-icon><MagicStick /></el-icon>
-          <span>图着色问题</span>
-        </el-menu-item>
-        <el-menu-item index="/tsp">
-          <el-icon><Location /></el-icon>
-          <span>旅行商问题</span>
-        </el-menu-item>
-        <el-menu-item index="/general">
-          <el-icon><DataAnalysis /></el-icon>
-          <span>一般问题</span>
-        </el-menu-item>
-      </el-menu>
     </div>
 
-    <!-- 底部导航 -->
-    <div class="sidebar-bottom">
-      <el-menu
-        :default-active="activeMenu"
-        class="bottom-menu"
-        router
-        background-color="transparent"
-        text-color="#8C8FA3"
-        active-text-color="var(--app-accent)"
+    <nav class="sidebar-navigation" aria-label="主导航">
+      <section
+        v-for="group in menuGroups"
+        :key="group.title"
+        class="menu-section"
+        :aria-label="group.title"
       >
-        <el-menu-item index="/tasks">
-          <el-icon><List /></el-icon>
-          <span>任务情况</span>
-        </el-menu-item>
-        <el-menu-item index="/quota-requests">
-          <el-icon><Tickets /></el-icon>
-          <span>我的申请</span>
-        </el-menu-item>
-        <el-menu-item index="/feedback">
-          <el-icon><ChatDotRound /></el-icon>
-          <span>问题反馈</span>
-        </el-menu-item>
-        <el-menu-item class="logout-btn" @click="handleLogout">
-          <el-icon><SwitchButton /></el-icon>
-          <span>退出</span>
-        </el-menu-item>
-      </el-menu>
+        <h2 v-if="!collapsed" class="menu-section-title">{{ group.title }}</h2>
+        <ul class="nav-menu">
+          <li v-for="item in group.items" :key="item.path">
+            <el-tooltip
+              :content="item.label"
+              :disabled="!collapsed"
+              :trigger="['hover', 'focus']"
+              :trigger-keys="[]"
+              placement="right"
+              effect="light"
+              :show-after="150"
+            >
+              <router-link
+                :to="item.path"
+                :target="item.path === '/api-center' ? '_blank' : undefined"
+                :rel="item.path === '/api-center' ? 'noopener' : undefined"
+                class="nav-item"
+                :class="{ 'is-active': activeMenu === item.path }"
+                :aria-label="item.label"
+                :aria-current="activeMenu === item.path ? 'page' : undefined"
+              >
+                <el-icon aria-hidden="true"><component :is="item.icon" /></el-icon>
+                <span v-if="!collapsed" class="menu-label">{{ item.label }}</span>
+                <span v-if="activeMenu === item.path && !collapsed" class="menu-current" aria-hidden="true"></span>
+              </router-link>
+            </el-tooltip>
+          </li>
+        </ul>
+      </section>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button
+        type="button"
+        class="sidebar-toggle"
+        :aria-label="collapsed ? '展开菜单栏' : '折叠菜单栏'"
+        :aria-expanded="!collapsed"
+        :title="collapsed ? '展开菜单栏' : '折叠菜单栏'"
+        @click="$emit('toggle-collapse')"
+      >
+        <el-icon :size="18"><Expand v-if="collapsed" /><Fold v-else /></el-icon>
+        <span v-if="!collapsed">折叠菜单</span>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { TrendCharts, Odometer, MagicStick, Location, DataAnalysis, List, Tickets, ChatDotRound, SwitchButton } from '@element-plus/icons-vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { userManager } from '../utils/auth'
+import { DataLine, Odometer, MagicStick, Location, DataAnalysis, List, Document, ChatDotRound, Key, Expand, Fold } from '@element-plus/icons-vue'
+import { useRoute } from 'vue-router'
+import brandLogo from '../assets/brand-logo.svg'
 
-const router = useRouter()
+const { collapsed = false } = defineProps<{ collapsed?: boolean }>()
+defineEmits<{ (event: 'toggle-collapse'): void }>()
+
+const menuGroups = [
+  {
+    title: '问题求解',
+    items: [
+      { path: '/maxcut', label: '图分割问题', icon: DataLine },
+      { path: '/number', label: '数分问题', icon: Odometer },
+      { path: '/coloring', label: '图着色问题', icon: MagicStick },
+      { path: '/tsp', label: '旅行商问题', icon: Location },
+      { path: '/general', label: '一般问题', icon: DataAnalysis },
+    ],
+  },
+  {
+    title: '工作台',
+    items: [
+      { path: '/tasks', label: '任务情况', icon: List },
+      { path: '/quota-requests', label: '我的申请', icon: Document },
+      { path: '/api-center', label: 'API 中心', icon: Key },
+      { path: '/feedback', label: '问题反馈', icon: ChatDotRound },
+    ],
+  },
+]
+
 const route = useRoute()
 const activeMenu = computed(() => {
   if (route.path.startsWith('/feedback')) return '/feedback'
   return route.path
 })
-
-const handleLogout = async () => {
-  try {
-    await ElMessageBox.confirm('确定要退出登录吗？', '退出登录', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
-  } catch {
-    // 用户取消或关闭弹窗时保持登录状态。
-    return
-  }
-
-  try {
-    await userManager.logout()
-    ElMessage.success('已退出登录')
-    router.push('/login')
-  } catch {
-    ElMessage.error('登出失败')
-  }
-}
 </script>
 
 <style scoped>
 .sidebar {
+  --sidebar-ink: #263b52;
+  --sidebar-muted: #65758b;
   height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  /* Keep Chinese and Latin navigation labels in the same local typeface. */
+  font-family: "PingFang SC", "Microsoft YaHei", "Microsoft YaHei UI", "Noto Sans CJK SC", "Hiragino Sans GB", "WenQuanYi Micro Hei", sans-serif;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 4px 18px;
+  border-bottom: 1px solid var(--app-border);
 }
 
 .brand {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  min-height: 40px;
-  padding: 0 12px;
-  margin-bottom: 20px;
+  gap: 4px;
+  min-width: 0;
 }
 
 .title {
-  font-weight: 600;
-  font-size: 15px;
-  line-height: 1.6;
-  color: #263b52;
+  color: var(--sidebar-ink);
+  font-size: var(--app-font-body);
+  font-weight: var(--app-weight-semibold);
+  line-height: 1.5;
+  white-space: nowrap;
+  letter-spacing: 0;
 }
 
 .subtitle {
-  font-size: 12px;
-  color: #8C8FA3;
+  color: var(--sidebar-muted);
+  font-size: var(--app-font-caption);
+  line-height: 1.5;
+  white-space: nowrap;
+  letter-spacing: 0;
 }
 
-.nav-menu, .bottom-menu {
-  border: none;
+.brand-mark {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
 }
 
-.nav-menu .el-menu-item,
-.bottom-menu .el-menu-item,
-.logout-btn {
+.sidebar-navigation {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 0 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-border) transparent;
+}
+
+.menu-section + .menu-section { margin-top: 26px; }
+
+.menu-section-title {
+  margin: 0 10px 8px;
+  color: var(--sidebar-muted);
+  font-size: var(--app-font-caption);
+  font-weight: var(--app-weight-regular);
+  line-height: 18px;
+  letter-spacing: 0;
+}
+
+.menu-section + .menu-section .menu-section-title {
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.nav-menu { width: 100%; padding: 0; margin: 0; list-style: none; }
+
+.nav-item {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  margin: 4px 0;
-  transition: all 0.3s;
+  gap: 12px;
+  height: 44px;
+  line-height: 22px;
+  padding: 0 12px;
+  margin: 3px 0;
+  border-radius: 11px;
+  color: var(--sidebar-ink);
+  font-size: var(--app-font-subtitle);
+  font-weight: var(--app-weight-regular);
+  text-decoration: none;
+  transition: background-color .18s, color .18s, box-shadow .18s;
 }
 
-.nav-menu .el-menu-item:hover,
-.bottom-menu .el-menu-item:hover,
-.logout-btn:hover {
-  background-color: var(--app-accent-soft);
+.nav-item .el-icon {
+  flex-shrink: 0;
+  width: 20px;
+  margin-right: 0;
+  font-size: 19px;
+  color: inherit;
 }
 
-.nav-menu .el-menu-item.is-active,
-.bottom-menu .el-menu-item.is-active {
-  background: var(--app-accent-gradient);
-  color: white !important;
-  box-shadow: 0 6px 18px rgba(var(--app-accent-rgb), 0.25);
+.menu-label { flex: 1; min-width: 0; }
+
+.menu-current {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
-.logout-btn {
-  cursor: pointer;
-  color: #8C8FA3;
-  font-size: 14px;
-  margin-top: 8px;
-}
-
-.logout-btn:hover {
+.nav-item:hover {
+  background-color: rgba(var(--app-accent-rgb), .045);
   color: var(--app-accent);
+}
+
+.nav-item.is-active,
+.nav-item.is-active:hover {
+  background: var(--app-accent-soft);
+  color: var(--app-accent) !important;
+  font-weight: var(--app-weight-medium);
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: -2px;
+}
+
+.sidebar-footer {
+  flex-shrink: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--app-border);
+}
+
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--app-border);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .65);
+  color: var(--sidebar-muted);
+  font: inherit;
+  font-size: var(--app-font-subtitle);
+  cursor: pointer;
+  transition: background-color .18s, color .18s, border-color .18s;
+}
+
+.sidebar-toggle .el-icon { flex-shrink: 0; width: 20px; }
+.sidebar-toggle:hover { background: var(--app-accent-soft); border-color: var(--el-color-primary-light-5); color: var(--app-accent); }
+.sidebar-toggle:focus-visible { outline: 2px solid var(--app-accent); outline-offset: -2px; }
+.collapsed .sidebar-brand { justify-content: center; padding-right: 0; padding-left: 0; }
+
+.collapsed .menu-section + .menu-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border);
+}
+
+.collapsed .sidebar-toggle,
+.collapsed .nav-item { justify-content: center; gap: 0; padding: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item, .sidebar-toggle { transition: none; }
 }
 </style>

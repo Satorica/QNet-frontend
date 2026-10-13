@@ -91,7 +91,7 @@ async function closePanel() {
 .theme-trigger { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid rgba(var(--app-accent-rgb), 0.1); border-radius: 8px; background: rgba(var(--app-accent-rgb), 0.05); color: var(--app-accent); font-family: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background-color 150ms, border-color 150ms; }
 .theme-wand { display: block; width: 17px; height: 17px; }
 .theme-trigger:hover, .theme-trigger.is-open { background: rgba(var(--app-accent-rgb), 0.1); border-color: rgba(var(--app-accent-rgb), 0.22); }
-.theme-panel { padding: 6px; color: #26313f; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; }
+.theme-panel { padding: 6px; color: #26313f; font-family: var(--app-font-family); }
 .theme-options { display: flex; flex-direction: column; gap: 2px; max-height: min(304px, calc(100vh - 120px)); overflow-y: auto; overscroll-behavior: contain; }
 .theme-option { display: flex; flex-shrink: 0; align-items: center; gap: 10px; width: 100%; height: 36px; padding: 0 10px; border: 0; border-radius: 6px; background: transparent; color: #616b7c; font: inherit; cursor: pointer; transition: background-color 150ms; }
 .theme-option:hover { background: #f5f7fa; }

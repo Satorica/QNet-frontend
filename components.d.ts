@@ -7,6 +7,9 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    ApiCodeBlock: typeof import('./src/components/ApiCodeBlock.vue')['default']
+    ApiDocumentation: typeof import('./src/components/ApiDocumentation.vue')['default']
+    ApiParameterTable: typeof import('./src/components/ApiParameterTable.vue')['default']
     CandidateEmptyState: typeof import('./src/components/CandidateEmptyState.vue')['default']
     ColoringGraph: typeof import('./src/components/ColoringGraph.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
@@ -29,8 +32,6 @@ declare module 'vue' {
     ElInputNumber: typeof import('element-plus/es')['ElInputNumber']
     ElLink: typeof import('element-plus/es')['ElLink']
     ElMain: typeof import('element-plus/es')['ElMain']
-    ElMenu: typeof import('element-plus/es')['ElMenu']
-    ElMenuItem: typeof import('element-plus/es')['ElMenuItem']
     ElOption: typeof import('element-plus/es')['ElOption']
     ElPagination: typeof import('element-plus/es')['ElPagination']
     ElPopover: typeof import('element-plus/es')['ElPopover']
@@ -47,6 +48,7 @@ declare module 'vue' {
     ElTabPane: typeof import('element-plus/es')['ElTabPane']
     ElTabs: typeof import('element-plus/es')['ElTabs']
     ElTag: typeof import('element-plus/es')['ElTag']
+    ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ElUpload: typeof import('element-plus/es')['ElUpload']
     EmailSettings: typeof import('./src/components/EmailSettings.vue')['default']
     GraphMatrixEditor: typeof import('./src/components/GraphMatrixEditor.vue')['default']

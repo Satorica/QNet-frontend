@@ -359,4 +359,38 @@ export const deleteTasksByFilter = async (
 };
 
 export { cloudApi };
+export interface ApiKeyRecord {
+  id: string;
+  name: string;
+  maskedKey: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface ApiKeyOverview {
+  enabled: boolean;
+  maxKeys: number;
+  keys: ApiKeyRecord[];
+  limits: { submit: number; read: number; cancel: number };
+}
+
+export const getApiKeys = async (): Promise<ApiKeyOverview> => {
+  const response = await cloudApi.get<ApiResponse<ApiKeyOverview>>("/api/api-keys");
+  return response.data.data!;
+};
+
+export const createApiKey = async (name: string): Promise<ApiKeyRecord & { apiKey: string }> => {
+  const response = await cloudApi.post<ApiResponse<ApiKeyRecord & { apiKey: string }>>("/api/api-keys", { name });
+  return response.data.data!;
+};
+
+export const renameApiKey = async (id: string, name: string): Promise<ApiKeyRecord> => {
+  const response = await cloudApi.patch<ApiResponse<ApiKeyRecord>>(`/api/api-keys/${encodeURIComponent(id)}`, { name });
+  return response.data.data!;
+};
+
+export const deleteApiKey = async (id: string): Promise<void> => {
+  await cloudApi.delete(`/api/api-keys/${encodeURIComponent(id)}`);
+};
 export default cloudApi;

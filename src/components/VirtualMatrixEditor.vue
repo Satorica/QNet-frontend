@@ -354,7 +354,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
 
 .matrix-cell :deep(.el-input__inner) {
   text-align: center;
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: var(--app-font-family-mono);
 }
 
 @media (max-width: 720px) {

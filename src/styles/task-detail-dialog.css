@@ -14,9 +14,10 @@ body .task-detail-dialog .el-dialog__header {
 
 body .task-detail-dialog .el-dialog__title {
   color: #202737;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: var(--app-font-section-title);
+  font-weight: var(--app-weight-semibold);
+  line-height: var(--app-line-heading);
+  letter-spacing: 0;
 }
 
 body .task-detail-dialog .el-dialog__headerbtn {
@@ -68,9 +69,9 @@ body .task-detail-dialog .detail-title {
   display: inline-flex;
   padding-bottom: 9px;
   color: #202737;
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1;
+  font-size: var(--app-font-subtitle);
+  font-weight: var(--app-weight-medium);
+  line-height: var(--app-line-heading);
 }
 
 body .task-detail-dialog .detail-title::after {

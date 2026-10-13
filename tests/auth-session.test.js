@@ -12,6 +12,7 @@ const transpile = text => ts.transpileModule(text, {
 }).outputText;
 const component = path => transpile(compileScript(parse(source(path)).descriptor, { id: path }).content);
 const topBarCode = component('components/TopBar.vue');
+const appCode = component('App.vue');
 const emailCode = component('components/EmailSettings.vue');
 const makeStorage = () => {
   const values = new Map();
@@ -21,13 +22,14 @@ const failure = (url, status, code) => ({
   isAxiosError: true, config: { url }, response: { status, data: { code, message: '请求失败' } },
 });
 
-// Execute the real interceptor, auth store and both component setups together.
-function fixture(t, { loggedIn = true, verificationError = failure('/auth/verify', 401) } = {}) {
+// Execute the real interceptor, auth store and layout/component setups together.
+function fixture(t, { loggedIn = true, standalone = false, verificationError = failure('/auth/verify', 401) } = {}) {
   const localStorage = makeStorage(), sessionStorage = makeStorage();
   const auth = {}, authApi = {}, api = {}, emailSettings = {};
   const navigation = [], disposers = [];
   const scope = vue.effectScope();
-  const window = { location: { pathname: '/maxcut' } };
+  const route = vue.reactive({ path: standalone ? '/api-center' : '/maxcut', meta: { standalone } });
+  const window = { location: { pathname: route.path } };
   let rejectResponse;
   const cloud = {
     interceptors: { request: { use() {} }, response: { use: (_ok, fail) => { rejectResponse = fail; } } },
@@ -37,11 +39,13 @@ function fixture(t, { loggedIn = true, verificationError = failure('/auth/verify
     vue: { ...vue, onMounted() {}, onUnmounted: callback => disposers.push(callback) },
     axios: { default: { create: () => cloud, isAxiosError: error => error?.isAxiosError === true } },
     'element-plus': { ElMessage: { success() {} } },
-    'vue-router': { useRouter: () => ({ replace: path => navigation.push(path) }) },
+    'vue-router': { useRoute: () => route, useRouter: () => ({ replace: path => navigation.push(path) }) },
     '../utils/auth': auth,
+    './utils/auth': auth,
     '../api/auth': authApi,
     './index': api,
     '../utils/emailSettings': emailSettings,
+    './utils/emailSettings': emailSettings,
     '../utils/validation': { EMAIL_REGEX: /.+@.+\..+/ },
     '../api/profile': { profileApi: { get: async () => ({ nickname: '用户', avatarUrl: '', gender: '保密', birthday: '' }) } },
   };
@@ -59,11 +63,48 @@ function fixture(t, { loggedIn = true, verificationError = failure('/auth/verify
     auth.userManager.setUserInfo({ id: 'user-1', nickname: '用户', maskedEmail: '', hasPassword: false }, true);
   }
   const setup = code => scope.run(() => execute(code).default.setup({}, { expose() {}, emit() {} }));
-  const topBar = setup(topBarCode);
+  const app = setup(appCode);
+  app.initialized.value = true;
+  const topBar = standalone ? null : setup(topBarCode);
   const email = setup(emailCode);
   t.after(() => { scope.stop(); disposers.forEach(dispose => dispose()); });
-  return { auth, topBar, email, emailSettings, localStorage, navigation, rejectResponse, window };
+  return { auth, app, topBar, email, emailSettings, localStorage, navigation, rejectResponse, window };
 }
+
+test('standalone API center hides protected content and closes email settings on session expiry', async t => {
+  const f = fixture(t, { standalone: true });
+  assert.equal(f.topBar, null);
+  assert.equal(f.app.shouldShowStandaloneLayout.value, true);
+  f.emailSettings.openEmailSettings();
+  await f.email.loadUser();
+  await vue.nextTick();
+  assert.equal(f.auth.userManager.isLoggedIn(), false);
+  assert.equal(f.app.shouldShowStandaloneLayout.value, false);
+  assert.equal(f.emailSettings.emailSettingsVisible.value, false);
+  assert.deepEqual(f.navigation, ['/login']);
+});
+
+test('standalone layout waits for session restoration without redirecting', async t => {
+  const f = fixture(t, { standalone: true, loggedIn: false });
+  assert.equal(f.app.shouldShowStandaloneLayout.value, false);
+  await vue.nextTick();
+  assert.deepEqual(f.navigation, []);
+  f.auth.userManager.setUserInfo({ id: 'restored-user', nickname: '用户' });
+  await vue.nextTick();
+  assert.equal(f.app.shouldShowStandaloneLayout.value, true);
+  assert.deepEqual(f.navigation, []);
+});
+
+test('standalone email network failure preserves the session and protected layout', async t => {
+  const f = fixture(t, { standalone: true, verificationError: { isAxiosError: true, config: { url: '/auth/verify' }, message: '网络连接失败' } });
+  f.emailSettings.openEmailSettings();
+  await f.email.loadUser();
+  await vue.nextTick();
+  assert.equal(f.app.shouldShowStandaloneLayout.value, true);
+  assert.equal(f.emailSettings.emailSettingsVisible.value, true);
+  assert.equal(f.email.loadError.value, '网络连接失败');
+  assert.deepEqual(f.navigation, []);
+});
 
 test('expired verification in email settings clears reactive auth, closes dialogs and returns to login', async t => {
   const f = fixture(t);

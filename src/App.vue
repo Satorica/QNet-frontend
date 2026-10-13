@@ -11,11 +11,16 @@
       <router-view />
     </div>
 
+    <main v-else-if="shouldShowStandaloneLayout" class="standalone-layout">
+      <router-view />
+      <EmailSettings v-if="userManager.isLoggedIn() && emailSettingsVisible" :reason="emailSettingsReason" @close="emailSettingsVisible = false" />
+    </main>
+
     <!-- 主应用布局 - 包含侧边栏和顶部栏 -->
     <el-container v-else-if="shouldShowMainLayout" class="main-layout">
       <!-- 侧边栏 -->
-      <el-aside width="240px">
-        <Sidebar />
+      <el-aside :width="sidebarCollapsed ? '80px' : '240px'" class="app-sidebar" :class="{ 'is-collapsed': sidebarCollapsed }">
+        <Sidebar :collapsed="sidebarCollapsed" @toggle-collapse="toggleSidebar" />
       </el-aside>
 
       <!-- 主内容区 -->
@@ -35,13 +40,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
-import { useRoute } from "vue-router";
+import { ref, onMounted, computed, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import Sidebar from "./components/Sidebar.vue";
 import TopBar from "./components/TopBar.vue";
+import EmailSettings from "./components/EmailSettings.vue";
+import { emailSettingsVisible, emailSettingsReason } from "./utils/emailSettings";
+import { userManager } from "./utils/auth";
 
 const route = useRoute();
+const router = useRouter();
+const isLoggedIn = computed(() => userManager.isLoggedIn());
 const initialized = ref(false);
+const sidebarCollapsed = ref(false);
+try { sidebarCollapsed.value = localStorage.getItem('qnet.sidebar.collapsed') === 'true'; } catch { /* 存储受限时仍可折叠。 */ }
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value;
+  try { localStorage.setItem('qnet.sidebar.collapsed', String(sidebarCollapsed.value)); } catch { /* 仅影响偏好持久化。 */ }
+}
 
 onMounted(() => {
   initialized.value = true;
@@ -52,16 +68,39 @@ const isAuthPage = computed(() => {
   return ["/login", "/register", "/forgot-password"].includes(route.path);
 });
 
-// 判断是否应该显示主布局（不在认证页面即可，访问控制由路由守卫保证）
+const isStandalonePage = computed(() => route.meta.standalone === true);
+const shouldShowStandaloneLayout = computed(() => initialized.value && isStandalonePage.value && isLoggedIn.value);
+
+// 登录失效处理属于共享布局，独立页面也需要关闭受保护内容和邮箱设置。
+watch(isLoggedIn, (loggedIn, previouslyLoggedIn) => {
+  if (!loggedIn && previouslyLoggedIn) {
+    emailSettingsVisible.value = false;
+    void router.replace('/login');
+  }
+});
+
+// 访问控制由路由守卫保证，独立页面使用自己的布局。
 const shouldShowMainLayout = computed(() => {
-  return initialized.value && !isAuthPage.value;
+  return initialized.value && isLoggedIn.value && !isAuthPage.value && !isStandalonePage.value;
 });
 </script>
 
 <style>
 #app {
   height: 100vh;
-  font-family: "PingFang SC", "Noto Sans SC", "Inter", "Roboto", sans-serif;
+  font-family: var(--app-font-family);
+}
+
+.standalone-layout {
+  box-sizing: border-box;
+  height: 100%;
+  overflow: auto;
+  padding: 12px 14px;
+  background: linear-gradient(180deg, var(--app-page-start), var(--app-page-end));
+}
+
+@media (max-width: 900px) {
+  .standalone-layout { padding: 0 12px; }
 }
 
 /* 任务详情弹窗中的状态标签保持静态，避免弹窗打开时出现额外过渡。 */
@@ -193,7 +232,7 @@ body {
   gap: 20px;
 }
 
-.el-aside {
+.app-sidebar { box-sizing: border-box; flex-shrink: 0; transition: width .2s, padding .2s;
   background: linear-gradient(180deg, var(--app-sidebar-start), #ffffff);
   border-radius: 18px;
   border: 1px solid var(--app-border);
@@ -201,6 +240,9 @@ body {
   padding: 18px;
 }
 
+.app-sidebar.is-collapsed { padding: 18px 10px; }
+.main-layout > .el-container { min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .app-sidebar { transition: none; } }
 .el-header {
   padding: 0;
   margin-bottom: 20px;

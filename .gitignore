@@ -37,3 +37,7 @@ coverage/
 .cache/
 .eslintcache
 vite-cache/
+
+# Python API examples and their tests
+__pycache__/
+*.py[cod]

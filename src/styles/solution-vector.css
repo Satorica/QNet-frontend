@@ -7,8 +7,8 @@ body :is(.solver-workspace, .task-detail-dialog) :is(.candidate-solution, .candi
   margin: 0;
   padding: 0;
   border: 0;
-  font-size: 12px;
-  line-height: 20px;
+  font-size: var(--app-font-mono);
+  line-height: 24px;
 }
 
 body :is(.solver-workspace, .task-detail-dialog) :is(.solution-label, .solution-label-main) {
@@ -21,7 +21,7 @@ body :is(.solver-workspace, .task-detail-dialog) :is(.solution-value, .solution-
   flex: 1;
   min-width: 0;
   color: #526782;
-  font-family: Consolas, "SFMono-Regular", "Liberation Mono", monospace;
+  font-family: var(--app-font-family-mono);
   font-size: inherit;
   line-height: inherit;
   font-variant-numeric: tabular-nums;

@@ -230,7 +230,7 @@ const goToHistory = () => {
 .feedback-card-header h3 {
   margin: 0;
   color: #292929;
-  font-size: 18px;
+  font-size: var(--app-font-page-title);
   font-weight: 600;
 }
 .feedback-card-header p {

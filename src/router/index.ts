@@ -60,6 +60,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/api-center",
+    name: "ApiCenter",
+    component: () => import("../views/ApiCenter.vue"),
+    meta: { requiresAuth: true, standalone: true },
+  },
+  {
     path: "/feedback",
     name: "Feedback",
     component: () => import("../views/Feedback.vue"),
