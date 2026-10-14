@@ -562,6 +562,7 @@ import {
   isTaskDeletable,
 } from "../utils/task";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
+import { FIRST_SOLVE_POLL_DELAY_MS, getSolvePollDelay } from "../utils/solvePolling";
 import { getErrorCode, getErrorMessage } from "../utils/error";
 import { downloadMatrixTemplate } from "../utils/dataImport";
 import {
@@ -1412,7 +1413,6 @@ const pollTaskStatus = async (
   solveToken: number,
   submittedCityCount: number
 ) => {
-  const pollInterval = 2000; // 2秒轮询一次
 
   const poll = async () => {
     if (
@@ -1473,7 +1473,7 @@ const pollTaskStatus = async (
         // 任务处理中
         statusText.value = "计算中...";
 
-        solveScope.schedule(solveToken, poll, pollInterval);
+        solveScope.schedule(solveToken, poll, getSolvePollDelay(startTime));
       } else if (statusResponse.state === "queued") {
         statusText.value = `计算中${
           statusResponse.queuePosition
@@ -1481,7 +1481,7 @@ const pollTaskStatus = async (
             : ""
         }`;
 
-        solveScope.schedule(solveToken, poll, pollInterval);
+        solveScope.schedule(solveToken, poll, getSolvePollDelay(startTime));
       }
     } catch (error) {
       if (!solveScope.isCurrent(solveToken)) return;
@@ -1494,8 +1494,8 @@ const pollTaskStatus = async (
     }
   };
 
-  // 开始轮询
-  solveScope.schedule(solveToken, poll, pollInterval);
+  // 尽快获取首次状态，后续请求在上一次完成后调度。
+  solveScope.schedule(solveToken, poll, FIRST_SOLVE_POLL_DELAY_MS);
 };
 
 const cancelSolve = async () => {

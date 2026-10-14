@@ -434,6 +434,7 @@ import VirtualMatrixEditor from "../components/VirtualMatrixEditor.vue";
 import { useCustomTaskName } from "../stores/customTaskName";
 import { useAlgorithmSelection } from "../stores/algorithmSelection";
 import { createAsyncScope, createLatestRequestGuard } from "../utils/asyncScope";
+import { FIRST_SOLVE_POLL_DELAY_MS, getSolvePollDelay } from "../utils/solvePolling";
 import { downloadMatrixTemplate } from "../utils/dataImport";
 import { getErrorCode, getErrorMessage } from "../utils/error";
 import {
@@ -844,7 +845,7 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
       return;
     }
 
-    solveScope.schedule(token, () => pollTaskStatus(taskId, startedAt, token), 1200);
+    solveScope.schedule(token, () => pollTaskStatus(taskId, startedAt, token), getSolvePollDelay(startedAt));
   } catch (error) {
     stateClass.value = "state-fail";
     stateText.value = "连接失败";
@@ -968,7 +969,7 @@ const startSolve = async () => {
       },
     };
 
-    solveScope.schedule(token, () => pollTaskStatus(response.taskId, startedAt, token), 350);
+    solveScope.schedule(token, () => pollTaskStatus(response.taskId, startedAt, token), FIRST_SOLVE_POLL_DELAY_MS);
     loadTaskHistory();
   } catch (error) {
     if (!solveScope.isCurrent(token)) return;
