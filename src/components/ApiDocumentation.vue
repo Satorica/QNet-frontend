@@ -9,12 +9,13 @@
           <span>{{ item.title }}</span>
           <ChevronRight class="nav-chevron" :size="18" :stroke-width="1.8" aria-hidden="true" />
         </button>
-        <button type="button" class="menu-group" :aria-expanded="endpointsExpanded || !!search.trim()" aria-controls="api-endpoint-list" @click="endpointsExpanded = !endpointsExpanded">
-          <ChevronDown :size="18" :stroke-width="2" :class="{ collapsed: !endpointsExpanded && !search.trim() }" aria-hidden="true" />
-          <span>任务 API</span>
+        <template v-for="group in endpointGroups" :key="group.id">
+        <button type="button" class="menu-group" :aria-expanded="expandedGroups[group.id] || !!search.trim()" :aria-controls="`api-endpoint-${group.id}`" @click="expandedGroups[group.id] = !expandedGroups[group.id]">
+          <ChevronDown :size="18" :stroke-width="2" :class="{ collapsed: !expandedGroups[group.id] && !search.trim() }" aria-hidden="true" />
+          <span>{{ group.title }}</span>
         </button>
-        <div v-show="endpointsExpanded || search.trim()" id="api-endpoint-list" class="endpoint-list">
-          <button v-for="endpoint in filteredEndpoints" :key="endpoint.id" type="button" class="endpoint-link" :class="{ selected: selected === endpoint.id }" :aria-label="`${endpoint.title} ${endpoint.method} ${endpoint.path}`" :aria-current="selected === endpoint.id ? 'page' : undefined" @click="selectPage(endpoint.id)">
+        <div v-show="expandedGroups[group.id] || search.trim()" :id="`api-endpoint-${group.id}`" class="endpoint-list">
+          <button v-for="endpoint in group.items" :key="endpoint.id" type="button" class="endpoint-link" :class="{ selected: selected === endpoint.id }" :aria-label="`${endpoint.title} ${endpoint.method} ${endpoint.path}`" :aria-current="selected === endpoint.id ? 'page' : undefined" @click="selectPage(endpoint.id)">
             <span class="method" :class="endpoint.method.toLowerCase()">{{ endpoint.method }}</span>
             <span class="endpoint-summary">
               <code class="menu-path" :title="endpoint.path">{{ endpoint.path }}</code>
@@ -23,6 +24,7 @@
             <ChevronRight class="nav-chevron" :size="18" :stroke-width="1.8" aria-hidden="true" />
           </button>
         </div>
+        </template>
         <p v-if="!filteredEndpoints.length" class="menu-empty" role="status">没有匹配的接口</p>
       </div>
       <div class="menu-footer">
@@ -43,25 +45,24 @@
           <h3>{{ endpoint.title }}</h3><p>{{ endpoint.description }}</p>
           <div class="endpoint-address"><code>{{ baseUrl }}{{ endpoint.path }}</code><el-button text @click="copy(baseUrl + endpoint.path)">复制地址</el-button></div>
         </template>
-        <template v-else><h2>{{ pageTitle }}</h2><p>{{ pageDescription }}</p></template>
+        <template v-else><h2>快速开始</h2><p>以一个图分割任务为例，依次提交任务、查询状态并获取结果。</p></template>
       </header>
 
       <template v-if="endpoint">
-        <section id="api-doc-common" data-doc-section><h3>公共参数</h3>
+        <section id="api-doc-common" data-doc-section><h3>请求头</h3>
           <ApiParameterTable :fields="headerFields" label="公共参数表" />
         </section>
         <section id="api-doc-request-params" data-doc-section><h3>请求参数</h3>
           <ApiParameterTable v-if="endpoint.parameters.length" :fields="requestFields" :initial-expanded-depth="0" :key="endpoint.id + '-request'" label="请求参数表" />
           <div v-else class="no-parameters">此接口无需请求参数。</div>
-          <div v-if="isSubmit" class="problem-guide"><h4>每项任务的问题数据约束</h4><div v-for="problem in problemExamples" :key="problem.value" class="problem-row"><code>{{ problem.value }}</code><span>{{ problem.size }} 阶／项</span><p>{{ problem.input }}</p></div></div>
+          <div v-if="isSubmit" class="problem-guide"><h4>问题数据约束</h4><div v-for="problem in problemExamples" :key="problem.value" class="problem-row"><code>{{ problem.value }}</code><span>{{ problem.size }} 阶／项</span><p>{{ problem.input }}</p></div></div>
         </section>
         <section id="api-doc-request-example" data-doc-section><h3>请求示例</h3>
           <div v-if="isSubmit" class="example-settings"><span>示例问题</span><el-select v-model="problemType" aria-label="示例问题"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select><el-select v-model="modelType" aria-label="示例模型"><el-option label="经典计算" value="classic" /><el-option label="量子芯片模拟计算" value="quantum" /></el-select></div>
-          <p v-if="endpoint.id === 'batch-submit'">每项使用独立的 <code>idempotencyKey</code>，将完整任务参数放入 <code>payload</code>。保存各项标识，重试时保持原标识和参数；不传整批幂等请求头。</p>
-          <p v-if="endpoint.id === 'submit'">将 <code>YOUR_UNIQUE_REQUEST_ID</code> 替换为本次提交的唯一标识并保存。新任务使用新标识；重试同一次提交时保留标识和参数。</p>
+          <p v-if="endpoint.id === 'batch-submit'">每项填写 <code>idempotencyKey</code> 和 <code>payload</code>。重试时保持标识和参数不变；不传 <code>Idempotency-Key</code> 请求头。</p>
+          <p v-if="endpoint.id === 'submit'">新任务使用新的 <code>Idempotency-Key</code>；重试时保持标识和参数不变。</p>
           <el-tabs v-model="language" class="language-tabs"><el-tab-pane label="python" name="python" /><el-tab-pane label="curl" name="curl" /></el-tabs>
           <ApiCodeBlock :code="requestCode" :title="language === 'python' ? 'Python · 标准库' : 'curl · Bash'" />
-          <details v-if="endpoint.id === 'batch-submit'"><summary>完整 Python 批量流程：提交、恢复、轮询与结果保存</summary><p>示例跟随上方问题类型和模型选择。修改 API_KEY 与 TASK_PAYLOADS；保留任务清单文件，重试时不要更换文件或各项幂等键。</p><ApiCodeBlock :code="selectedBatchWorkflow" title="Python 3.9+ · 标准库" /></details>
         </section>
         <section id="api-doc-response-params" data-doc-section><h3>响应参数</h3>
           <div v-if="['result', 'batch-results'].includes(endpoint.id)" class="example-settings"><span>结果问题类型</span><el-select v-model="problemType" aria-label="结果问题类型"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select></div>
@@ -69,58 +70,41 @@
         </section>
         <section id="api-doc-response-example" data-doc-section><h3>响应示例</h3><div class="response-kind"><span class="success-dot" />正常 · HTTP {{ endpoint.success }}<span class="sample-label">示例数据</span></div><ApiCodeBlock :code="responseCode" title="JSON" /></section>
         <section id="api-doc-return-codes" data-doc-section><h3>业务错误码</h3>
-          <p v-if="endpoint.id.startsWith('batch-') && endpoint.id !== 'batch-submit'">INVALID_BATCH 等请求错误通过 HTTP 错误响应返回；TASK_NOT_FOUND 等任务错误位于 <code>data.tasks[].error</code>，此时 HTTP 为 200。</p>
-          <div v-if="endpointErrors.length" class="parameter-table error-table"><table><thead><tr><th>业务错误码</th><th>说明</th><th>处理方式</th></tr></thead><tbody><tr v-for="error in endpointErrors" :key="error.code"><td><code>{{ error.code }}</code></td><td>{{ error.description }}</td><td>{{ error.resolution }}</td></tr></tbody></table></div><p v-else>此接口暂无独立业务错误码。</p>
-          <ApiCodeBlock v-if="endpointErrors.length" :code="errorExample" title="业务错误响应示例" />
+          <div v-if="endpointErrors.length" class="parameter-table error-table"><table><thead><tr><th>业务错误码</th><th>说明</th></tr></thead><tbody><tr v-for="error in endpointErrors" :key="error.code"><td><code>{{ error.code }}</code></td><td>{{ error.description }}</td></tr></tbody></table></div><p v-else>此接口暂无独立业务错误码。</p>
         </section>
-        <section id="api-doc-permission" data-doc-section><h3>权限说明</h3><p>使用本账号创建的 API Key 调用。只能访问本账号的任务和额度，包括网页、小程序和 API 创建的任务。</p><ul class="endpoint-notes"><li v-for="note in endpoint.notes" :key="note">{{ note }}</li></ul></section>
-        <section id="api-doc-limits" data-doc-section><h3>限流规则</h3><div class="limit-rule"><span>账号共享预算</span><strong>{{ endpointLimit }} 单位／分钟</strong></div><p>批量接口每项任务或 ID 计 1 单位，包括重放项；单任务接口每次调用计 1 单位。同账号多个密钥共享预算，遇到 429 请遵循 Retry-After 退避。</p><p v-if="endpoint.id.startsWith('batch-')">批量请求另有同账号、同类操作的请求次数限制，每分钟上限与上述预算数相同。格式错误或请求体超限也计次，此计数不重复扣除任务项预算。</p></section>
+        <ApiRateLimits :operation="endpointKind" :limits="limits" :operation-limits="operationLimits" :submission-limits="submissionLimits" />
       </template>
 
       <template v-else-if="selected === 'quick-start'">
         <section id="api-doc-overview" data-doc-section>
-          <h3>接口概览</h3>
+          <h3>开始之前</h3>
           <div class="connection-info"><div><span>接口基础地址</span><code>{{ baseUrl }}</code></div><el-button text @click="copy(baseUrl)">复制地址</el-button></div>
-          <dl class="quick-facts"><div><dt>数据格式</dt><dd>JSON · UTF-8</dd></div><div><dt>认证方式</dt><dd>Bearer API Key</dd></div></dl>
+          <p>选择一种请求语言，按步骤运行。Python 示例使用标准库，无需安装第三方依赖；curl 示例适用于 Bash。</p>
         </section>
         <section id="api-doc-authentication" data-doc-section>
-          <h3>准备 API Key</h3>
-          <p>在账号设置中验证并绑定邮箱，然后创建 API Key。完整密钥仅显示一次，请妥善保存。</p>
+          <h3>1. 创建 API Key</h3>
+          <p>绑定并验证邮箱后创建 API Key。完整密钥仅显示一次，请保存。</p>
           <button type="button" class="key-manager-cta" @click="selectPage('api-keys')">
             <KeyRound :size="15" :stroke-width="1.8" aria-hidden="true" />
             <span>管理 API Key</span>
             <ArrowRight class="key-manager-arrow" :size="14" :stroke-width="1.8" aria-hidden="true" />
           </button>
-          <p>将示例中的 <code>YOUR_API_KEY</code> 替换为你的密钥。</p>
-          <ApiCodeBlock code="Authorization: Bearer YOUR_API_KEY" title="HTTP 请求头" />
+          <p>将请求中的 <code>YOUR_API_KEY</code> 替换为你的密钥。</p>
         </section>
-        <section id="api-doc-first-call" data-doc-section>
-          <h3>1. 批量提交任务</h3>
-          <div class="quick-endpoint"><span class="method post">POST</span><code>/tasks/batch</code><button type="button" class="text-link" @click="selectPage('batch-submit')">接口详情 →</button></div>
-          <p>以 2 个节点的图分割问题为例，使用模拟退火算法（<code>sa</code>）求解。</p>
-          <p>在 <code>tasks</code> 数组中添加任务，每项包含独立的 <code>idempotencyKey</code> 和完整 <code>payload</code>；每批 1–100 项，请求体最多 4 MiB。新任务使用新标识，重试保留原标识及参数。</p>
-          <el-tabs v-model="language" class="language-tabs" aria-label="示例语言"><el-tab-pane label="python" name="python" /><el-tab-pane label="curl" name="curl" /></el-tabs>
-          <ApiCodeBlock :code="quickStartRequests.submit" :title="language === 'python' ? 'Python 3.9+ · 标准库' : 'curl · Bash'" />
-          <div class="response-kind"><span class="success-dot" />HTTP 202 · 已接收<span class="sample-label">示例响应</span></div>
-          <ApiCodeBlock :code="quickStartResponse" title="JSON" />
-          <p><code>HTTP 202</code> 表示受理成功，不代表计算完成。保存 <code>data.tasks</code> 中每项的 taskId；任何一项校验或额度检查失败，本次新任务全部不受理。</p>
-          <p>网络超时可能发生在受理成功之后。重试时复用原项键和参数；幂等有效期 24 小时，过期后先核对任务，避免重复提交。</p>
+        <section v-for="step in quickStartSteps" :id="step.anchor" :key="step.id" data-doc-section>
+          <h3>{{ step.title }}</h3>
+          <p>{{ step.description }}</p>
+          <h4>请求</h4>
+          <el-tabs v-model="quickStartLanguage" class="language-tabs" :aria-label="`${step.title}请求语言`"><el-tab-pane label="python" name="python" /><el-tab-pane label="curl" name="curl" /></el-tabs>
+          <ApiCodeBlock :code="step.request" :title="quickStartLanguage === 'python' ? 'Python · 标准库' : 'curl · Bash'" />
+          <h4>响应</h4>
+          <div class="response-kind"><span class="success-dot" />HTTP {{ step.success }}<span class="sample-label">示例数据 · 仅展示关键字段</span></div>
+          <ApiCodeBlock :code="step.response" title="JSON" />
+          <p>{{ step.note }}</p>
+          <div v-if="step.id === 'result'" class="next-links"><button type="button" @click="selectPage('submit')">查看完整参数 <span>→</span></button><button type="button" @click="selectPage('batch-submit')">批量提交任务 <span>→</span></button></div>
         </section>
-        <section id="api-doc-poll-status" data-doc-section>
-          <h3>2. 批量查询状态</h3>
-          <div class="quick-endpoint"><span class="method post">POST</span><code>/tasks/batch-status</code><button type="button" class="text-link" @click="selectPage('batch-status')">接口详情 →</button></div>
-          <p>每批传 1–100 个不重复的 taskIds，建议每 2 秒查询尚未结束的任务。逐项检查 error 和 state；completed 时获取结果，failed 或 cancelled 时停止轮询。根据账号读取预算控制查询频率。</p>
-          <ApiCodeBlock :code="quickStartRequests.status" :title="language === 'python' ? 'Python · 查询状态' : 'curl · 查询状态'" />
-        </section>
-        <section id="api-doc-fetch-result" data-doc-section>
-          <h3>3. 批量获取结果</h3>
-          <div class="quick-endpoint"><span class="method post">POST</span><code>/tasks/batch-results</code><button type="button" class="text-link" @click="selectPage('batch-results')">接口详情 →</button></div>
-          <p>每批最多 20 个任务，从 <code>data.tasks[].results</code> 读取结果。HTTP 200 也可能包含单项错误；RESULT_TOO_LARGE 时改用单任务结果接口。需要停止任务时调用批量取消接口。</p>
-          <ApiCodeBlock :code="quickStartRequests.result" :title="language === 'python' ? 'Python · 获取结果' : 'curl · 获取结果'" />
-          <div class="next-links"><button type="button" @click="selectPage('batch-cancel')">批量取消任务 <span>→</span></button></div>
-        </section>
-        <section id="api-doc-workflow" data-doc-section><h3>完整 Python 示例</h3><p>此示例保存每项幂等键和任务 ID，支持分批提交、退避重试、批量轮询、结果保存和中断后恢复。修改 API_KEY 与 TASK_PAYLOADS 即可运行；保留任务清单文件，勿将同一清单交给多个进程同时运行。</p><ApiCodeBlock :code="batchWorkflowCode" title="Python 3.9+ · 标准库 · 可恢复批量流程" /></section>
       </template>
+
 
       </template>
     </main>
@@ -135,50 +119,77 @@ import { ElMessage } from 'element-plus';
 import { ArrowRight, ChevronDown, ChevronRight, FileText, KeyRound, Search } from 'lucide-vue-next';
 import ApiCodeBlock from './ApiCodeBlock.vue';
 import ApiParameterTable from './ApiParameterTable.vue';
-import { apiEndpoints, businessErrors, requestDocFields, responseDocFields, withFieldExamples, problemExamples, buildTaskPayload, buildRequestExample, buildResponseExample, buildCompleteBatchExample, type ExampleLanguage, type ApiModelType, type ApiDocField } from '../content/api-docs';
+import ApiRateLimits from './ApiRateLimits.vue';
+import type { ApiKeyOverview } from '../api';
+import { apiOperation } from '../content/api-rate-limits';
+import { apiEndpoints, businessErrors, requestDocFields, responseDocFields, withFieldExamples, problemExamples, buildTaskPayload, buildRequestExample, buildResponseExample, type ExampleLanguage, type ApiModelType, type ApiDocField } from '../content/api-docs';
 
-const props = defineProps<{ baseUrl: string; limits: { submit: number; read: number; cancel: number } }>();
+const props = defineProps<{ baseUrl: string; limits: ApiKeyOverview['limits']; submissionLimits?: ApiKeyOverview['submissionLimits']; operationLimits?: ApiKeyOverview['operationLimits'] }>();
 const emit = defineEmits<{ (event: 'manage-keys'): void; (event: 'page-change', id: string): void }>();
 const selected = ref('quick-start');
 const search = ref('');
-const endpointsExpanded = ref(true);
+const expandedGroups = ref<Record<string, boolean>>({ batch: true, single: true });
 const problemType = ref('maxcut');
 const modelType = ref<ApiModelType>('classic');
 const language = ref<ExampleLanguage>('python');
+const quickStartLanguage = ref<ExampleLanguage>('python');
 const documentHeader = ref<HTMLElement>();
 const activeAnchor = ref('api-doc-overview');
 const guideItems = [{ id: 'quick-start', title: '快速开始' }];
 const endpoint = computed(() => apiEndpoints.find(item => item.id === selected.value));
 const isSubmit = computed(() => ['submit', 'batch-submit'].includes(endpoint.value?.id || ''));
 const filteredEndpoints = computed(() => apiEndpoints.filter(item => `${item.title} ${item.path} ${item.method}`.toLowerCase().includes(search.value.trim().toLowerCase())));
+const endpointGroups = computed(() => [
+  { id: 'batch', title: '批量任务', items: filteredEndpoints.value.filter(item => item.id.startsWith('batch-')) },
+  { id: 'single', title: '基础接口', items: filteredEndpoints.value.filter(item => !item.id.startsWith('batch-')) },
+].filter(group => group.items.length));
 const payload = computed(() => buildTaskPayload(problemType.value, modelType.value));
 const requestCode = computed(() => buildRequestExample(endpoint.value || apiEndpoints[0], props.baseUrl, language.value, payload.value));
 const responseCode = computed(() => buildResponseExample(endpoint.value?.id || 'submit', payload.value));
-const endpointLimit = computed(() => isSubmit.value ? props.limits.submit : ['cancel', 'batch-cancel'].includes(endpoint.value?.id || '') ? props.limits.cancel : props.limits.read);
-const pageTitle = '快速开始';
-const pageDescription = '创建 API Key，批量提交完整任务、跟踪进度并收集结果。单任务接口继续兼容。';
-const quickStartPayload = buildTaskPayload('maxcut', 'classic');
-const quickStartRequests = computed(() => Object.fromEntries([['submit', 'batch-submit'], ['status', 'batch-status'], ['result', 'batch-results']].map(([key, id]) => [key, buildRequestExample(apiEndpoints.find(item => item.id === id)!, props.baseUrl, language.value, quickStartPayload)])));
-const quickStartResponse = buildResponseExample('batch-submit', quickStartPayload);
-const batchWorkflowCode = computed(() => buildCompleteBatchExample(props.baseUrl));
-const selectedBatchWorkflow = computed(() => buildCompleteBatchExample(props.baseUrl, payload.value));
+const endpointKind = computed(() => apiOperation(endpoint.value?.id || ''));
+const quickStartSteps = computed(() => [
+  {
+    id: 'submit', anchor: 'api-doc-quick-submit', title: '2. 提交一个任务',
+    description: '提交一个 2 阶图分割任务。将 YOUR_UNIQUE_REQUEST_ID 换成唯一标识；新任务使用新标识，同一任务重试时保持标识和参数不变。',
+    fields: ['taskId', 'state'],
+    note: 'HTTP 202 表示任务已受理，计算尚未完成。保存 data.taskId，用于后续查询。',
+  },
+  {
+    id: 'status', anchor: 'api-doc-quick-status', title: '3. 查询任务状态',
+    description: '将请求中的 t_abcdefghijklmnop 替换为上一步返回的 data.taskId。',
+    fields: ['taskId', 'state', 'message'],
+    note: 'queued 或 processing 时，每 2 秒再查询一次；completed 后获取结果。failed 或 cancelled 时停止查询，查看 message。',
+  },
+  {
+    id: 'result', anchor: 'api-doc-quick-result', title: '4. 获取计算结果',
+    description: '任务状态为 completed 后，使用同一个任务 ID 获取结果。',
+    fields: ['taskId', 'state', 'results'],
+    note: '求解结果位于 data.results，候选解位于 data.results.candidates。示例数值仅用于展示格式，实际结果以接口返回为准。',
+  },
+].map(step => {
+  const definition = apiEndpoints.find(item => item.id === step.id)!;
+  // Use a completed status so the guide can continue directly to the result step.
+  const sample = JSON.parse(buildResponseExample(step.id === 'status' ? 'result' : step.id));
+  return {
+    ...step, success: definition.success,
+    request: buildRequestExample(definition, props.baseUrl, quickStartLanguage.value),
+    response: JSON.stringify({ data: Object.fromEntries(step.fields.map(key => [key, sample.data[key]])), requestId: sample.requestId }, null, 2),
+  };
+}));
 const commonHeaders = computed<ApiDocField[]>(() => [
-  { name: 'Authorization', type: 'string', required: true, description: 'Bearer 后接本账号的 API Key；仅接受此请求头，不使用网页登录 Cookie。' },
-  ...(endpoint.value?.id.startsWith('batch-') ? [{ name: 'Content-Type', type: 'string', required: true, description: '请求体使用 application/json；每项幂等键位于请求体，不设置整批 Idempotency-Key。' }] : []),
-  ...(endpoint.value?.id === 'submit' ? [{ name: 'Content-Type', type: 'string', required: true, description: '请求体使用 application/json。' }, { name: 'Idempotency-Key', type: 'string', required: false, description: '1–128 个无空白 ASCII 字符；同用户保留 24 小时。同键同参数返回原任务，不同参数返回 IDEMPOTENCY_CONFLICT。网络重试使用同一键。' }] : []),
+  { name: 'Authorization', type: 'string', required: true, description: 'Bearer 后接本账号的 API Key。' },
+  ...(endpoint.value?.id.startsWith('batch-') ? [{ name: 'Content-Type', type: 'string', required: true, description: '请求体格式为 application/json。' }] : []),
+  ...(endpoint.value?.id === 'submit' ? [{ name: 'Content-Type', type: 'string', required: true, description: '请求体使用 application/json。' }, { name: 'Idempotency-Key', type: 'string', required: false, description: '建议填写，1–128 个无空白 ASCII 字符。24 小时内相同标识和参数返回同一任务；参数变更返回 IDEMPOTENCY_CONFLICT。' }] : []),
 ]);
 const headerFields = computed(() => withFieldExamples(commonHeaders.value, { Authorization: 'Bearer YOUR_API_KEY', 'Content-Type': 'application/json', 'Idempotency-Key': 'YOUR_UNIQUE_REQUEST_ID' }));
 const requestFields = computed(() => endpoint.value ? requestDocFields(endpoint.value, payload.value) : []);
 const responseFields = computed(() => endpoint.value ? responseDocFields(endpoint.value, payload.value) : []);
 const endpointErrors = computed(() => businessErrors[endpoint.value?.id || ''] || []);
-const errorExample = computed(() => JSON.stringify({ error: { code: endpointErrors.value[0]?.code, message: endpointErrors.value[0]?.description }, requestId: '0123456789abcdef0123456789abcdef' }, null, 2));
 const outline = computed(() => endpoint.value ? [
-  { id: 'api-doc-common', label: '公共参数' }, { id: 'api-doc-request-params', label: '请求参数' }, { id: 'api-doc-request-example', label: '请求示例' }, { id: 'api-doc-response-params', label: '响应参数' }, { id: 'api-doc-response-example', label: '响应示例' }, { id: 'api-doc-return-codes', label: '业务错误码' }, { id: 'api-doc-permission', label: '权限说明' }, { id: 'api-doc-limits', label: '限流规则' },
+  { id: 'api-doc-common', label: '请求头' }, { id: 'api-doc-request-params', label: '请求参数' }, { id: 'api-doc-request-example', label: '请求示例' }, { id: 'api-doc-response-params', label: '响应参数' }, { id: 'api-doc-response-example', label: '响应示例' }, { id: 'api-doc-return-codes', label: '业务错误码' }, { id: 'api-doc-limits', label: '调用限额' },
 ] : selected.value === 'quick-start' ? [
-  { id: 'api-doc-overview', label: '接口概览' }, { id: 'api-doc-authentication', label: '准备 API Key' },
-  { id: 'api-doc-first-call', label: '1. 提交任务' }, { id: 'api-doc-poll-status', label: '2. 查询状态' },
-  { id: 'api-doc-fetch-result', label: '3. 获取结果' },
-  { id: 'api-doc-workflow', label: '完整 Python 示例' },
+  { id: 'api-doc-overview', label: '开始之前' }, { id: 'api-doc-authentication', label: '1. 创建密钥' },
+  ...quickStartSteps.value.map(step => ({ id: step.anchor, label: step.title })),
 ] : []);
 
 async function copy(text: string) {
@@ -306,7 +317,7 @@ button { box-sizing: border-box; font: inherit; cursor: pointer; border: 0; back
 .guide-link { height: 41px; margin-top: 20px; padding: 0 10px 0 13px; gap: 17px; border-radius: 5px; background: var(--nav-hover); font-size: 14.5px; font-weight: 500; }
 .guide-link .nav-icon { width: 19px; height: 19px; color: #525e73; stroke-width: 2; }
 .guide-link:hover { background: #e5eaf2; }
-.guide-link.selected { color: #111c30; background: var(--nav-hover); }
+.guide-link.selected { color: var(--nav-accent); background: var(--nav-selected); }
 .menu-group { display: flex; align-items: center; gap: 9px; width: 100%; height: 28px; margin: 18px 0 7px; padding: 0 10px; color: #111c30; font-size: 14.5px; line-height: 24px; font-weight: 500; text-align: left; border-radius: 4px; }
 .menu-group > span { transform: translateY(-2px); }
 .menu-group svg { flex-shrink: 0; color: #465268; transition: transform .15s; }
@@ -339,22 +350,13 @@ button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px
 .api-doc-content { min-width: 0; padding: 0 0 16px; }.document-header { margin-bottom: 28px; outline: none; scroll-margin-top: 16px; }
 h2 { font-size: var(--app-font-page-title); margin: 0 0 12px; font-weight: 600; letter-spacing: 0; }h3 { color: var(--el-text-color-primary); font-size: var(--app-font-section-title); margin: 0 0 14px; font-weight: 600; line-height: 1.5; }h4 { font-size: var(--app-font-subtitle); font-weight: var(--app-weight-medium); }.endpoint-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }.endpoint-heading h2 { font: var(--app-weight-medium) var(--app-font-page-title)/var(--app-line-heading) var(--app-font-family-mono); margin: 0; overflow-wrap: anywhere; }
 p { color: var(--el-text-color-regular); line-height: var(--app-line-reading); margin: 10px 0 18px; font-size: var(--app-font-subtitle); }code { font: var(--app-font-mono)/1.7 var(--app-font-family-mono); overflow-wrap: anywhere; }section { margin-bottom: 34px; scroll-margin-top: 16px; }.endpoint-address { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: var(--el-fill-color-lighter); padding: 8px 12px; border-radius: 5px; margin: 18px 0; }
-.parameter-table { overflow-x: auto; margin: 16px 0; }table { width: 100%; min-width: 590px; border-collapse: collapse; border: 1px solid var(--doc-border); font-size: 14px; }th { background: var(--el-fill-color-light); color: var(--el-text-color-regular); font-weight: 600; text-align: left; padding: 12px 14px; white-space: nowrap; }td { padding: 14px; border-bottom: 1px solid var(--doc-border); color: var(--el-text-color-regular); line-height: 1.75; vertical-align: top; }td:first-child { width: 126px; }td:nth-child(2) { width: 60px; }td:nth-child(3) { width: 56px; }td:nth-child(4) { min-width: 100px; }td code { font-size: 14px; }.required { color: #be5454; }.default-value { display: block; color: var(--el-text-color-secondary); font-size: 12px; margin-top: 5px; }.response-table td:nth-child(3) { min-width: 100px; }.error-table td:first-child { width: 30%; min-width: 180px; }.error-table td:nth-child(2) { width: 30%; }.error-table td:nth-child(3) { width: 40%; }.no-parameters { padding: 20px; text-align: center; background: var(--el-fill-color-lighter); color: var(--el-text-color-secondary); font-size: 14px; }
-.problem-guide { margin-top: 22px; }.problem-row { display: grid; grid-template-columns: 156px 96px minmax(0, 1fr); gap: 8px; align-items: start; border-bottom: 1px solid var(--doc-border); padding: 10px 0; font-size: 13px; }.problem-row code { font-size: 13px; }.problem-row span { color: var(--el-text-color-secondary); }.problem-row p { margin: 0; font-size: 14px; }.example-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 18px 0; color: var(--el-text-color-secondary); font-size: 14px; }.example-settings .el-select { width: 170px; }.language-tabs :deep(.el-tabs__header) { margin: 0; }.language-tabs :deep(.el-tabs__item) { height: 36px; font-size: 14px; }.response-kind { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #367653; }.success-dot { width: 6px; height: 6px; border-radius: 50%; background: #509b69; }.sample-label { margin-left: auto; color: var(--el-text-color-secondary); font-size: 13px; }.endpoint-notes { padding-left: 18px; color: var(--el-text-color-secondary); line-height: 1.9; font-size: 14px; }.endpoint-notes li { margin: 8px 0; }.limit-rule { display: flex; justify-content: space-between; gap: 16px; background: var(--el-fill-color-lighter); padding: 15px; }.limit-rule strong { font-size: 15px; font-weight: 500; }
+.parameter-table { overflow-x: auto; margin: 16px 0; }table { width: 100%; min-width: 590px; border-collapse: collapse; border: 1px solid var(--doc-border); font-size: 14px; }th { background: var(--el-fill-color-light); color: var(--el-text-color-regular); font-weight: 600; text-align: left; padding: 12px 14px; white-space: nowrap; }td { padding: 14px; border-bottom: 1px solid var(--doc-border); color: var(--el-text-color-regular); line-height: 1.75; vertical-align: top; }td:first-child { width: 126px; }td:nth-child(2) { width: 60px; }td:nth-child(3) { width: 56px; }td:nth-child(4) { min-width: 100px; }td code { font-size: 14px; }.required { color: #be5454; }.default-value { display: block; color: var(--el-text-color-secondary); font-size: 12px; margin-top: 5px; }.response-table td:nth-child(3) { min-width: 100px; }.error-table td:first-child { width: 30%; min-width: 180px; }.error-table td:nth-child(2) { width: 70%; }.no-parameters { padding: 20px; text-align: center; background: var(--el-fill-color-lighter); color: var(--el-text-color-secondary); font-size: 14px; }
+.problem-guide { margin-top: 22px; }.problem-row { display: grid; grid-template-columns: 156px 96px minmax(0, 1fr); gap: 8px; align-items: start; border-bottom: 1px solid var(--doc-border); padding: 10px 0; font-size: 13px; }.problem-row code { font-size: 13px; }.problem-row span { color: var(--el-text-color-secondary); }.problem-row p { margin: 0; font-size: 14px; }.example-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 18px 0; color: var(--el-text-color-secondary); font-size: 14px; }.example-settings .el-select { width: 170px; }.language-tabs :deep(.el-tabs__header) { margin: 0; }.language-tabs :deep(.el-tabs__item) { height: 36px; font-size: 14px; }.response-kind { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #367653; }.success-dot { width: 6px; height: 6px; border-radius: 50%; background: #509b69; }.sample-label { margin-left: auto; color: var(--el-text-color-secondary); font-size: 13px; }
 .connection-info { display: flex; justify-content: space-between; align-items: center; gap: 14px; background: var(--el-fill-color-lighter); border: 1px solid var(--doc-border); border-radius: 6px; padding: 16px; }.connection-info span { display: block; color: var(--el-text-color-secondary); font-size: 13px; margin-bottom: 6px; }
 .next-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 24px 0; }.next-links button { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; border: 1px solid var(--doc-border); border-radius: 6px; padding: 14px; font-size: 14px; }.next-links button:hover { border-color: var(--app-accent); color: var(--app-accent); }
 .api-doc-outline { position: sticky; top: 24px; display: flex; flex-direction: column; box-sizing: border-box; min-width: 0; border-left: 1px solid var(--doc-border); padding: 0 12px 0 16px; margin-top: 4px; }.api-doc-outline button { text-align: left; padding: 8px 0; color: var(--el-text-color-secondary); font-size: 14px; line-height: 1.7; position: relative; }.api-doc-outline button:hover, .api-doc-outline button.active { color: var(--app-accent); }
 .api-doc-outline button.active { font-weight: 600; }
 .api-doc-outline button.active::before { content: ''; position: absolute; left: -17px; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: var(--app-accent); }
-.quick-facts { display: flex; flex-wrap: wrap; gap: 18px 32px; margin: 18px 0 24px; font-size: 13px; }
-.quick-facts div { display: flex; gap: 10px; }
-.quick-facts dt { color: var(--el-text-color-secondary); }
-.quick-facts dd { margin: 0; color: var(--el-text-color-primary); }
-.quick-endpoint { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: -2px 0 16px; }
-.quick-endpoint code { font-size: 14px; }
-.text-link { padding: 0; color: var(--app-accent); font-size: 13px; }
-.quick-endpoint .text-link { margin-left: auto; }
-.text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 .key-manager-cta {
   display: inline-flex;
   align-items: center;
@@ -392,7 +394,6 @@ p { color: var(--el-text-color-regular); line-height: var(--app-line-reading); m
   .key-manager-content { min-height: calc(100dvh - 64px); }
   .problem-row { grid-template-columns: 150px 86px; }.problem-row p { grid-column: 1 / -1; }
   .connection-info { flex-wrap: wrap; }.next-links { grid-template-columns: 1fr; }
-  .quick-facts { gap: 10px 20px; }
 }
 
 </style>

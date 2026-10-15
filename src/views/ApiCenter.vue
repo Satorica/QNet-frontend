@@ -1,6 +1,6 @@
 <template>
   <div class="api-center">
-    <ApiDocumentation :base-url="apiBaseUrl" :limits="overview.limits" @manage-keys="openKeyManager" @page-change="onPageChange">
+    <ApiDocumentation :base-url="apiBaseUrl" :limits="overview.limits" :submission-limits="overview.submissionLimits" :operation-limits="overview.operationLimits" @manage-keys="openKeyManager" @page-change="onPageChange">
       <template #key-manager>
       <section ref="keyManagerPanel" class="keys-management" aria-label="管理 API Key">
       <header>
@@ -86,7 +86,7 @@ const keyManagerPanel = ref<HTMLElement>();
 const detailsOpen = ref(false);
 const loading = ref(true);
 const loadError = ref('');
-const overview = ref<ApiKeyOverview>({ enabled: false, maxKeys: 5, keys: [], limits: { submit: 60, read: 600, cancel: 60 } });
+const overview = ref<ApiKeyOverview>({ enabled: false, maxKeys: 5, keys: [], limits: { submit: 6000, status: 18000, result: 6000, read: 600, cancel: 6000 } });
 const visibleKeys = computed(() => overview.value.keys.filter(key => !key.revokedAt));
 const activeKeys = computed(() => visibleKeys.value.length);
 const createOpen = ref(false);

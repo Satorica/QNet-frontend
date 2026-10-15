@@ -96,35 +96,35 @@ export interface ApiEndpointDoc {
   notes: string[];
 }
 
-const taskIdParameter: ApiDocField = { name: 'taskId', type: 'string', required: true, description: '本账号的任务 ID，来自提交响应；也可使用网页或小程序创建的任务 ID。' };
+const taskIdParameter: ApiDocField = { name: 'taskId', type: 'string', required: true, description: '本账号的任务 ID，支持网页、小程序和 API 创建的任务。' };
 const stateField: ApiDocField = { name: 'state', type: 'string', description: 'queued、processing、completed、failed 或 cancelled。' };
 const logsField: ApiDocField = { name: 'solveLogs', type: 'array', description: '任务从接收到当前阶段的求解日志。' };
 
 export const apiEndpoints: ApiEndpointDoc[] = [
   {
-    id: 'submit', title: '提交任务', method: 'POST', path: '/tasks', success: 202,
-    description: '提交一个求解任务。接口立即返回任务 ID，计算通过现有队列异步执行。', parameterLocation: '请求体 · application/json',
+    id: 'submit', title: '提交单个任务', method: 'POST', path: '/tasks', success: 202,
+    description: '提交任务并返回任务 ID，计算异步执行。', parameterLocation: '请求体 · application/json',
     parameters: [
       { name: 'problemType', type: 'string', required: false, default: 'maxcut', description: '问题类型：maxcut、number_partition、coloring、tsp 或 general。建议显式指定。' },
       { name: 'modelType', type: 'string', required: false, default: 'classic', description: 'classic 为经典计算，quantum 为量子芯片模拟计算。' },
-      { name: 'methodType', type: 'string', required: false, default: 'sa', description: '算法：sa、tabu、genetic、hill_climb、ils、random_search。量子模型示例省略此字段，与网页一致。' },
+      { name: 'methodType', type: 'string', required: false, default: 'sa', description: '算法：sa、tabu、genetic、hill_climb、ils、random_search。使用量子模型时可省略此字段。' },
       { name: 'matrixSize', type: 'integer', required: true, description: '矩阵阶数或数字数组长度；允许范围取决于问题类型。' },
       { name: 'adjacencyMatrix', type: 'array', required: true, description: '问题数据。数字分割为一维数组，其他问题为方阵；general 直接传入 QUBO 矩阵。' },
       { name: 'taskName', type: 'string', required: false, default: '自动生成', description: '最多 64 个字符，同一用户的已有任务名称不能重复。' },
       { name: 'generalInput', type: 'object', required: false, description: '仅 general 可选，保存建模说明；实际求解使用 adjacencyMatrix。整个快照的 JSON 序列化内容最多 3 MiB。' },
     ],
     responseFields: [
-      { name: 'taskId', type: 'string', description: '保存该 ID，后续用它查询状态、获取结果或取消任务。' },
+      { name: 'taskId', type: 'string', description: '用于查询状态、获取结果或取消任务。' },
       stateField,
       { name: 'statusUrl', type: 'string', description: '状态查询路径，相对于 API 域名。' },
       { name: 'resultUrl', type: 'string', description: '结果查询路径，相对于 API 域名。' },
-      { name: 'replayed', type: 'boolean', description: 'true 表示返回幂等键对应的原任务，未创建新任务。' },
+      { name: 'replayed', type: 'boolean', description: 'true 表示返回该幂等键对应的已提交任务，不会创建新任务。' },
       { name: 'queuePosition', type: 'integer', description: '可获取时返回，表示排队位置。' },
     ],
-    notes: ['提交成功表示任务已接收；请通过状态接口等待 completed，再获取结果。', '建议携带 Idempotency-Key：同用户 24 小时内同键同参数返回原 ID，不同参数返回 IDEMPOTENCY_CONFLICT。', '任务详情已删除时，幂等重试仍返回原 ID，并标记 taskDeleted=true、state=null。'],
+    notes: ['提交成功表示任务已接收；请通过状态接口等待 completed，再获取结果。', '建议携带 Idempotency-Key：同账号在 24 小时内使用相同标识和参数提交，将返回同一任务 ID；参数不一致时返回 IDEMPOTENCY_CONFLICT。', '任务详情已删除时，使用相同标识重试仍返回该任务 ID，并标记 taskDeleted=true、state=null。'],
   },
   {
-    id: 'status', title: '查询任务状态', method: 'GET', path: '/tasks/{taskId}', success: 200,
+    id: 'status', title: '查询单个任务状态', method: 'GET', path: '/tasks/{taskId}', success: 200,
     description: '查看任务当前状态、排队信息和求解日志。建议每 2 秒查询一次。', parameterLocation: '路径参数', parameters: [taskIdParameter],
     responseFields: [{ name: 'taskId', type: 'string', description: '任务 ID。' }, { name: 'taskName', type: 'string', description: '任务名称。' }, stateField,
       { name: 'message', type: 'string', description: '当前阶段的说明或失败原因。' },
@@ -133,13 +133,13 @@ export const apiEndpoints: ApiEndpointDoc[] = [
     notes: ['任务 failed 或 cancelled 时停止轮询，查看 message，不要自动重新提交。', '任务不存在、已删除或不属于当前用户时统一返回 TASK_NOT_FOUND。'],
   },
   {
-    id: 'result', title: '获取求解结果', method: 'GET', path: '/tasks/{taskId}/result', success: 200,
+    id: 'result', title: '获取单个任务结果', method: 'GET', path: '/tasks/{taskId}/result', success: 200,
     description: '任务 completed 后，获取输入摘要、结果摘要与完整求解结果。', parameterLocation: '路径参数', parameters: [taskIdParameter],
     responseFields: [{ name: 'taskId', type: 'string', description: '任务 ID。' }, stateField,
       { name: 'taskInfo', type: 'object', description: '任务名称、问题、模型、算法和规模；其中 createdAt 为 Unix 毫秒时间戳。' },
       { name: 'input', type: 'object', description: '问题输入摘要；具体结构随 problemType 变化。' },
       { name: 'resultSummary', type: 'object', description: 'runtime（秒）、bestValue、usedColors 和 candidateCount。不适用的摘要字段可能为 null。' },
-      { name: 'results', type: 'object', description: '完整求解结果，与网页使用相同结构；候选解位于 candidates。' }, logsField],
+      { name: 'results', type: 'object', description: '完整求解结果，候选解位于 candidates。' }, logsField],
     notes: ['queued 或 processing 返回 TASK_NOT_COMPLETED；failed、cancelled 分别返回 TASK_FAILED、TASK_CANCELLED。', '请及时保存 results。结果保留期限与网页任务相同，取决于服务的清理配置。'],
   },
   {
@@ -153,7 +153,7 @@ export const apiEndpoints: ApiEndpointDoc[] = [
       field('total', 'integer', '匹配任务总数。'), field('totalPages', 'integer', '匹配任务总页数。')], notes: ['source 为 web、miniprogram 或 api，表示提交来源。'],
   },
   {
-    id: 'cancel', title: '取消任务', method: 'POST', path: '/tasks/{taskId}/cancel', success: 200,
+    id: 'cancel', title: '取消单个任务', method: 'POST', path: '/tasks/{taskId}/cancel', success: 200,
     description: '取消排队或处理中的任务。请求无需 JSON 请求体。', parameterLocation: '路径参数', parameters: [taskIdParameter],
     responseFields: [{ name: 'taskId', type: 'string', description: '已取消任务的 ID。' }, { name: 'state', type: 'string', description: 'cancelled。' },
       { name: 'cancelled', type: 'boolean', description: '成功取消时为 true。' }, { name: 'message', type: 'string', description: '取消状态说明。' }, logsField],
@@ -183,9 +183,9 @@ for (const endpoint of apiEndpoints) {
 }
 
 export function requestDocFields(endpoint: ApiEndpointDoc, payload = buildTaskPayload('maxcut')): ApiDocField[] {
-  if (endpoint.id === 'batch-submit') return withFieldExamples([field('tasks', 'array<object>', '1–100 项；整个请求最多 4 MiB。', true, [
-    field('[]', 'object', '一项独立任务。', true, [field('idempotencyKey', 'string', '必填，1–128 个无空白 ASCII 字符；批内不重复，重试原任务保持不变。'),
-      field('payload', 'object', '原单任务完整参数；允许混合问题及模型。', true, requestDocFields(apiEndpoints.find(item => item.id === 'submit')!, payload))]),
+  if (endpoint.id === 'batch-submit') return withFieldExamples([field('tasks', 'array<object>', '1–100 项；整个请求最多 32 MiB。', true, [
+    field('[]', 'object', '一项独立任务。', true, [field('idempotencyKey', 'string', '1–128 个无空白 ASCII 字符，批内唯一；24 小时内重试保持标识和参数不变。'),
+      field('payload', 'object', '完整任务参数；服务端 UTF-8 序列化后的参数及接收日志须小于 15 MiB，另预留 1 MiB 状态日志空间；矩阵字段须小于 16 MiB。', true, requestDocFields(apiEndpoints.find(item => item.id === 'submit')!, payload))]),
   ])], batchRequestBody(endpoint.id, payload));
   if (endpoint.id.startsWith('batch-')) return withFieldExamples(endpoint.parameters, batchRequestBody(endpoint.id, payload));
   const values = { ...payload, taskId: 't_abcdefghijklmnop', taskName: '示例任务', page: 1, pageSize: 20, state: 'completed', generalInput: generalInputExample };
@@ -206,28 +206,30 @@ export function responseDocFields(endpoint: ApiEndpointDoc, payload = buildTaskP
   return withFieldExamples([field('data', 'object', '成功响应的业务数据。', true, fields), field('requestId', 'string', '请求编号，用于问题排查。')], JSON.parse(buildResponseExample(endpoint.id, payload)));
 }
 
-export const businessErrors: Record<string, { code: string; description: string; resolution: string }[]> = {
+export const businessErrors: Record<string, { code: string; description: string }[]> = {
   submit: [
-    { code: 'INVALID_TASK', description: '任务参数不符合求解要求。', resolution: '检查问题类型、矩阵、规模及模型算法组合。' },
-    { code: 'EMAIL_BINDING_REQUIRED', description: '账号尚未验证邮箱。', resolution: '在账号设置中绑定并验证邮箱。' },
-    { code: 'QUOTA_EXHAUSTED', description: '对应模型可用额度不足。', resolution: '等待占用额度释放或申请更多额度。' },
-    { code: 'TASK_NAME_EXISTS', description: '任务名称已存在。', resolution: '更换名称，或省略 taskName 自动生成。' },
-    { code: 'INVALID_IDEMPOTENCY_KEY', description: '提交标识格式不正确。', resolution: '使用 1–128 个无空白 ASCII 字符。' },
-    { code: 'IDEMPOTENCY_CONFLICT', description: '同一提交标识已关联不同参数。', resolution: '重试保留原参数；提交新任务使用新标识。' },
-    { code: 'TASK_QUEUE_FULL', description: '任务队列已满。', resolution: '稍后使用相同提交标识重试。' },
-    { code: 'ACCOUNT_MERGING', description: '账号合并正在进行。', resolution: '等待合并完成后重新创建密钥。' },
+    { code: 'INVALID_TASK', description: '任务参数不符合求解要求。' },
+    { code: 'EMAIL_BINDING_REQUIRED', description: '账号尚未验证邮箱。' },
+    { code: 'QUOTA_EXHAUSTED', description: '对应模型可用额度不足。' },
+    { code: 'TASK_NAME_EXISTS', description: '任务名称已存在。' },
+    { code: 'INVALID_IDEMPOTENCY_KEY', description: '提交标识格式不正确。' },
+    { code: 'IDEMPOTENCY_CONFLICT', description: '同一提交标识已关联不同参数。' },
+    { code: 'TASK_QUEUE_FULL', description: '任务队列已满。' },
+    { code: 'TASK_ADMISSION_UNAVAILABLE', description: '暂时无法受理任务。' },
+    { code: 'TASK_ADMISSION_EXPIRED', description: '任务受理超时。' },
+    { code: 'ACCOUNT_MERGING', description: '账号合并正在进行。' },
   ],
-  status: [{ code: 'TASK_NOT_FOUND', description: '任务不存在、已删除或不属于本账号。', resolution: '确认 taskId 和密钥所属账号。' }],
+  status: [{ code: 'TASK_NOT_FOUND', description: '任务不存在、已删除或不属于本账号。' }],
   result: [
-    { code: 'TASK_NOT_FOUND', description: '任务不存在、已删除或不属于本账号。', resolution: '确认 taskId 和密钥所属账号。' },
-    { code: 'TASK_NOT_COMPLETED', description: '任务仍在排队或计算。', resolution: '查询状态，等待 completed 后再获取结果。' },
-    { code: 'TASK_FAILED', description: '任务计算失败。', resolution: '查询状态中的 message 和 solveLogs，排查失败原因。' },
-    { code: 'TASK_CANCELLED', description: '任务已取消。', resolution: '此任务没有完成结果。' },
+    { code: 'TASK_NOT_FOUND', description: '任务不存在、已删除或不属于本账号。' },
+    { code: 'TASK_NOT_COMPLETED', description: '任务仍在排队或计算。' },
+    { code: 'TASK_FAILED', description: '任务计算失败。' },
+    { code: 'TASK_CANCELLED', description: '任务已取消。' },
   ],
-  list: [{ code: 'INVALID_TASK', description: '分页参数或状态筛选不合法。', resolution: 'page ≥ 1，pageSize 为 1–100；state 使用支持的任务状态。' }],
+  list: [{ code: 'INVALID_TASK', description: '分页参数或状态筛选不合法。' }],
   cancel: [
-    { code: 'TASK_NOT_FOUND', description: '任务不存在、已删除或不属于本账号。', resolution: '确认 taskId 和密钥所属账号。' },
-    { code: 'TASK_NOT_CANCELLABLE', description: '任务已完成、失败或取消。', resolution: '查询当前状态，只取消排队或运行中的任务。' },
+    { code: 'TASK_NOT_FOUND', description: '任务不存在、已删除或不属于本账号。' },
+    { code: 'TASK_NOT_CANCELLABLE', description: '当前任务状态不支持取消。' },
   ], quota: [],
 };
 
@@ -271,7 +273,7 @@ export function buildRequestExample(endpoint: ApiEndpointDoc, baseUrl: string, l
       `payload = ${JSON.stringify(payload, null, 2)}`, 'body = json.dumps(payload).encode("utf-8")');
   }
   if (batch) lines.push('headers["Content-Type"] = "application/json"', '',
-    `payload = json.loads(${JSON.stringify(JSON.stringify(bodyPayload))})`, 'body = json.dumps(payload).encode("utf-8")');
+    `payload = ${JSON.stringify(bodyPayload, null, 2)}`, 'body = json.dumps(payload).encode("utf-8")');
   if (endpoint.path.includes('{taskId}')) lines.push('', 'TASK_ID = "t_abcdefghijklmnop"  # 替换为已提交的任务 ID');
   const url = endpoint.path.includes('{taskId}') ? `f"{BASE_URL}${endpoint.path.replace('{taskId}', '{TASK_ID}')}"` : `BASE_URL + "${taskPath}"`;
   lines.push('', `request = Request(${url},`, `                  headers=headers, method="${endpoint.method}"${submits || batch ? ', data=body' : ''})`,
@@ -340,24 +342,25 @@ const batchItemError = field('error', 'object', '仅单项失败时返回；HTTP
 const batchEndpoints: ApiEndpointDoc[] = [
   {
     id: 'batch-submit', title: '批量提交任务', method: 'POST', path: '/tasks/batch', success: 202,
-    description: '一次提交 1–100 个完整任务，允许混合问题类型与计算模型。新任务统一受理，计算异步执行。',
+    description: '一次提交 1–100 个任务，可混合问题类型与计算模型。校验失败时本次新任务均不受理。',
     parameterLocation: '请求体 · application/json', parameters: [field('tasks', 'array<object>', '任务数组，每项包含 idempotencyKey 与 payload。')],
-    responseFields: [field('tasks', 'array<object>', '按输入顺序返回。', true, [field('[]', 'object', '受理或重放结果。', true, [
+    responseFields: [field('tasks', 'array<object>', '按输入顺序返回。', true, [field('[]', 'object', '每项任务的提交结果。', true, [
       field('index', 'integer', '输入下标，从 0 开始。'), field('idempotencyKey', 'string', '该项提交标识。'), field('taskId', 'string', '任务 ID。'),
-      field('state', 'string | null', '任务状态；重放已删除任务时为 null。'), field('replayed', 'boolean', '是否为已受理任务的重放。'),
-      field('taskDeleted', 'boolean', '原任务详情已删除时为 true，不会重复创建。', false), field('statusUrl', 'string', '单任务状态地址。'), field('resultUrl', 'string', '单任务完整结果地址。'),
-    ])]), field('acceptedCount', 'integer', '本次新受理的任务数。'), field('replayedCount', 'integer', '本次重放的任务数。')],
-    notes: ['请求体最多 4 MiB。任一项参数、名称、额度或容量检查失败，本次新任务全部不受理；此前已受理任务不受影响。',
+      field('state', 'string | null', '任务状态；使用相同标识重试已删除的任务时为 null。'), field('replayed', 'boolean', '是否返回已提交的任务；为 true 时未创建新任务。'),
+      field('taskDeleted', 'boolean', '任务详情已删除时为 true，不会重复创建任务。', false), field('statusUrl', 'string', '该任务的状态查询地址。'), field('resultUrl', 'string', '该任务的完整结果获取地址。'),
+    ])]), field('acceptedCount', 'integer', '本次新受理的任务数。'), field('replayedCount', 'integer', '通过幂等标识返回的已提交任务数。')],
+    notes: ['请求体最多 32 MiB，服务端自动分段处理，无需按 4 MiB 拆分请求。任一项参数、名称、额度或容量检查失败，本次新任务全部不受理；此前已受理任务不受影响。',
+      '单个任务的完整参数及接收日志在服务端 UTF-8 序列化后须小于 15 MiB，另预留 1 MiB 状态日志空间；矩阵字段须小于 16 MiB。超限返回 INVALID_TASK，并标明任务下标，本次新任务全部不受理。',
       '每项必填独立 idempotencyKey，不传整批 Idempotency-Key 请求头。与单任务接口共享账号级 24 小时幂等记录。',
-      '超时或 5xx 可能是提交成功但响应丢失，保留各项原键及原参数重试；不要生成新键。',
-      '每项计 1 个提交限流单位，包括重放项；受理预留额度，成功完成后扣次，失败或取消释放预留。'],
+      '网络超时或返回 5xx 时，任务仍可能已受理。请使用相同的 idempotencyKey 和参数重试，避免重复创建任务。',
+      '每项计 1 个提交限流单位，重复提交也计数。任务受理后占用额度，成功完成后扣次，失败或取消后释放占用额度。'],
   },
   ...(['status', 'results', 'cancel'] as const).map(kind => ({
     id: `batch-${kind}`, title: { status: '批量查询状态', results: '批量获取结果', cancel: '批量取消任务' }[kind],
     method: 'POST' as const, path: `/tasks/batch-${kind}`, success: 200,
-    description: { status: '一次查询一组任务的轻量状态，不读取完整结果或日志。', results: '获取一组任务的求解结果及摘要，不重复返回输入矩阵和日志。', cancel: '逐项取消任务，成功项不会因其他项失败而回滚。' }[kind],
+    description: { status: '查询状态与进度。建议每 2 秒查询，任务结束后停止。', results: '获取 completed 任务的结果及摘要，成功结果合计最多 8 MiB。', cancel: '批量取消任务，各项独立返回结果。' }[kind],
     parameterLocation: '请求体 · application/json',
-    parameters: [field('taskIds', 'array<string>', `不重复的任务 ID 数组，1–${{ status: 100, results: 20, cancel: 50 }[kind]} 项。使用当前提交接口返回的 ID。`)],
+    parameters: [field('taskIds', 'array<string>', `任务 ID 数组，1–${{ status: 100, results: 20, cancel: 50 }[kind]} 项，不可重复；请求体最多 4 MiB。`)],
     responseFields: [field('tasks', 'array<object>', '按输入顺序返回，各项可能成功或携带 error。', true, [field('[]', 'object', '单项结果。', true, [
       field('taskId', 'string', '请求中的任务 ID。'), field('state', 'string', '成功项的任务状态。', false),
       ...(kind === 'status' ? [field('taskName', 'string', '任务名称。', false), field('message', 'string', '状态说明。', false), field('updatedAt', 'number', '更新时间，Unix 秒。', false)]
@@ -367,26 +370,23 @@ const batchEndpoints: ApiEndpointDoc[] = [
     notes: ['请求体最多 4 MiB；任务不存在、已删除或不属于本账号统一返回单项 TASK_NOT_FOUND。',
       kind === 'status' ? '每 2 秒查询尚未结束的任务，遇到 429 遵循 Retry-After。每个 ID 计 1 个读取限流单位。'
         : kind === 'results' ? '成功结果项的序列化内容总计最多 8 MiB；超限项返回 RESULT_TOO_LARGE，可分小批或使用单任务完整结果接口。每个 ID 计 1 个读取限流单位。'
-        : '每个 ID 计 1 个取消限流单位。已取消任务可安全重试；已完成或失败返回 TASK_NOT_CANCELLABLE。平台取消成功不代表计算设备已立即停止，远端取消会可靠重试。',
+        : '每个 ID 计 1 个取消限流单位。已取消任务可安全重试；已完成或失败返回 TASK_NOT_CANCELLABLE。任务取消后释放占用额度，计算设备可能稍后才停止执行。',
       'HTTP 200 表示批量处理结束，请逐项检查 error；不会因为一个任务失败而隐藏其他任务结果。'],
   })),
 ];
-for (const endpoint of apiEndpoints) {
-  if (['submit', 'status', 'result', 'cancel'].includes(endpoint.id)) endpoint.title += '（单任务兼容）';
-}
 apiEndpoints.unshift(...batchEndpoints);
 businessErrors['batch-submit'] = [...businessErrors.submit,
-  { code: 'INVALID_BATCH', description: '批次结构、数量或幂等键重复。', resolution: '检查 tasks、idempotencyKey、payload；每批最多 100 项。' },
-  { code: 'BATCH_UNAVAILABLE', description: '服务端尚未启用批量提交。', resolution: '联系服务方；也可使用单任务兼容接口。' },
-  { code: 'TASK_ADMISSION_UNAVAILABLE', description: '任务准入暂不可用。', resolution: '退避后使用原项键及原参数重试。' },
-  { code: 'TASK_ADMISSION_EXPIRED', description: '准入预留已过期。', resolution: '使用原项键及原参数重试。' },
+  { code: 'REQUEST_TOO_LARGE', description: '请求体超过 32 MiB 上限。' },
+  { code: 'INVALID_BATCH', description: '批量任务格式、数量或提交标识不符合要求。' },
+  { code: 'BATCH_UNAVAILABLE', description: '批量提交暂不可用。' },
 ];
 for (const kind of ['status', 'results', 'cancel']) businessErrors[`batch-${kind}`] = [
-  { code: 'INVALID_BATCH', description: '请求结构、ID 数量或重复 ID 不合法。', resolution: '按接口上限分批并去重。' },
+  { code: 'REQUEST_TOO_LARGE', description: '请求体超过 4 MiB 上限。' },
+  { code: 'INVALID_BATCH', description: '任务 ID 列表格式、数量或唯一性不符合要求。' },
   ...businessErrors[kind === 'results' ? 'result' : kind],
 ];
 businessErrors['batch-results'].push(
-  { code: 'RESULT_TOO_LARGE', description: '该项结果超过本批剩余响应预算。', resolution: '减少本批任务数，或使用单任务完整结果接口。' },
-  { code: 'RESULT_UNAVAILABLE', description: '该项保存的结果暂不可读取。', resolution: '联系服务方，并附 taskId 和 requestId。' },
+  { code: 'RESULT_TOO_LARGE', description: '该项结果超出本批 8 MiB 上限。' },
+  { code: 'RESULT_UNAVAILABLE', description: '任务结果暂时无法获取。' },
 );
-businessErrors['batch-cancel'].push({ code: 'CANCEL_UNCONFIRMED', description: '该项取消响应不确定，可能已成功。', resolution: '查询任务状态或使用同一 taskId 重试；已取消任务重试会成功返回。' });
+businessErrors['batch-cancel'].push({ code: 'CANCEL_UNCONFIRMED', description: '任务取消结果尚未确认。' });

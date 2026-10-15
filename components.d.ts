@@ -10,6 +10,7 @@ declare module 'vue' {
     ApiCodeBlock: typeof import('./src/components/ApiCodeBlock.vue')['default']
     ApiDocumentation: typeof import('./src/components/ApiDocumentation.vue')['default']
     ApiParameterTable: typeof import('./src/components/ApiParameterTable.vue')['default']
+    ApiRateLimits: typeof import('./src/components/ApiRateLimits.vue')['default']
     CandidateEmptyState: typeof import('./src/components/CandidateEmptyState.vue')['default']
     ColoringGraph: typeof import('./src/components/ColoringGraph.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']

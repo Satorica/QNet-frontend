@@ -17,8 +17,8 @@ TASK_PAYLOADS = [dict(PAYLOAD), dict(PAYLOAD)]  # Replace with your full task pa
 JOB_FILE = Path("qnet-batch-job.json")
 OUTPUT_DIR = Path("qnet-batch-results")
 WAIT_TIMEOUT = 600  # Stopping the client does not cancel accepted tasks.
-SUBMIT_BATCH_SIZE = 25
-SUBMIT_BYTES = 4 * 1024 * 1024
+SUBMIT_BATCH_SIZE = 100
+SUBMIT_BYTES = 32 * 1024 * 1024
 
 
 def save_job(job):
@@ -63,23 +63,13 @@ def submission_item(item):
 
 
 def submission_chunks(items):
-    # Count the exact wire encoding, including the envelope and list separators.
-    overhead = len(encode_json({'tasks': []}))
-    group, size = [], overhead
-    for item in items:
-        item_size = len(encode_json(submission_item(item)))
-        if overhead + item_size > SUBMIT_BYTES:
-            raise ValueError('Task ' + item['idempotencyKey'] +
-                             ' exceeds the 4 MiB batch request limit by itself. '
-                             'Keep its key and input; use the single-task API or contact the service.')
-        extra = item_size + (2 if group else 0)  # json.dumps uses ", ".
-        if group and (len(group) >= SUBMIT_BATCH_SIZE or size + extra > SUBMIT_BYTES):
-            yield group
-            group, size = [], overhead
-            extra = item_size
-        group.append(item)
-        size += extra
-    if group:
+    # The server splits storage writes. Clients only group by the public count
+    # limit; crossing the former 4 MiB threshold needs no extra HTTP request.
+    for group in chunks(items, SUBMIT_BATCH_SIZE):
+        if len(encode_json({'tasks': [submission_item(item) for item in group]})) > SUBMIT_BYTES:
+            raise ValueError('Batch exceeds the 32 MiB upload limit. '
+                             'Keep the job file, keys and inputs; contact the service '
+                             'or reduce the number of tasks per request.')
         yield group
 
 
