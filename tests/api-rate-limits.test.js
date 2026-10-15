@@ -41,46 +41,28 @@ runInNewContext(componentCode, {
   require: name => name === '../content/api-rate-limits' ? rules : require(name),
 });
 const limits = { submit: 6000, status: 18000, result: 6000, read: 600, cancel: 6000 };
-const submissionLimits = {
-  account: { rate: 81, burst: 101 }, global: { rate: 207, burst: 307 },
-  classic: { rate: 153, burst: 103 }, quantum: { rate: 157, burst: 107 },
-};
 const renderLimits = props => renderToString(createSSRApp(componentExports.default, { limits, ...props }));
 
-test('submit documentation renders actual account and shared budgets with retry instructions', async () => {
-  const html = await renderLimits({ operation: 'submit', submissionLimits,
-    operationLimits: { submit: { minute: 4800, rate: 80, burst: 100 } } });
+test('submit documentation renders only the configured per-minute account limit', async () => {
+  const html = await renderLimits({ operation: 'submit',
+    operationLimits: { submit: { minute: 4800 } } });
   assert.match(html, /4,800 个任务／分钟/);
-  assert.match(html, /80 \/ 100 个任务/);
-  for (const [label, rate, burst] of [
-    ['所有公开 API 账号合计', 207, 307], ['公开 API 经典通道', 153, 103], ['公开 API 量子通道', 157, 107],
-  ]) assert.match(html, new RegExp(`<td[^>]*>${label}</td><td[^>]*>${rate}</td><td[^>]*>${burst}</td>`));
-  assert.match(html, /同账号全部 API Key/);
-  assert.match(html, /低于账号限额时仍可能收到 429/);
-  assert.match(html, /429 RATE_LIMITED/);
-  assert.match(html, /Retry-After/);
-  assert.match(html, /等待指定秒数后重试/);
-  assert.match(html, /Idempotency-Key/);
-  assert.match(html, /idempotencyKey/);
+  assert.match(html, /账号限流/);
+  assert.doesNotMatch(html, /每秒恢复|突发上限|共享|Retry-After|idempotencyKey|<table|<p[ >]/);
 });
 
-test('non-submit documentation uses its own budget and does not show submission pools', async () => {
+test('non-submit documentation renders its own per-minute limit and unit', async () => {
   for (const operation of ['status', 'result', 'read', 'cancel']) {
-    const html = await renderLimits({ operation, submissionLimits,
-      operationLimits: { [operation]: { minute: 1234, rate: 23, burst: 123 } } });
-    assert.match(html, /1,234/);
-    assert.match(html, /23 \/ 123/);
-    assert.match(html, /Retry-After/);
-    assert.match(html, /HTTP 请求次数/);
-    assert.doesNotMatch(html, /跨账号共享提交限额|Idempotency-Key/);
+    const html = await renderLimits({ operation,
+      operationLimits: { [operation]: { minute: 1234 } } });
+    assert.ok(html.includes(`1,234 ${rules.operationDescriptions[operation].unit}／分钟`));
+    assert.doesNotMatch(html, /每秒恢复|突发上限|共享|Retry-After|<table|<p[ >]/);
   }
 });
 
-test('missing shared configuration is explicit and account fallback remains usable', async () => {
-  const missing = await renderLimits({ operation: 'submit' });
-  assert.match(missing, /6,000 个任务／分钟/);
-  assert.match(missing, /共享限额配置暂不可用/);
-  assert.doesNotMatch(missing, /<table/);
-  const fallback = await renderLimits({ operation: 'submit', submissionLimits });
-  assert.match(fallback, /81 \/ 101 个任务/);
+test('missing operation configuration falls back to the corresponding account limit', async () => {
+  for (const operation of Object.keys(limits)) {
+    const html = await renderLimits({ operation });
+    assert.ok(html.includes(`${limits[operation].toLocaleString('zh-CN')} ${rules.operationDescriptions[operation].unit}／分钟`));
+  }
 });

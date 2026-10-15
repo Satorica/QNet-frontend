@@ -72,7 +72,7 @@
         <section id="api-doc-return-codes" data-doc-section><h3>业务错误码</h3>
           <div v-if="endpointErrors.length" class="parameter-table error-table"><table><thead><tr><th>业务错误码</th><th>说明</th></tr></thead><tbody><tr v-for="error in endpointErrors" :key="error.code"><td><code>{{ error.code }}</code></td><td>{{ error.description }}</td></tr></tbody></table></div><p v-else>此接口暂无独立业务错误码。</p>
         </section>
-        <ApiRateLimits :operation="endpointKind" :limits="limits" :operation-limits="operationLimits" :submission-limits="submissionLimits" />
+        <ApiRateLimits :operation="endpointKind" :limits="limits" :operation-limits="operationLimits" />
       </template>
 
       <template v-else-if="selected === 'quick-start'">
@@ -124,7 +124,7 @@ import type { ApiKeyOverview } from '../api';
 import { apiOperation } from '../content/api-rate-limits';
 import { apiEndpoints, businessErrors, requestDocFields, responseDocFields, withFieldExamples, problemExamples, buildTaskPayload, buildRequestExample, buildResponseExample, type ExampleLanguage, type ApiModelType, type ApiDocField } from '../content/api-docs';
 
-const props = defineProps<{ baseUrl: string; limits: ApiKeyOverview['limits']; submissionLimits?: ApiKeyOverview['submissionLimits']; operationLimits?: ApiKeyOverview['operationLimits'] }>();
+const props = defineProps<{ baseUrl: string; limits: ApiKeyOverview['limits']; operationLimits?: ApiKeyOverview['operationLimits'] }>();
 const emit = defineEmits<{ (event: 'manage-keys'): void; (event: 'page-change', id: string): void }>();
 const selected = ref('quick-start');
 const search = ref('');

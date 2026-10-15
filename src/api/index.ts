@@ -373,8 +373,7 @@ export interface ApiKeyOverview {
   maxKeys: number;
   keys: ApiKeyRecord[];
   limits: { submit: number; read: number; cancel: number; status?: number; result?: number };
-  operationLimits?: Record<'submit' | 'status' | 'result' | 'read' | 'cancel', { minute: number; rate: number; burst: number }>;
-  submissionLimits?: Record<'account' | 'global' | 'classic' | 'quantum', { rate: number; burst: number }>;
+  operationLimits?: Record<'submit' | 'status' | 'result' | 'read' | 'cancel', { minute: number }>;
 }
 
 export const getApiKeys = async (): Promise<ApiKeyOverview> => {

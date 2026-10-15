@@ -1,6 +1,6 @@
 <template>
   <div class="api-center">
-    <ApiDocumentation :base-url="apiBaseUrl" :limits="overview.limits" :submission-limits="overview.submissionLimits" :operation-limits="overview.operationLimits" @manage-keys="openKeyManager" @page-change="onPageChange">
+    <ApiDocumentation :base-url="apiBaseUrl" :limits="overview.limits" :operation-limits="overview.operationLimits" @manage-keys="openKeyManager" @page-change="onPageChange">
       <template #key-manager>
       <section ref="keyManagerPanel" class="keys-management" aria-label="管理 API Key">
       <header>
