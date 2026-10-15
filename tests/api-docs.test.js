@@ -16,6 +16,24 @@ runInNewContext(code, {
 });
 const python = promisify(execFile);
 
+test('batch docs expose complete per-item payloads and per-item outcome envelopes', () => {
+  const submit = docs.apiEndpoints.find(endpoint => endpoint.id === 'batch-submit');
+  assert.equal(docs.apiEndpoints[0].id, 'batch-submit');
+  for (const problem of docs.problemExamples) {
+    const payload = docs.buildTaskPayload(problem.value, 'quantum');
+    const rows = docs.flattenDocFields(docs.requestDocFields(submit, payload));
+    assert.equal(rows.find(row => row.path === 'tasks[].payload.modelType').field.example, 'quantum');
+    assert.equal(rows.find(row => row.path === 'tasks[].payload.problemType').field.example, problem.value);
+    assert.equal(rows.find(row => row.path === 'tasks[].idempotencyKey').field.required, true);
+    const response = JSON.parse(docs.buildResponseExample('batch-results', payload));
+    assert.equal(response.data.tasks[0].state, 'completed');
+    assert.ok(!('input' in response.data.tasks[0]));
+    const script = docs.buildCompleteBatchExample('https://example.test/api/v1', payload);
+    assert.ok(script.includes('"modelType":"quantum"'));
+    assert.ok(script.includes('JOB_FILE'));
+  }
+});
+
 test('result examples use valid problem encodings, dimensions and matching objective values', () => {
   const examples = [
     { problem: 'maxcut', matrix: [[0, 1], [1, 0]], solution: [-1, 1], value: 1 },
@@ -41,7 +59,7 @@ test('result examples use valid problem encodings, dimensions and matching objec
   }
 });
 
-test('all six Python request snippets send the documented method, path and API key without environment setup', async () => {
+test('all Python request snippets send the documented method, path and API key without environment setup', async () => {
   const requests = [];
   const server = createServer((request, response) => {
     let body = '';
@@ -67,6 +85,13 @@ test('all six Python request snippets send the documented method, path and API k
       if (endpoint.id === 'submit') {
         assert.ok(request.idem);
         assert.deepEqual(JSON.parse(request.body), JSON.parse(JSON.stringify(docs.buildTaskPayload('maxcut'))));
+      } else if (endpoint.id.startsWith('batch-')) {
+        assert.equal(request.idem, undefined);
+        const sent = JSON.parse(request.body);
+        if (endpoint.id === 'batch-submit') {
+          assert.equal(sent.tasks[0].idempotencyKey, 'YOUR_UNIQUE_REQUEST_ID_1');
+          assert.deepEqual(sent.tasks[0].payload, JSON.parse(JSON.stringify(docs.buildTaskPayload('maxcut'))));
+        } else assert.deepEqual(sent.taskIds, ['t_abcdefghijklmnop']);
       } else assert.equal(request.body, '');
     }
     const submit = docs.apiEndpoints.find(endpoint => endpoint.id === 'submit');

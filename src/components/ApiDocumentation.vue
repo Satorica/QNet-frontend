@@ -53,25 +53,28 @@
         <section id="api-doc-request-params" data-doc-section><h3>请求参数</h3>
           <ApiParameterTable v-if="endpoint.parameters.length" :fields="requestFields" :initial-expanded-depth="0" :key="endpoint.id + '-request'" label="请求参数表" />
           <div v-else class="no-parameters">此接口无需请求参数。</div>
-          <div v-if="endpoint.id === 'submit'" class="problem-guide"><h4>问题数据约束</h4><div v-for="problem in problemExamples" :key="problem.value" class="problem-row"><code>{{ problem.value }}</code><span>{{ problem.size }} 阶／项</span><p>{{ problem.input }}</p></div></div>
+          <div v-if="isSubmit" class="problem-guide"><h4>每项任务的问题数据约束</h4><div v-for="problem in problemExamples" :key="problem.value" class="problem-row"><code>{{ problem.value }}</code><span>{{ problem.size }} 阶／项</span><p>{{ problem.input }}</p></div></div>
         </section>
         <section id="api-doc-request-example" data-doc-section><h3>请求示例</h3>
-          <div v-if="endpoint.id === 'submit'" class="example-settings"><span>示例问题</span><el-select v-model="problemType" aria-label="示例问题"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select><el-select v-model="modelType" aria-label="示例模型"><el-option label="经典计算" value="classic" /><el-option label="量子芯片模拟计算" value="quantum" /></el-select></div>
+          <div v-if="isSubmit" class="example-settings"><span>示例问题</span><el-select v-model="problemType" aria-label="示例问题"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select><el-select v-model="modelType" aria-label="示例模型"><el-option label="经典计算" value="classic" /><el-option label="量子芯片模拟计算" value="quantum" /></el-select></div>
+          <p v-if="endpoint.id === 'batch-submit'">每项使用独立的 <code>idempotencyKey</code>，将完整任务参数放入 <code>payload</code>。保存各项标识，重试时保持原标识和参数；不传整批幂等请求头。</p>
           <p v-if="endpoint.id === 'submit'">将 <code>YOUR_UNIQUE_REQUEST_ID</code> 替换为本次提交的唯一标识并保存。新任务使用新标识；重试同一次提交时保留标识和参数。</p>
           <el-tabs v-model="language" class="language-tabs"><el-tab-pane label="python" name="python" /><el-tab-pane label="curl" name="curl" /></el-tabs>
           <ApiCodeBlock :code="requestCode" :title="language === 'python' ? 'Python · 标准库' : 'curl · Bash'" />
+          <details v-if="endpoint.id === 'batch-submit'"><summary>完整 Python 批量流程：提交、恢复、轮询与结果保存</summary><p>示例跟随上方问题类型和模型选择。修改 API_KEY 与 TASK_PAYLOADS；保留任务清单文件，重试时不要更换文件或各项幂等键。</p><ApiCodeBlock :code="selectedBatchWorkflow" title="Python 3.9+ · 标准库" /></details>
         </section>
         <section id="api-doc-response-params" data-doc-section><h3>响应参数</h3>
-          <div v-if="endpoint.id === 'result'" class="example-settings"><span>结果问题类型</span><el-select v-model="problemType" aria-label="结果问题类型"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select></div>
+          <div v-if="['result', 'batch-results'].includes(endpoint.id)" class="example-settings"><span>结果问题类型</span><el-select v-model="problemType" aria-label="结果问题类型"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select></div>
           <ApiParameterTable :fields="responseFields" :key="endpoint.id + '-response'" label="响应参数表" response />
         </section>
         <section id="api-doc-response-example" data-doc-section><h3>响应示例</h3><div class="response-kind"><span class="success-dot" />正常 · HTTP {{ endpoint.success }}<span class="sample-label">示例数据</span></div><ApiCodeBlock :code="responseCode" title="JSON" /></section>
         <section id="api-doc-return-codes" data-doc-section><h3>业务错误码</h3>
+          <p v-if="endpoint.id.startsWith('batch-') && endpoint.id !== 'batch-submit'">INVALID_BATCH 等请求错误通过 HTTP 错误响应返回；TASK_NOT_FOUND 等任务错误位于 <code>data.tasks[].error</code>，此时 HTTP 为 200。</p>
           <div v-if="endpointErrors.length" class="parameter-table error-table"><table><thead><tr><th>业务错误码</th><th>说明</th><th>处理方式</th></tr></thead><tbody><tr v-for="error in endpointErrors" :key="error.code"><td><code>{{ error.code }}</code></td><td>{{ error.description }}</td><td>{{ error.resolution }}</td></tr></tbody></table></div><p v-else>此接口暂无独立业务错误码。</p>
           <ApiCodeBlock v-if="endpointErrors.length" :code="errorExample" title="业务错误响应示例" />
         </section>
         <section id="api-doc-permission" data-doc-section><h3>权限说明</h3><p>使用本账号创建的 API Key 调用。只能访问本账号的任务和额度，包括网页、小程序和 API 创建的任务。</p><ul class="endpoint-notes"><li v-for="note in endpoint.notes" :key="note">{{ note }}</li></ul></section>
-        <section id="api-doc-limits" data-doc-section><h3>限流规则</h3><div class="limit-rule"><span>用户级调用频次</span><strong>{{ endpointLimit }} 次／分钟</strong></div></section>
+        <section id="api-doc-limits" data-doc-section><h3>限流规则</h3><div class="limit-rule"><span>账号共享预算</span><strong>{{ endpointLimit }} 单位／分钟</strong></div><p>批量接口每项任务或 ID 计 1 单位，包括重放项；单任务接口每次调用计 1 单位。同账号多个密钥共享预算，遇到 429 请遵循 Retry-After 退避。</p><p v-if="endpoint.id.startsWith('batch-')">批量请求另有同账号、同类操作的请求次数限制，每分钟上限与上述预算数相同。格式错误或请求体超限也计次，此计数不重复扣除任务项预算。</p></section>
       </template>
 
       <template v-else-if="selected === 'quick-start'">
@@ -92,30 +95,31 @@
           <ApiCodeBlock code="Authorization: Bearer YOUR_API_KEY" title="HTTP 请求头" />
         </section>
         <section id="api-doc-first-call" data-doc-section>
-          <h3>1. 提交任务</h3>
-          <div class="quick-endpoint"><span class="method post">POST</span><code>/tasks</code><button type="button" class="text-link" @click="selectPage('submit')">接口详情 →</button></div>
+          <h3>1. 批量提交任务</h3>
+          <div class="quick-endpoint"><span class="method post">POST</span><code>/tasks/batch</code><button type="button" class="text-link" @click="selectPage('batch-submit')">接口详情 →</button></div>
           <p>以 2 个节点的图分割问题为例，使用模拟退火算法（<code>sa</code>）求解。</p>
-          <p>将 <code>YOUR_UNIQUE_REQUEST_ID</code> 替换为本次提交的唯一标识并保存；新任务更换标识，重试保持不变。</p>
+          <p>在 <code>tasks</code> 数组中添加任务，每项包含独立的 <code>idempotencyKey</code> 和完整 <code>payload</code>；每批 1–100 项，请求体最多 4 MiB。新任务使用新标识，重试保留原标识及参数。</p>
           <el-tabs v-model="language" class="language-tabs" aria-label="示例语言"><el-tab-pane label="python" name="python" /><el-tab-pane label="curl" name="curl" /></el-tabs>
           <ApiCodeBlock :code="quickStartRequests.submit" :title="language === 'python' ? 'Python 3.9+ · 标准库' : 'curl · Bash'" />
           <div class="response-kind"><span class="success-dot" />HTTP 202 · 已接收<span class="sample-label">示例响应</span></div>
           <ApiCodeBlock :code="quickStartResponse" title="JSON" />
-          <p>提交成功返回 <code>HTTP 202</code>。保存 <code>data.taskId</code>，用于查询状态和结果。</p>
-          <p>重试同一任务时，请复用原 <code>Idempotency-Key</code> 和请求参数，避免重复创建任务。</p>
+          <p><code>HTTP 202</code> 表示受理成功，不代表计算完成。保存 <code>data.tasks</code> 中每项的 taskId；任何一项校验或额度检查失败，本次新任务全部不受理。</p>
+          <p>网络超时可能发生在受理成功之后。重试时复用原项键和参数；幂等有效期 24 小时，过期后先核对任务，避免重复提交。</p>
         </section>
         <section id="api-doc-poll-status" data-doc-section>
-          <h3>2. 查询任务状态</h3>
-          <div class="quick-endpoint"><span class="method">GET</span><code>/tasks/{taskId}</code><button type="button" class="text-link" @click="selectPage('status')">接口详情 →</button></div>
-          <p>将示例任务 ID 替换为 <code>data.taskId</code>，每 2 秒查询一次 <code>data.state</code>。状态为 <code>completed</code> 时获取结果；为 <code>failed</code> 或 <code>cancelled</code> 时停止查询。</p>
+          <h3>2. 批量查询状态</h3>
+          <div class="quick-endpoint"><span class="method post">POST</span><code>/tasks/batch-status</code><button type="button" class="text-link" @click="selectPage('batch-status')">接口详情 →</button></div>
+          <p>每批传 1–100 个不重复的 taskIds，建议每 2 秒查询尚未结束的任务。逐项检查 error 和 state；completed 时获取结果，failed 或 cancelled 时停止轮询。根据账号读取预算控制查询频率。</p>
           <ApiCodeBlock :code="quickStartRequests.status" :title="language === 'python' ? 'Python · 查询状态' : 'curl · 查询状态'" />
         </section>
         <section id="api-doc-fetch-result" data-doc-section>
-          <h3>3. 获取求解结果</h3>
-          <div class="quick-endpoint"><span class="method">GET</span><code>/tasks/{taskId}/result</code><button type="button" class="text-link" @click="selectPage('result')">接口详情 →</button></div>
-          <p>任务完成后调用此接口，从 <code>data.results</code> 读取求解结果。</p>
+          <h3>3. 批量获取结果</h3>
+          <div class="quick-endpoint"><span class="method post">POST</span><code>/tasks/batch-results</code><button type="button" class="text-link" @click="selectPage('batch-results')">接口详情 →</button></div>
+          <p>每批最多 20 个任务，从 <code>data.tasks[].results</code> 读取结果。HTTP 200 也可能包含单项错误；RESULT_TOO_LARGE 时改用单任务结果接口。需要停止任务时调用批量取消接口。</p>
           <ApiCodeBlock :code="quickStartRequests.result" :title="language === 'python' ? 'Python · 获取结果' : 'curl · 获取结果'" />
-          <div class="next-links"><button type="button" @click="selectPage('submit')">查看完整接口文档 <span>→</span></button></div>
+          <div class="next-links"><button type="button" @click="selectPage('batch-cancel')">批量取消任务 <span>→</span></button></div>
         </section>
+        <section id="api-doc-workflow" data-doc-section><h3>完整 Python 示例</h3><p>此示例保存每项幂等键和任务 ID，支持分批提交、退避重试、批量轮询、结果保存和中断后恢复。修改 API_KEY 与 TASK_PAYLOADS 即可运行；保留任务清单文件，勿将同一清单交给多个进程同时运行。</p><ApiCodeBlock :code="batchWorkflowCode" title="Python 3.9+ · 标准库 · 可恢复批量流程" /></section>
       </template>
 
       </template>
@@ -131,7 +135,7 @@ import { ElMessage } from 'element-plus';
 import { ArrowRight, ChevronDown, ChevronRight, FileText, KeyRound, Search } from 'lucide-vue-next';
 import ApiCodeBlock from './ApiCodeBlock.vue';
 import ApiParameterTable from './ApiParameterTable.vue';
-import { apiEndpoints, businessErrors, requestDocFields, responseDocFields, withFieldExamples, problemExamples, buildTaskPayload, buildRequestExample, buildResponseExample, type ExampleLanguage, type ApiModelType, type ApiDocField } from '../content/api-docs';
+import { apiEndpoints, businessErrors, requestDocFields, responseDocFields, withFieldExamples, problemExamples, buildTaskPayload, buildRequestExample, buildResponseExample, buildCompleteBatchExample, type ExampleLanguage, type ApiModelType, type ApiDocField } from '../content/api-docs';
 
 const props = defineProps<{ baseUrl: string; limits: { submit: number; read: number; cancel: number } }>();
 const emit = defineEmits<{ (event: 'manage-keys'): void; (event: 'page-change', id: string): void }>();
@@ -145,18 +149,22 @@ const documentHeader = ref<HTMLElement>();
 const activeAnchor = ref('api-doc-overview');
 const guideItems = [{ id: 'quick-start', title: '快速开始' }];
 const endpoint = computed(() => apiEndpoints.find(item => item.id === selected.value));
+const isSubmit = computed(() => ['submit', 'batch-submit'].includes(endpoint.value?.id || ''));
 const filteredEndpoints = computed(() => apiEndpoints.filter(item => `${item.title} ${item.path} ${item.method}`.toLowerCase().includes(search.value.trim().toLowerCase())));
 const payload = computed(() => buildTaskPayload(problemType.value, modelType.value));
 const requestCode = computed(() => buildRequestExample(endpoint.value || apiEndpoints[0], props.baseUrl, language.value, payload.value));
 const responseCode = computed(() => buildResponseExample(endpoint.value?.id || 'submit', payload.value));
-const endpointLimit = computed(() => endpoint.value?.id === 'submit' ? props.limits.submit : endpoint.value?.id === 'cancel' ? props.limits.cancel : props.limits.read);
+const endpointLimit = computed(() => isSubmit.value ? props.limits.submit : ['cancel', 'batch-cancel'].includes(endpoint.value?.id || '') ? props.limits.cancel : props.limits.read);
 const pageTitle = '快速开始';
-const pageDescription = '创建 API Key，提交任务并获取求解结果。';
+const pageDescription = '创建 API Key，批量提交完整任务、跟踪进度并收集结果。单任务接口继续兼容。';
 const quickStartPayload = buildTaskPayload('maxcut', 'classic');
-const quickStartRequests = computed(() => Object.fromEntries(['submit', 'status', 'result'].map(id => [id, buildRequestExample(apiEndpoints.find(item => item.id === id)!, props.baseUrl, language.value, quickStartPayload)])));
-const quickStartResponse = buildResponseExample('submit', quickStartPayload);
+const quickStartRequests = computed(() => Object.fromEntries([['submit', 'batch-submit'], ['status', 'batch-status'], ['result', 'batch-results']].map(([key, id]) => [key, buildRequestExample(apiEndpoints.find(item => item.id === id)!, props.baseUrl, language.value, quickStartPayload)])));
+const quickStartResponse = buildResponseExample('batch-submit', quickStartPayload);
+const batchWorkflowCode = computed(() => buildCompleteBatchExample(props.baseUrl));
+const selectedBatchWorkflow = computed(() => buildCompleteBatchExample(props.baseUrl, payload.value));
 const commonHeaders = computed<ApiDocField[]>(() => [
   { name: 'Authorization', type: 'string', required: true, description: 'Bearer 后接本账号的 API Key；仅接受此请求头，不使用网页登录 Cookie。' },
+  ...(endpoint.value?.id.startsWith('batch-') ? [{ name: 'Content-Type', type: 'string', required: true, description: '请求体使用 application/json；每项幂等键位于请求体，不设置整批 Idempotency-Key。' }] : []),
   ...(endpoint.value?.id === 'submit' ? [{ name: 'Content-Type', type: 'string', required: true, description: '请求体使用 application/json。' }, { name: 'Idempotency-Key', type: 'string', required: false, description: '1–128 个无空白 ASCII 字符；同用户保留 24 小时。同键同参数返回原任务，不同参数返回 IDEMPOTENCY_CONFLICT。网络重试使用同一键。' }] : []),
 ]);
 const headerFields = computed(() => withFieldExamples(commonHeaders.value, { Authorization: 'Bearer YOUR_API_KEY', 'Content-Type': 'application/json', 'Idempotency-Key': 'YOUR_UNIQUE_REQUEST_ID' }));
@@ -170,6 +178,7 @@ const outline = computed(() => endpoint.value ? [
   { id: 'api-doc-overview', label: '接口概览' }, { id: 'api-doc-authentication', label: '准备 API Key' },
   { id: 'api-doc-first-call', label: '1. 提交任务' }, { id: 'api-doc-poll-status', label: '2. 查询状态' },
   { id: 'api-doc-fetch-result', label: '3. 获取结果' },
+  { id: 'api-doc-workflow', label: '完整 Python 示例' },
 ] : []);
 
 async function copy(text: string) {

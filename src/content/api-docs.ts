@@ -3,6 +3,7 @@ import number from './examples/number_partition.py?raw';
 import coloring from './examples/coloring.py?raw';
 import tsp from './examples/tsp.py?raw';
 import general from './examples/general.py?raw';
+import batchWorkflow from './examples/batch.py?raw';
 
 export const problemExamples = [
   { value: 'maxcut', label: '图分割', size: '2–256', input: '对称方阵，对角线为 0；权重 0–30，最多一位小数。', script: maxcut },
@@ -182,6 +183,11 @@ for (const endpoint of apiEndpoints) {
 }
 
 export function requestDocFields(endpoint: ApiEndpointDoc, payload = buildTaskPayload('maxcut')): ApiDocField[] {
+  if (endpoint.id === 'batch-submit') return withFieldExamples([field('tasks', 'array<object>', '1–100 项；整个请求最多 4 MiB。', true, [
+    field('[]', 'object', '一项独立任务。', true, [field('idempotencyKey', 'string', '必填，1–128 个无空白 ASCII 字符；批内不重复，重试原任务保持不变。'),
+      field('payload', 'object', '原单任务完整参数；允许混合问题及模型。', true, requestDocFields(apiEndpoints.find(item => item.id === 'submit')!, payload))]),
+  ])], batchRequestBody(endpoint.id, payload));
+  if (endpoint.id.startsWith('batch-')) return withFieldExamples(endpoint.parameters, batchRequestBody(endpoint.id, payload));
   const values = { ...payload, taskId: 't_abcdefghijklmnop', taskName: '示例任务', page: 1, pageSize: 20, state: 'completed', generalInput: generalInputExample };
   return withFieldExamples(endpoint.parameters.map(item => item.name === 'adjacencyMatrix' ? { ...item, type: payload.problemType === 'number_partition' ? 'array<integer>' : 'array<array<number>>', children: payload.problemType === 'number_partition' ? [field('[]', 'integer', '数字数组元素。')] : numericMatrix } : item), values);
 }
@@ -246,11 +252,14 @@ export function buildCompleteTaskExample(baseUrl: string, payload = buildTaskPay
 
 export function buildRequestExample(endpoint: ApiEndpointDoc, baseUrl: string, language: ExampleLanguage, payload = buildTaskPayload('maxcut')) {
   const submits = endpoint.id === 'submit';
+  const batch = endpoint.id.startsWith('batch-');
+  const bodyPayload = batch ? batchRequestBody(endpoint.id, payload) : payload;
   const query = endpoint.id === 'list' ? '?page=1&pageSize=20' : '';
   const taskPath = endpoint.path.replace('{taskId}', 't_abcdefghijklmnop') + query;
   if (language === 'curl') {
     const lines = [`curl --request ${endpoint.method} "${baseUrl}${taskPath}"`, '  --header "Authorization: Bearer YOUR_API_KEY"'];
     if (submits) lines.push('  --header "Content-Type: application/json"', '  --header "Idempotency-Key: YOUR_UNIQUE_REQUEST_ID"', `  --data '${JSON.stringify(payload, null, 2)}'`);
+    if (batch) lines.push('  --header "Content-Type: application/json"', `  --data '${JSON.stringify(bodyPayload, null, 2)}'`);
     return lines.join(' \\\n');
   }
   const lines = ['import json', 'from urllib.request import Request, urlopen', '',
@@ -261,9 +270,11 @@ export function buildRequestExample(endpoint: ApiEndpointDoc, baseUrl: string, l
       'headers["Content-Type"] = "application/json"', 'headers["Idempotency-Key"] = IDEMPOTENCY_KEY', '',
       `payload = ${JSON.stringify(payload, null, 2)}`, 'body = json.dumps(payload).encode("utf-8")');
   }
+  if (batch) lines.push('headers["Content-Type"] = "application/json"', '',
+    `payload = json.loads(${JSON.stringify(JSON.stringify(bodyPayload))})`, 'body = json.dumps(payload).encode("utf-8")');
   if (endpoint.path.includes('{taskId}')) lines.push('', 'TASK_ID = "t_abcdefghijklmnop"  # 替换为已提交的任务 ID');
   const url = endpoint.path.includes('{taskId}') ? `f"{BASE_URL}${endpoint.path.replace('{taskId}', '{TASK_ID}')}"` : `BASE_URL + "${taskPath}"`;
-  lines.push('', `request = Request(${url},`, `                  headers=headers, method="${endpoint.method}"${submits ? ', data=body' : ''})`,
+  lines.push('', `request = Request(${url},`, `                  headers=headers, method="${endpoint.method}"${submits || batch ? ', data=body' : ''})`,
     'with urlopen(request, timeout=30) as response:', '    result = json.load(response)', '',
     'print(json.dumps(result, ensure_ascii=False, indent=2))');
   return lines.join('\n');
@@ -273,7 +284,14 @@ export function buildResponseExample(id: string, payload = buildTaskPayload('max
   const taskId = 't_abcdefghijklmnop';
   const taskName = 'Task_efghijklmnop';
   let data: unknown;
-  if (id === 'submit') data = { taskId, state: 'queued', replayed: false, message: '任务已接收并加入处理队列', queuePosition: 1, statusUrl: `/api/v1/tasks/${taskId}`, resultUrl: `/api/v1/tasks/${taskId}/result` };
+  if (id === 'batch-submit') data = { tasks: [{ index: 0, idempotencyKey: 'YOUR_UNIQUE_REQUEST_ID_1', taskId, state: 'queued', replayed: false, statusUrl: `/api/v1/tasks/${taskId}`, resultUrl: `/api/v1/tasks/${taskId}/result` }], acceptedCount: 1, replayedCount: 0 };
+  else if (id === 'batch-status') data = { tasks: [{ taskId, taskName, state: 'completed', message: '计算完成', updatedAt: 1791763200 }], successCount: 1, errorCount: 0 };
+  else if (id === 'batch-results') {
+    const result = JSON.parse(buildResponseExample('result', payload)).data;
+    data = { tasks: [{ taskId, state: 'completed', results: result.results, resultSummary: { runtime: result.resultSummary.runtime, bestValue: result.resultSummary.bestValue, usedColors: result.resultSummary.usedColors } }], successCount: 1, errorCount: 0 };
+  }
+  else if (id === 'batch-cancel') data = { tasks: [{ taskId, state: 'cancelled', cancelled: true, message: '任务已取消' }], successCount: 1, errorCount: 0 };
+  else if (id === 'submit') data = { taskId, state: 'queued', replayed: false, message: '任务已接收并加入处理队列', queuePosition: 1, statusUrl: `/api/v1/tasks/${taskId}`, resultUrl: `/api/v1/tasks/${taskId}/result` };
   else if (id === 'status') data = { taskId, taskName, state: 'queued', message: '任务已加入队列，等待处理', updatedAt: 1791763200, queuePosition: 1, solveLogs: [] };
   else if (id === 'list') data = { tasks: [{ taskId, taskName, problemType: 'maxcut', modelType: 'classic', state: 'completed', source: 'api', createdAt: 1791763200 }], page: 1, pageSize: 20, total: 1, totalPages: 1 };
   else if (id === 'cancel') data = { taskId, state: 'cancelled', cancelled: true, message: '任务已取消', solveLogs: [] };
@@ -305,3 +323,70 @@ export function buildResponseExample(id: string, payload = buildTaskPayload('max
   }
   return JSON.stringify({ data, requestId: '0123456789abcdef0123456789abcdef' }, null, 2);
 }
+
+export function batchRequestBody(id: string, payload = buildTaskPayload('maxcut')) {
+  return id === 'batch-submit' ? { tasks: [{ idempotencyKey: 'YOUR_UNIQUE_REQUEST_ID_1', payload }] }
+    : { taskIds: ['t_abcdefghijklmnop'] };
+}
+
+export function buildCompleteBatchExample(baseUrl: string, payload = buildTaskPayload('maxcut')) {
+  return batchWorkflow.replace(/^BASE_URL = .*$/m, () => `BASE_URL = ${JSON.stringify(baseUrl)}`)
+    .replace(/^PAYLOAD = .*$/m, () => `PAYLOAD = ${JSON.stringify(payload)}`);
+}
+
+const batchItemError = field('error', 'object', '仅单项失败时返回；HTTP 200 不代表所有项成功。', false, [
+  field('code', 'string', '该项错误码。'), field('message', 'string', '该项错误说明。'),
+]);
+const batchEndpoints: ApiEndpointDoc[] = [
+  {
+    id: 'batch-submit', title: '批量提交任务', method: 'POST', path: '/tasks/batch', success: 202,
+    description: '一次提交 1–100 个完整任务，允许混合问题类型与计算模型。新任务统一受理，计算异步执行。',
+    parameterLocation: '请求体 · application/json', parameters: [field('tasks', 'array<object>', '任务数组，每项包含 idempotencyKey 与 payload。')],
+    responseFields: [field('tasks', 'array<object>', '按输入顺序返回。', true, [field('[]', 'object', '受理或重放结果。', true, [
+      field('index', 'integer', '输入下标，从 0 开始。'), field('idempotencyKey', 'string', '该项提交标识。'), field('taskId', 'string', '任务 ID。'),
+      field('state', 'string | null', '任务状态；重放已删除任务时为 null。'), field('replayed', 'boolean', '是否为已受理任务的重放。'),
+      field('taskDeleted', 'boolean', '原任务详情已删除时为 true，不会重复创建。', false), field('statusUrl', 'string', '单任务状态地址。'), field('resultUrl', 'string', '单任务完整结果地址。'),
+    ])]), field('acceptedCount', 'integer', '本次新受理的任务数。'), field('replayedCount', 'integer', '本次重放的任务数。')],
+    notes: ['请求体最多 4 MiB。任一项参数、名称、额度或容量检查失败，本次新任务全部不受理；此前已受理任务不受影响。',
+      '每项必填独立 idempotencyKey，不传整批 Idempotency-Key 请求头。与单任务接口共享账号级 24 小时幂等记录。',
+      '超时或 5xx 可能是提交成功但响应丢失，保留各项原键及原参数重试；不要生成新键。',
+      '每项计 1 个提交限流单位，包括重放项；受理预留额度，成功完成后扣次，失败或取消释放预留。'],
+  },
+  ...(['status', 'results', 'cancel'] as const).map(kind => ({
+    id: `batch-${kind}`, title: { status: '批量查询状态', results: '批量获取结果', cancel: '批量取消任务' }[kind],
+    method: 'POST' as const, path: `/tasks/batch-${kind}`, success: 200,
+    description: { status: '一次查询一组任务的轻量状态，不读取完整结果或日志。', results: '获取一组任务的求解结果及摘要，不重复返回输入矩阵和日志。', cancel: '逐项取消任务，成功项不会因其他项失败而回滚。' }[kind],
+    parameterLocation: '请求体 · application/json',
+    parameters: [field('taskIds', 'array<string>', `不重复的任务 ID 数组，1–${{ status: 100, results: 20, cancel: 50 }[kind]} 项。使用当前提交接口返回的 ID。`)],
+    responseFields: [field('tasks', 'array<object>', '按输入顺序返回，各项可能成功或携带 error。', true, [field('[]', 'object', '单项结果。', true, [
+      field('taskId', 'string', '请求中的任务 ID。'), field('state', 'string', '成功项的任务状态。', false),
+      ...(kind === 'status' ? [field('taskName', 'string', '任务名称。', false), field('message', 'string', '状态说明。', false), field('updatedAt', 'number', '更新时间，Unix 秒。', false)]
+        : kind === 'results' ? [field('results', 'object | null', '求解结果，结构与单任务结果中的 results 一致。', false), field('resultSummary', 'object', 'runtime、bestValue、usedColors；不适用时为 null。', false)]
+        : [field('cancelled', 'boolean', '平台任务已取消并释放额度。', false), field('replayed', 'boolean', '此前已取消时为 true。', false), field('message', 'string', '取消说明。', false)]), batchItemError,
+    ])]), field('successCount', 'integer', '未携带 error 的项数。'), field('errorCount', 'integer', '携带 error 的项数。')],
+    notes: ['请求体最多 4 MiB；任务不存在、已删除或不属于本账号统一返回单项 TASK_NOT_FOUND。',
+      kind === 'status' ? '每 2 秒查询尚未结束的任务，遇到 429 遵循 Retry-After。每个 ID 计 1 个读取限流单位。'
+        : kind === 'results' ? '成功结果项的序列化内容总计最多 8 MiB；超限项返回 RESULT_TOO_LARGE，可分小批或使用单任务完整结果接口。每个 ID 计 1 个读取限流单位。'
+        : '每个 ID 计 1 个取消限流单位。已取消任务可安全重试；已完成或失败返回 TASK_NOT_CANCELLABLE。平台取消成功不代表计算设备已立即停止，远端取消会可靠重试。',
+      'HTTP 200 表示批量处理结束，请逐项检查 error；不会因为一个任务失败而隐藏其他任务结果。'],
+  })),
+];
+for (const endpoint of apiEndpoints) {
+  if (['submit', 'status', 'result', 'cancel'].includes(endpoint.id)) endpoint.title += '（单任务兼容）';
+}
+apiEndpoints.unshift(...batchEndpoints);
+businessErrors['batch-submit'] = [...businessErrors.submit,
+  { code: 'INVALID_BATCH', description: '批次结构、数量或幂等键重复。', resolution: '检查 tasks、idempotencyKey、payload；每批最多 100 项。' },
+  { code: 'BATCH_UNAVAILABLE', description: '服务端尚未启用批量提交。', resolution: '联系服务方；也可使用单任务兼容接口。' },
+  { code: 'TASK_ADMISSION_UNAVAILABLE', description: '任务准入暂不可用。', resolution: '退避后使用原项键及原参数重试。' },
+  { code: 'TASK_ADMISSION_EXPIRED', description: '准入预留已过期。', resolution: '使用原项键及原参数重试。' },
+];
+for (const kind of ['status', 'results', 'cancel']) businessErrors[`batch-${kind}`] = [
+  { code: 'INVALID_BATCH', description: '请求结构、ID 数量或重复 ID 不合法。', resolution: '按接口上限分批并去重。' },
+  ...businessErrors[kind === 'results' ? 'result' : kind],
+];
+businessErrors['batch-results'].push(
+  { code: 'RESULT_TOO_LARGE', description: '该项结果超过本批剩余响应预算。', resolution: '减少本批任务数，或使用单任务完整结果接口。' },
+  { code: 'RESULT_UNAVAILABLE', description: '该项保存的结果暂不可读取。', resolution: '联系服务方，并附 taskId 和 requestId。' },
+);
+businessErrors['batch-cancel'].push({ code: 'CANCEL_UNCONFIRMED', description: '该项取消响应不确定，可能已成功。', resolution: '查询任务状态或使用同一 taskId 重试；已取消任务重试会成功返回。' });
