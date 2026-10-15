@@ -353,7 +353,7 @@ const batchEndpoints: ApiEndpointDoc[] = [
       '单个任务的完整参数及接收日志在服务端 UTF-8 序列化后须小于 15 MiB，另预留 1 MiB 状态日志空间；矩阵字段须小于 16 MiB。超限返回 INVALID_TASK，并标明任务下标，本次新任务全部不受理。',
       '每项必填独立 idempotencyKey，不传整批 Idempotency-Key 请求头。与单任务接口共享账号级 24 小时幂等记录。',
       '网络超时或返回 5xx 时，任务仍可能已受理。请使用相同的 idempotencyKey 和参数重试，避免重复创建任务。',
-      '每项计 1 个提交限流单位，重复提交也计数。任务受理后占用额度，成功完成后扣次，失败或取消后释放占用额度。'],
+      '每个 HTTP 请求计 1 次提交，与单任务提交分别限流，重复提交也计数。计算次数额度仍按任务预留，成功完成后扣次，失败或取消后释放预留。'],
   },
   ...(['status', 'results', 'cancel'] as const).map(kind => ({
     id: `batch-${kind}`, title: { status: '批量查询状态', results: '批量获取结果', cancel: '批量取消任务' }[kind],
@@ -368,9 +368,9 @@ const batchEndpoints: ApiEndpointDoc[] = [
         : [field('cancelled', 'boolean', '平台任务已取消并释放额度。', false), field('replayed', 'boolean', '此前已取消时为 true。', false), field('message', 'string', '取消说明。', false)]), batchItemError,
     ])]), field('successCount', 'integer', '未携带 error 的项数。'), field('errorCount', 'integer', '携带 error 的项数。')],
     notes: ['请求体最多 4 MiB；任务不存在、已删除或不属于本账号统一返回单项 TASK_NOT_FOUND。',
-      kind === 'status' ? '每 2 秒查询尚未结束的任务，遇到 429 遵循 Retry-After。每个 ID 计 1 个读取限流单位。'
-        : kind === 'results' ? '成功结果项的序列化内容总计最多 8 MiB；超限项返回 RESULT_TOO_LARGE，可分小批或使用单任务完整结果接口。每个 ID 计 1 个读取限流单位。'
-        : '每个 ID 计 1 个取消限流单位。已取消任务可安全重试；已完成或失败返回 TASK_NOT_CANCELLABLE。任务取消后释放占用额度，计算设备可能稍后才停止执行。',
+      kind === 'status' ? '每 2 秒查询尚未结束的任务，遇到 429 遵循 Retry-After。每个 HTTP 请求计 1 次状态查询，与单任务状态查询分别限流，重复查询也计数。'
+        : kind === 'results' ? '成功结果项的序列化内容总计最多 8 MiB；超限项返回 RESULT_TOO_LARGE，可分小批或使用单任务完整结果接口。每个 HTTP 请求计 1 次结果获取，与单任务结果获取分别限流，重复获取也计数。'
+        : '每个 HTTP 请求计 1 次取消，与单任务取消分别限流，重复取消也计数。已取消任务可安全重试；已完成或失败返回 TASK_NOT_CANCELLABLE。任务取消后释放占用额度，计算设备可能稍后才停止执行。',
       'HTTP 200 表示批量处理结束，请逐项检查 error；不会因为一个任务失败而隐藏其他任务结果。'],
   })),
 ];

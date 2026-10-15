@@ -80,13 +80,14 @@ import { ArrowDown, CopyDocument, Delete, EditPen, Plus } from '@element-plus/ic
 import { createApiKey, deleteApiKey, getApiKeys, renameApiKey, type ApiKeyOverview, type ApiKeyRecord } from '../api';
 import ApiDocumentation from '../components/ApiDocumentation.vue';
 import { openEmailSettings } from '../utils/emailSettings';
+import { defaultApiLimits } from '../content/api-rate-limits';
 
 const managerActive = ref(false);
 const keyManagerPanel = ref<HTMLElement>();
 const detailsOpen = ref(false);
 const loading = ref(true);
 const loadError = ref('');
-const overview = ref<ApiKeyOverview>({ enabled: false, maxKeys: 5, keys: [], limits: { submit: 6000, status: 18000, result: 6000, read: 600, cancel: 6000 } });
+const overview = ref<ApiKeyOverview>({ enabled: false, maxKeys: 5, keys: [], limits: { ...defaultApiLimits } });
 const visibleKeys = computed(() => overview.value.keys.filter(key => !key.revokedAt));
 const activeKeys = computed(() => visibleKeys.value.length);
 const createOpen = ref(false);

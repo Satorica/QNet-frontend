@@ -372,8 +372,9 @@ export interface ApiKeyOverview {
   enabled: boolean;
   maxKeys: number;
   keys: ApiKeyRecord[];
-  limits: { submit: number; read: number; cancel: number; status?: number; result?: number };
-  operationLimits?: Record<'submit' | 'status' | 'result' | 'read' | 'cancel', { minute: number }>;
+  limits: { submit: number; read: number; cancel: number; status?: number; result?: number;
+    batchSubmit?: number; batchStatus?: number; batchResult?: number; batchCancel?: number; quota?: number };
+  operationLimits?: Partial<Record<import('../content/api-rate-limits').ApiOperation, { minute: number }>>;
 }
 
 export const getApiKeys = async (): Promise<ApiKeyOverview> => {

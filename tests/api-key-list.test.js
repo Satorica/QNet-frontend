@@ -6,6 +6,12 @@ import { compileScript, parse } from '@vue/compiler-sfc';
 import ts from 'typescript';
 import * as vue from 'vue';
 
+const rateLimits = {};
+runInNewContext(ts.transpileModule(
+  readFileSync(new URL('../src/content/api-rate-limits.ts', import.meta.url), 'utf8'),
+  { compilerOptions: { module: ts.ModuleKind.CommonJS } },
+).outputText, { exports: rateLimits });
+
 const { descriptor } = parse(readFileSync(new URL('../src/views/ApiCenter.vue', import.meta.url), 'utf8'));
 const source = compileScript(descriptor, { id: 'api-key-list' }).content.replaceAll('import.meta.env', '__testEnv');
 const code = ts.transpileModule(source, {
@@ -24,6 +30,7 @@ function fixture(initialKeys, apiOverrides = {}) {
     }), ...apiOverrides },
     '../components/ApiDocumentation.vue': {},
     '../utils/emailSettings': {},
+    '../content/api-rate-limits': rateLimits,
   };
   const exports = {};
   runInNewContext(code, { exports, require: name => mocks[name], __testEnv: { VITE_API_BASE_URL: 'https://example.test' } });

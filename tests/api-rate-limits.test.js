@@ -13,17 +13,18 @@ const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKi
 const rules = {};
 runInNewContext(code, { exports: rules });
 
-test('each public endpoint selects its own budget and documented unit', () => {
-  for (const [kind, endpoints, unit] of [
-    ['submit', ['submit', 'batch-submit'], '个任务'],
-    ['status', ['status', 'batch-status'], '个任务 ID'],
-    ['result', ['result', 'batch-results'], '个任务 ID'],
-    ['cancel', ['cancel', 'batch-cancel'], '个任务 ID'],
-    ['read', ['list', 'quota'], '次请求'],
-  ]) {
-    for (const endpoint of endpoints) assert.equal(rules.apiOperation(endpoint), kind);
-    assert.equal(rules.operationDescriptions[kind].unit, unit);
-  }
+const expectedLimits = {
+  submit: 6000, batchSubmit: 120, status: 18000, batchStatus: 600,
+  result: 6000, batchResult: 600, cancel: 6000, batchCancel: 240, read: 600, quota: 120,
+};
+
+test('all ten endpoints select independent request budgets with the agreed defaults', () => {
+  for (const [endpoint, kind] of Object.entries({
+    submit: 'submit', 'batch-submit': 'batchSubmit', status: 'status', 'batch-status': 'batchStatus',
+    result: 'result', 'batch-results': 'batchResult', cancel: 'cancel', 'batch-cancel': 'batchCancel',
+    list: 'read', quota: 'quota',
+  })) assert.equal(rules.apiOperation(endpoint), kind);
+  assert.deepEqual({ ...rules.defaultApiLimits }, expectedLimits);
 });
 
 const componentUrl = new URL('../src/components/ApiRateLimits.vue', import.meta.url);
@@ -40,29 +41,36 @@ runInNewContext(componentCode, {
   exports: componentExports,
   require: name => name === '../content/api-rate-limits' ? rules : require(name),
 });
-const limits = { submit: 6000, status: 18000, result: 6000, read: 600, cancel: 6000 };
+const limits = expectedLimits;
 const renderLimits = props => renderToString(createSSRApp(componentExports.default, { limits, ...props }));
 
-test('submit documentation renders only the configured per-minute account limit', async () => {
-  const html = await renderLimits({ operation: 'submit',
-    operationLimits: { submit: { minute: 4800 } } });
-  assert.match(html, /4,800 个任务／分钟/);
-  assert.match(html, /账号限流/);
-  assert.doesNotMatch(html, /每秒恢复|突发上限|共享|Retry-After|idempotencyKey|<table|<p[ >]/);
-});
-
-test('non-submit documentation renders its own per-minute limit and unit', async () => {
-  for (const operation of ['status', 'result', 'read', 'cancel']) {
-    const html = await renderLimits({ operation,
-      operationLimits: { [operation]: { minute: 1234 } } });
-    assert.ok(html.includes(`1,234 ${rules.operationDescriptions[operation].unit}／分钟`));
-    assert.doesNotMatch(html, /每秒恢复|突发上限|共享|Retry-After|<table|<p[ >]/);
+test('each endpoint renders its own runtime request limit and account sharing rules', async () => {
+  for (const operation of Object.keys(limits)) {
+    const html = await renderLimits({ operation, operationLimits: { [operation]: { minute: 1234 } } });
+    assert.match(html, /1,234 次请求／分钟/);
+    assert.ok(html.includes(rules.operationDescriptions[operation].label));
+    assert.match(html, /每个 HTTP 请求计 1 次/);
+    assert.match(html, /同账号所有 API Key 共享本接口限额/);
+    assert.match(html, /分别限流/);
+    assert.match(html, /重复请求也计数/);
+    assert.match(html, /429.*Retry-After/);
+    assert.doesNotMatch(html, /每个任务计|按任务数累计|个任务 ID／分钟|每秒恢复|突发上限/);
   }
 });
 
-test('missing operation configuration falls back to the corresponding account limit', async () => {
-  for (const operation of Object.keys(limits)) {
+test('batch docs render request limits independently of item count', async () => {
+  for (const [operation, size] of [['batchSubmit', 100], ['batchStatus', 100], ['batchResult', 20], ['batchCancel', 50]]) {
     const html = await renderLimits({ operation });
-    assert.ok(html.includes(`${limits[operation].toLocaleString('zh-CN')} ${rules.operationDescriptions[operation].unit}／分钟`));
+    assert.ok(html.includes(`${limits[operation].toLocaleString('zh-CN')} 次请求／分钟`));
+    assert.ok(html.includes(`每批最多 ${size} 个任务`));
+  }
+});
+
+test('missing runtime settings fall back to the same endpoint rather than another budget', async () => {
+  for (const operation of Object.keys(limits)) {
+    const html = await renderLimits({ operation, limits: { ...limits, [operation]: 4321 } });
+    assert.match(html, /4,321 次请求／分钟/);
+    const fallback = await renderLimits({ operation, limits: {} });
+    assert.ok(fallback.includes(`${limits[operation].toLocaleString('zh-CN')} 次请求／分钟`));
   }
 });
