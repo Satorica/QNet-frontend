@@ -1,9 +1,9 @@
 export const defaultApiLimits = {
-  submit: 6000, batchSubmit: 120,
-  status: 18000, batchStatus: 600,
-  result: 6000, batchResult: 600,
-  cancel: 6000, batchCancel: 240,
-  read: 600, quota: 120,
+  submit: 300, batchSubmit: 15,
+  status: 1200, batchStatus: 120,
+  result: 600, batchResult: 120,
+  cancel: 300, batchCancel: 60,
+  read: 60, quota: 30,
 };
 
 export type ApiOperation = keyof typeof defaultApiLimits;
