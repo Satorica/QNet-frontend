@@ -111,6 +111,7 @@ function loginFixture(mode = 'password') {
     '../utils/error': { getErrorMessage: (_error, fallback) => fallback },
     '../utils/validation': validationExports,
     '../components/QrLoginPanel.vue': {},
+    '../components/UsageUserCount.vue': {},
     '../components/LoginBackground.vue': {},
     '../assets/brand-logo.svg': 'brand-logo.svg',
   }).state;
