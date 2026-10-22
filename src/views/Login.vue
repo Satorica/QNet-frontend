@@ -101,7 +101,7 @@
 
       <!-- 版权信息 -->
       <div class="footer-info">
-        <UsageUserCount />
+        <UsageStats />
         <p>© {{ new Date().getFullYear() }} 量子Ising求解系统 | 现代化量子优化平台</p>
       </div>
     </div>
@@ -117,7 +117,7 @@ import { authApi } from "../api/auth";
 import { userManager } from "../utils/auth";
 import QrLoginPanel from "../components/QrLoginPanel.vue";
 import LoginBackground from "../components/LoginBackground.vue";
-import UsageUserCount from "../components/UsageUserCount.vue";
+import UsageStats from "../components/UsageStats.vue";
 import type { UserInfo } from "../types/api";
 import { getErrorMessage } from "../utils/error";
 import { EMAIL_REGEX } from "../utils/validation";
@@ -238,9 +238,9 @@ const goToForgotPassword = () => {
 <style scoped src="../styles/auth.css"></style>
 <style scoped>
 /* Reserve room for both footer rows, including on short and narrow screens. */
-.login-container { padding-bottom: 130px; }
-.footer-info :deep(.usage-user-count) { margin-bottom: 16px; }
+.login-container { padding-bottom: 160px; }
+.footer-info :deep(.usage-stats) { margin-bottom: 16px; }
 @media (max-width: 768px) {
-  .footer-info :deep(.usage-user-count) { margin-bottom: 12px; }
+  .footer-info :deep(.usage-stats) { margin-bottom: 12px; }
 }
 </style>

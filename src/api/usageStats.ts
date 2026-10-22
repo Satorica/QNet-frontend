@@ -8,15 +8,31 @@ const api = axios.create({
   withCredentials: true,
 });
 
-function readTotal(response: ApiResponse<{ totalUsers: number }>): number {
-  const total = response.data?.totalUsers;
-  if (!response.success || typeof total !== "number" || !Number.isSafeInteger(total) || total < 0) {
-    throw new Error("Invalid registered user total");
-  }
-  return total;
+export interface UsageStats {
+  totalUsers: number;
+  classicCalls: number | null;
+  quantumCalls: number | null;
 }
 
-export async function getRegisteredUserTotal(signal: AbortSignal): Promise<number> {
-  const response = await api.get<ApiResponse<{ totalUsers: number }>>("/api/usage-stats", { signal });
-  return readTotal(response.data);
+function readStats(response: ApiResponse<UsageStats>): UsageStats {
+  if (!response.success || !response.data) throw new Error("Invalid usage statistics");
+  const data = response.data;
+  for (const field of ["totalUsers", "classicCalls", "quantumCalls"] as const) {
+    const total = data[field];
+    // During a rolling deployment, the older API only returns totalUsers.
+    if (field !== "totalUsers" && total === undefined) continue;
+    if (typeof total !== "number" || !Number.isSafeInteger(total) || total < 0) {
+      throw new Error("Invalid usage statistics");
+    }
+  }
+  return {
+    totalUsers: data.totalUsers,
+    classicCalls: data.classicCalls ?? null,
+    quantumCalls: data.quantumCalls ?? null,
+  };
+}
+
+export async function getUsageStats(signal: AbortSignal): Promise<UsageStats> {
+  const response = await api.get<ApiResponse<UsageStats>>("/api/usage-stats", { signal });
+  return readStats(response.data);
 }

@@ -33,17 +33,26 @@ test('public API rejects malformed totals and never uses authenticated intercept
   const signal = new AbortController().signal;
   for (const total of [-1, '23', null, undefined, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
     payload = { success: true, data: { totalUsers: total } };
-    await assert.rejects(exports.getRegisteredUserTotal(signal));
+    await assert.rejects(exports.getUsageStats(signal));
   }
   payload = { success: false, data: { totalUsers: 23 } };
-  await assert.rejects(exports.getRegisteredUserTotal(signal));
+  await assert.rejects(exports.getUsageStats(signal));
   payload = { success: true, data: { totalUsers: 0 } };
-  assert.equal(await exports.getRegisteredUserTotal(signal), 0);
+  assert.equal((await exports.getUsageStats(signal)).totalUsers, 0);
+  assert.equal((await exports.getUsageStats(signal)).classicCalls, null);
+  for (const field of ['classicCalls', 'quantumCalls']) {
+    for (const total of [-1, '23', null, 1.5, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      payload = { success: true, data: { totalUsers: 5, classicCalls: 12, quantumCalls: 8, [field]: total } };
+      await assert.rejects(exports.getUsageStats(signal));
+    }
+  }
+  payload = { success: true, data: { totalUsers: 5, classicCalls: 0, quantumCalls: 128639 } };
+  assert.equal(JSON.stringify(await exports.getUsageStats(signal)), JSON.stringify(payload.data));
   assert.equal(requests.at(-1)[0], '/api/usage-stats');
   assert.equal(requests.at(-1)[1].signal, signal);
 });
 
-const source = readFileSync(new URL('../src/components/UsageUserCount.vue', import.meta.url), 'utf8');
+const source = readFileSync(new URL('../src/components/UsageStats.vue', import.meta.url), 'utf8');
 const componentCode = compile(compileScript(parse(source).descriptor, { id: 'usage-user-count' }).content);
 function counter({ hidden = false, read = async () => 128639 } = {}) {
   const mounted = [], cleanup = [], timers = new Map(), listeners = new Map(), calls = [];
@@ -60,7 +69,7 @@ function counter({ hidden = false, read = async () => 128639 } = {}) {
     clearTimeout: key => timers.delete(key),
     require: name => name === 'vue'
       ? { ...vue, onMounted: fn => mounted.push(fn), onBeforeUnmount: fn => cleanup.push(fn) }
-      : { getRegisteredUserTotal: signal => { calls.push(signal); return read(signal); } },
+      : { getUsageStats: signal => { calls.push(signal); return Promise.resolve(read(signal)).then(total => ({ totalUsers: total, classicCalls: total * 2, quantumCalls: total * 3 })); } },
   });
   const state = exports.default.setup({}, { expose() {} });
   const result = {
@@ -78,10 +87,12 @@ function counter({ hidden = false, read = async () => 128639 } = {}) {
 
 test('counter loads immediately, formats totals, polls at 30 seconds and cleans up', async () => {
   const f = counter();
-  assert.equal(f.state.formattedTotal.value, '—');
+  assert.equal(f.state.formatTotal(f.state.metrics.value[0].total), '—');
   await f.mount();
-  assert.equal(f.state.formattedTotal.value, '128,639');
+  assert.equal(f.state.formatTotal(f.state.metrics.value[0].total), '128,639');
   assert.equal(f.calls.length, 1);
+  assert.deepEqual(Array.from(f.state.metrics.value, item => item.total), [128639, 257278, 385917]);
+  assert.equal(f.state.formatTotal(f.state.metrics.value[2].total), '385,917');
   assert.equal([...f.timers.values()][0].delay, 30000);
   await f.tick();
   assert.equal(f.calls.length, 2);
@@ -100,10 +111,10 @@ test('hidden pages pause; becoming visible immediately refreshes without overlap
   assert.equal(f.calls[0].aborted, true);
   await f.visibility(false);
   assert.equal(f.calls.length, 2);
-  assert.equal(f.state.totalUsers.value, 2);
+  assert.equal(f.state.metrics.value[0].total, 2);
   wait.resolve(999);
   await flush();
-  assert.equal(f.state.totalUsers.value, 2);
+  assert.equal(f.state.metrics.value[0].total, 2);
   assert.equal(f.timers.size, 1);
   f.unmount();
 });
@@ -113,11 +124,13 @@ test('polling failures retain the last total and account merges can correct it d
   const f = counter({ read: async () => { const value = values.shift(); if (value instanceof Error) throw value; return value; } });
   await f.mount();
   await f.tick();
-  assert.equal(f.state.totalUsers.value, 42);
+  assert.equal(f.state.metrics.value[0].total, 42);
+  assert.equal(f.state.metrics.value[1].total, 84);
+  assert.equal(f.state.metrics.value[2].total, 126);
   await f.tick();
-  assert.equal(f.state.totalUsers.value, 40);
+  assert.equal(f.state.metrics.value[0].total, 40);
   await f.tick();
-  assert.equal(f.state.totalUsers.value, 45);
+  assert.equal(f.state.metrics.value[0].total, 45);
   f.unmount();
 });
 
@@ -131,6 +144,6 @@ test('initial hidden state and unmount suppress requests, late writes and timers
   assert.equal(f.calls[0].aborted, true);
   wait.resolve(123);
   await flush();
-  assert.equal(f.state.totalUsers.value, null);
+  assert.equal(f.state.metrics.value[0].total, null);
   assert.equal(f.timers.size, 0);
 });
