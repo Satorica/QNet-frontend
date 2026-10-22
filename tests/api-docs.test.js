@@ -16,6 +16,16 @@ runInNewContext(code, {
 });
 const python = promisify(execFile);
 
+test('default task name examples match the selected problem', () => {
+  const prefixes = { maxcut: 'MaxCut', coloring: 'Coloring', number_partition: 'NumberPartition', tsp: 'TSP', general: 'General' };
+  for (const [problem, prefix] of Object.entries(prefixes)) {
+    const payload = docs.buildTaskPayload(problem);
+    const response = JSON.parse(docs.buildResponseExample('result', payload)).data;
+    assert.equal(response.taskName, `${prefix}_1791763200000`);
+    assert.equal(response.taskInfo.taskName, response.taskName);
+  }
+});
+
 test('batch docs expose complete per-item payloads and per-item outcome envelopes', () => {
   const submit = docs.apiEndpoints.find(endpoint => endpoint.id === 'batch-submit');
   assert.equal(docs.apiEndpoints[0].id, 'batch-submit');

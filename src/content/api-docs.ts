@@ -110,7 +110,7 @@ export const apiEndpoints: ApiEndpointDoc[] = [
       { name: 'methodType', type: 'string', required: false, default: 'sa', description: '算法：sa、tabu、genetic、hill_climb、ils、random_search。使用量子模型时可省略此字段。' },
       { name: 'matrixSize', type: 'integer', required: true, description: '矩阵阶数或数字数组长度；允许范围取决于问题类型。' },
       { name: 'adjacencyMatrix', type: 'array', required: true, description: '问题数据。数字分割为一维数组，其他问题为方阵；general 直接传入 QUBO 矩阵。' },
-      { name: 'taskName', type: 'string', required: false, default: '自动生成', description: '最多 64 个字符，同一用户的已有任务名称不能重复。' },
+      { name: 'taskName', type: 'string', required: false, default: '问题类型前缀_毫秒时间戳', description: '最多 64 个字符，同一用户的已有任务名称不能重复。留空时按网页相同格式自动生成，例如 Coloring_1791763200000；重名时追加任务 ID 后缀。' },
       { name: 'generalInput', type: 'object', required: false, description: '仅 general 可选，保存建模说明；实际求解使用 adjacencyMatrix。整个快照的 JSON 序列化内容最多 3 MiB。' },
     ],
     responseFields: [
@@ -284,7 +284,8 @@ export function buildRequestExample(endpoint: ApiEndpointDoc, baseUrl: string, l
 
 export function buildResponseExample(id: string, payload = buildTaskPayload('maxcut')) {
   const taskId = 't_abcdefghijklmnop';
-  const taskName = 'Task_efghijklmnop';
+  const prefixes: Record<string, string> = { maxcut: 'MaxCut', coloring: 'Coloring', number_partition: 'NumberPartition', tsp: 'TSP', general: 'General' };
+  const taskName = `${prefixes[payload.problemType] || 'MaxCut'}_1791763200000`;
   let data: unknown;
   if (id === 'batch-submit') data = { tasks: [{ index: 0, idempotencyKey: 'YOUR_UNIQUE_REQUEST_ID_1', taskId, state: 'queued', replayed: false, statusUrl: `/api/v1/tasks/${taskId}`, resultUrl: `/api/v1/tasks/${taskId}/result` }], acceptedCount: 1, replayedCount: 0 };
   else if (id === 'batch-status') data = { tasks: [{ taskId, taskName, state: 'completed', message: '计算完成', updatedAt: 1791763200 }], successCount: 1, errorCount: 0 };
