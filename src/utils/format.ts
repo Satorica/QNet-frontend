@@ -32,21 +32,22 @@ export function formatCandidateValue(value: unknown): string {
 }
 
 const solveTimeFormatter = new Intl.NumberFormat("en-US", {
-  minimumFractionDigits: 5,
-  maximumFractionDigits: 5,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
   useGrouping: false,
 });
 
-/** 求解时间（可带末尾 s）；按四舍五入固定保留五位小数。 */
+/** API 数值和 s 字符串按秒换算；已格式化的 ms 字符串不重复换算。 */
 export function formatSolveTime(value: unknown): string {
   if (value === null || value === undefined || value === "") return "--";
   let str = String(value).trim();
-  const hasSuffix = str.endsWith("s");
-  if (hasSuffix) str = str.slice(0, -1);
+  const isMilliseconds = str.endsWith("ms");
+  if (isMilliseconds) str = str.slice(0, -2);
+  else if (str.endsWith("s")) str = str.slice(0, -1);
   const num = toFiniteNumber(str);
   if (num === null || num < 0) return "--";
-  const formatted = solveTimeFormatter.format(num);
-  return hasSuffix ? formatted + "s" : formatted;
+  const milliseconds = isMilliseconds ? num : num * 1000;
+  return Number.isFinite(milliseconds) ? `${solveTimeFormatter.format(milliseconds)}ms` : "--";
 }
 
 /**
