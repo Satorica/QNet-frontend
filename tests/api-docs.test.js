@@ -19,9 +19,11 @@ const python = promisify(execFile);
 test('batch docs expose complete per-item payloads and per-item outcome envelopes', () => {
   const submit = docs.apiEndpoints.find(endpoint => endpoint.id === 'batch-submit');
   assert.equal(docs.apiEndpoints[0].id, 'batch-submit');
+  assert.match(submit.description, /1–50 个任务/);
   for (const problem of docs.problemExamples) {
     const payload = docs.buildTaskPayload(problem.value, 'quantum');
     const rows = docs.flattenDocFields(docs.requestDocFields(submit, payload));
+    assert.match(rows.find(row => row.path === 'tasks').field.description, /1–50 项/);
     assert.equal(rows.find(row => row.path === 'tasks[].payload.modelType').field.example, 'quantum');
     assert.equal(rows.find(row => row.path === 'tasks[].payload.problemType').field.example, problem.value);
     assert.equal(rows.find(row => row.path === 'tasks[].idempotencyKey').field.required, true);

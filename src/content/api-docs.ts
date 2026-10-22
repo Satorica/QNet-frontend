@@ -183,7 +183,7 @@ for (const endpoint of apiEndpoints) {
 }
 
 export function requestDocFields(endpoint: ApiEndpointDoc, payload = buildTaskPayload('maxcut')): ApiDocField[] {
-  if (endpoint.id === 'batch-submit') return withFieldExamples([field('tasks', 'array<object>', '1–100 项；整个请求最多 32 MiB。', true, [
+  if (endpoint.id === 'batch-submit') return withFieldExamples([field('tasks', 'array<object>', '1–50 项；整个请求最多 32 MiB。', true, [
     field('[]', 'object', '一项独立任务。', true, [field('idempotencyKey', 'string', '1–128 个无空白 ASCII 字符，批内唯一；24 小时内重试保持标识和参数不变。'),
       field('payload', 'object', '完整任务参数；服务端 UTF-8 序列化后的参数及接收日志须小于 15 MiB，另预留 1 MiB 状态日志空间；矩阵字段须小于 16 MiB。', true, requestDocFields(apiEndpoints.find(item => item.id === 'submit')!, payload))]),
   ])], batchRequestBody(endpoint.id, payload));
@@ -342,7 +342,7 @@ const batchItemError = field('error', 'object', '仅单项失败时返回；HTTP
 const batchEndpoints: ApiEndpointDoc[] = [
   {
     id: 'batch-submit', title: '批量提交任务', method: 'POST', path: '/tasks/batch', success: 202,
-    description: '一次提交 1–100 个任务，可混合问题类型与计算模型。校验失败时本次新任务均不受理。',
+    description: '一次提交 1–50 个任务，可混合问题类型与计算模型。校验失败时本次新任务均不受理。',
     parameterLocation: '请求体 · application/json', parameters: [field('tasks', 'array<object>', '任务数组，每项包含 idempotencyKey 与 payload。')],
     responseFields: [field('tasks', 'array<object>', '按输入顺序返回。', true, [field('[]', 'object', '每项任务的提交结果。', true, [
       field('index', 'integer', '输入下标，从 0 开始。'), field('idempotencyKey', 'string', '该项提交标识。'), field('taskId', 'string', '任务 ID。'),

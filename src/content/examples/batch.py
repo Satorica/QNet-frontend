@@ -17,7 +17,7 @@ TASK_PAYLOADS = [dict(PAYLOAD), dict(PAYLOAD)]  # Replace with your full task pa
 JOB_FILE = Path("qnet-batch-job.json")
 OUTPUT_DIR = Path("qnet-batch-results")
 WAIT_TIMEOUT = 600  # Stopping the client does not cancel accepted tasks.
-SUBMIT_BATCH_SIZE = 100
+SUBMIT_BATCH_SIZE = 50
 SUBMIT_BYTES = 32 * 1024 * 1024
 
 

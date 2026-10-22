@@ -102,7 +102,7 @@ class BatchExampleTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('batch_example', path)
         example = importlib.util.module_from_spec(spec); spec.loader.exec_module(example)
         items = [{'idempotencyKey': str(i), 'payload': {**example.PAYLOAD, 'taskName': '\u6d4b\u8bd5"\\'}} for i in range(101)]
-        self.assertEqual([len(group) for group in example.submission_chunks(items)], [100, 1])
+        self.assertEqual([len(group) for group in example.submission_chunks(items)], [50, 50, 1])
         boundary = len(json.dumps({'tasks': items[:2]}, allow_nan=False).encode('utf-8'))
         with patch.object(example, 'SUBMIT_BYTES', boundary):
             self.assertEqual(list(example.submission_chunks(items[:2])), [items[:2]])

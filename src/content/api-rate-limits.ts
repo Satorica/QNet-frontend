@@ -21,7 +21,7 @@ export function apiOperation(endpointId: string): ApiOperation {
 
 export const operationDescriptions: Record<ApiOperation, { label: string; counting: string }> = {
   submit: { label: '单任务提交', counting: '每个 HTTP 请求计 1 次，与批量提交分别限流。' },
-  batchSubmit: { label: '批量提交', counting: '每个 HTTP 请求计 1 次，每批最多 100 个任务，与单任务提交分别限流。' },
+  batchSubmit: { label: '批量提交', counting: '每个 HTTP 请求计 1 次，每批最多 50 个任务，与单任务提交分别限流。' },
   status: { label: '单任务状态查询', counting: '每个 HTTP 请求计 1 次，与批量状态查询分别限流。' },
   batchStatus: { label: '批量状态查询', counting: '每个 HTTP 请求计 1 次，每批最多 100 个任务，与单任务状态查询分别限流。' },
   result: { label: '单任务结果获取', counting: '每个 HTTP 请求计 1 次，与批量结果获取分别限流。' },

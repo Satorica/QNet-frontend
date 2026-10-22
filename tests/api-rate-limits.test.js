@@ -59,7 +59,7 @@ test('each endpoint renders its own runtime request limit and account sharing ru
 });
 
 test('batch docs render request limits independently of item count', async () => {
-  for (const [operation, size] of [['batchSubmit', 100], ['batchStatus', 100], ['batchResult', 20], ['batchCancel', 50]]) {
+  for (const [operation, size] of [['batchSubmit', 50], ['batchStatus', 100], ['batchResult', 20], ['batchCancel', 50]]) {
     const html = await renderLimits({ operation });
     assert.ok(html.includes(`${limits[operation].toLocaleString('zh-CN')} 次请求／分钟`));
     assert.ok(html.includes(`每批最多 ${size} 个任务`));
