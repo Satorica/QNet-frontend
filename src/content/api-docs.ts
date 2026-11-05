@@ -298,7 +298,7 @@ export function buildResponseExample(id: string, payload = buildTaskPayload('max
   else if (id === 'status') data = { taskId, taskName, state: 'queued', message: '任务已加入队列，等待处理', updatedAt: 1791763200, queuePosition: 1, solveLogs: [] };
   else if (id === 'list') data = { tasks: [{ taskId, taskName, problemType: 'maxcut', modelType: 'classic', state: 'completed', source: 'api', createdAt: 1791763200 }], page: 1, pageSize: 20, total: 1, totalPages: 1 };
   else if (id === 'cancel') data = { taskId, state: 'cancelled', cancelled: true, message: '任务已取消', solveLogs: [] };
-  else if (id === 'quota') data = { quotaSummary: { defaultQuotas: { classic: 200, quantum: 100 }, models: { classic: { remaining: 199, pending: 1, available: 198, total: 200, default: 200, label: '经典计算' }, quantum: { remaining: 100, pending: 0, available: 100, total: 100, default: 100, label: '量子芯片模拟计算' } } } };
+  else if (id === 'quota') data = { quotaSummary: { defaultQuotas: { classic: 10000, quantum: 10000 }, models: { classic: { remaining: 9999, pending: 1, available: 9998, total: 10000, default: 10000, label: '经典计算' }, quantum: { remaining: 10000, pending: 0, available: 10000, total: 10000, default: 10000, label: '量子芯片模拟计算' } } } };
   else {
     const matrix = payload.adjacencyMatrix;
     const methodType = 'sa';
