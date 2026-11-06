@@ -11,7 +11,7 @@ const code = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 
-function fixture() {
+function fixture({ getError, getResponse } = {}) {
   const requests = [];
   const client = {
     interceptors: { request: { use() {} }, response: { use() {} } },
@@ -19,18 +19,55 @@ function fixture() {
       requests.push({ url, payload });
       return { data: { success: true, taskId: 'test-task' } };
     },
+    async get(url) {
+      requests.push({ url });
+      if (getError) throw getError;
+      return { data: getResponse };
+    },
   };
   const mocks = {
-    axios: { default: { create: () => client } },
+    axios: { default: { create: () => client, isAxiosError: value => value?.isAxiosError === true } },
     '../utils/emailSettings': { openEmailSettings() {} },
     '../utils/auth': { tokenManager: {} },
   };
   const exports = {};
   runInNewContext(code, { exports, require: name => mocks[name] });
-  return { submitTask: exports.submitTask, requests };
+  return { submitTask: exports.submitTask, getQuantumDevices: exports.getQuantumDevices, requests };
 }
 
+test('device list translates missing endpoint and network errors into actionable Chinese messages', async () => {
+  for (const [getError, message] of [
+    [{ isAxiosError: true, response: { status: 404 }, message: 'Request failed with status code 404' }, /设备服务暂未就绪/],
+    [{ isAxiosError: true, message: 'Network Error' }, /检查网络/],
+    [{ isAxiosError: true, response: { status: 503, data: { message: '设备连接中断，请稍后重试' } } }, /设备连接中断/],
+  ]) {
+    const f = fixture({ getError });
+    await assert.rejects(f.getQuantumDevices(), message);
+    assert.equal(f.requests[0].url, '/api/quantum/devices');
+  }
+});
+
 const methods = ['sa', 'tabu', 'genetic', 'hill_climb', 'ils', 'random_search'];
+test('classical submission strips quantum-only selection without mutating the caller', async () => {
+  const f = fixture();
+  const input = Object.freeze({ modelType: 'classic', computeMode: 'multi', deviceSelection: 'manual', deviceIds: [1, 2], deviceCount: 2 });
+  await f.submitTask(input);
+  assert.deepEqual(JSON.parse(JSON.stringify(f.requests[0].payload)), { modelType: 'classic' });
+  assert.equal(input.computeMode, 'multi');
+});
+
+test('all four quantum selection modes reach the backend unchanged', async () => {
+  const f = fixture();
+  for (const choice of [
+    { computeMode: 'single', deviceSelection: 'auto' },
+    { computeMode: 'single', deviceSelection: 'manual', deviceIds: [3] },
+    { computeMode: 'multi', deviceSelection: 'auto', deviceCount: 2 },
+    { computeMode: 'multi', deviceSelection: 'manual', deviceIds: [1, 3, 5] },
+  ]) {
+    await f.submitTask({ modelType: 'quantum', methodType: 'sa', ...choice });
+    assert.deepEqual(JSON.parse(JSON.stringify(f.requests.at(-1).payload)), { modelType: 'quantum', ...choice });
+  }
+});
 for (const problemType of ['maxcut', 'number_partition', 'coloring', 'tsp', 'general']) {
   const base = {
     taskName: `${problemType} submission`,

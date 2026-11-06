@@ -1,4 +1,28 @@
 export type ModelType = "classic" | "quantum";
+export interface QuantumDeviceSelection {
+  computeMode: "single" | "multi";
+  deviceSelection: "auto" | "manual";
+  deviceIds?: number[];
+  deviceCount?: number;
+}
+export interface QuantumDevice {
+  device_id: number;
+  name: string;
+  online: boolean;
+  status: string;
+  enabled: boolean;
+  busy: boolean;
+  schedulable: boolean;
+  cooldown_seconds?: number;
+  capacity?: number;
+}
+export interface QuantumDeviceList {
+  devices: QuantumDevice[];
+  maxDevices: number;
+  variablesPerDevice: number;
+  managerOk: boolean;
+  selectionSupported: boolean;
+}
 export type MethodType =
   | "sa"
   | "tabu"
@@ -222,6 +246,10 @@ interface TaskSubmitRequestBase {
   methodType?: MethodType;
   matrixSize: number;
   adjacencyMatrix: number[] | number[][];
+  computeMode?: QuantumDeviceSelection["computeMode"];
+  deviceSelection?: QuantumDeviceSelection["deviceSelection"];
+  deviceIds?: number[];
+  deviceCount?: number;
 }
 
 export type TaskSubmitRequest = TaskSubmitRequestBase & Record<string, unknown>;
@@ -249,6 +277,7 @@ export interface TaskCandidate {
 }
 
 export interface TaskResults {
+  fpga?: { device_ids?: number[]; decomposed?: boolean; failover_count?: number; [key: string]: unknown };
   total_time?: number;
   device_communication_time?: number;
   postprocess_time?: number;

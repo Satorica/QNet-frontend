@@ -2,7 +2,7 @@
   <div class="coloring-page">
     <el-card class="main-card solver-workspace">
       <div class="card-content">
-        <section class="solver-configuration" aria-label="任务配置">
+        <section class="solver-configuration" :class="{ 'has-quantum-devices': solveType === 'quantum' }" aria-label="任务配置">
           <div class="workspace-section-heading"><h2>任务配置</h2></div>
           <TaskNameField ref="taskNameField" :disabled="solving" />
           <div class="controls-top algorithm-control">
@@ -25,6 +25,7 @@
               </el-select>
             </div>
           </div>
+          <QuantumDeviceSelector v-if="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="solving" />
         </section>
         <div class="left-column graph-data-section">
           <div class="workspace-section-heading"><h2>数据与预览</h2></div>
@@ -557,9 +558,10 @@
 </template>
 
 <script setup lang="ts">
-import type { TaskSolveLog } from "../types/api";
+import type { TaskSolveLog, QuantumDeviceSelection } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
+import QuantumDeviceSelector from "../components/QuantumDeviceSelector.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
 import SolverLog from "../components/SolverLog.vue";
 import { ref, computed, watch, onBeforeUnmount } from "vue";
@@ -621,6 +623,7 @@ type ColoringExportContext = {
 
 const { customTaskName, clearCustomTaskName } = useCustomTaskName();
 const taskNameField = ref<InstanceType<typeof TaskNameField>>();
+const quantumDeviceSelector = ref<InstanceType<typeof QuantumDeviceSelector>>();
 
 // 响应式数据
 const nodeCount = ref(8);
@@ -1258,6 +1261,17 @@ const handleNodeColor = (nodeId: number, colorIndex: number) => {
 // 求解方法
 const submitSolve = async () => {
   if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
+  let deviceSelection: Partial<QuantumDeviceSelection> = {};
+  try {
+    if (solveType.value === "quantum") {
+      const selector = quantumDeviceSelector.value;
+      if (!selector) throw new Error("设备配置正在初始化，请稍后重试");
+      deviceSelection = selector.getSelection();
+    }
+  } catch (error) {
+    ElMessage.warning(getErrorMessage(error, "请选择有效的计算设备"));
+    return;
+  }
   if (nodes.value.length === 0) {
 
     return;
@@ -1297,6 +1311,7 @@ const submitSolve = async () => {
   try {
     // 准备任务数据
     const taskData: TaskSubmitRequest = {
+      ...deviceSelection,
       taskName: submittedTaskName,
       modelType: solveType.value,
       methodType: methodType.value,

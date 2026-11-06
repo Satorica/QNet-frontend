@@ -11,6 +11,24 @@ body .solver-workspace > .el-card__body { padding: 26px; }
 body .solver-workspace .card-content { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 28px; }
 .solver-configuration { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; padding: 0; border-bottom: 0; }
 .solver-configuration > .workspace-section-heading { flex-basis: 100%; }
+.solver-configuration.has-quantum-devices { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.1fr) minmax(176px, .8fr) minmax(240px, 1.2fr); column-gap: 20px; }
+.solver-configuration.has-quantum-devices > .workspace-section-heading { grid-column: 1 / -1; }
+body .solver-workspace .has-quantum-devices .solve-type-group { height: 36px; align-items: center; }
+body .solver-workspace .has-quantum-devices .solve-type-group .el-radio-button__inner { padding-top: 4px; padding-bottom: 4px; }
+@media (min-width: 1281px) {
+  /* Reuse the empty space after the 230px model control without resizing it
+     or the task-name column. Only the device group moves within this row. */
+  .solver-configuration.has-quantum-devices .solver-model-field { grid-column: 2; grid-row: 2; }
+  .solver-configuration.has-quantum-devices .quantum-devices { grid-column: 2 / -1; grid-row: 2; margin-inline-start: 250px; }
+}
+@media (max-width: 1280px) {
+  .solver-configuration.has-quantum-devices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+  .solver-configuration.has-quantum-devices { grid-template-columns: minmax(0, 1fr); }
+  .solver-configuration.has-quantum-devices .solve-type-group { flex-wrap: wrap; }
+  body .solver-workspace .has-quantum-devices .solver-model-field .solve-type-group { height: auto; row-gap: 3px; }
+}
 .workspace-section-heading { display: flex; align-items: center; gap: 9px; min-height: 24px; }
 .workspace-section-heading::before { content: ''; flex: 0 0 3px; height: 16px; border-radius: 2px; background: var(--app-accent); }
 .workspace-section-heading h2 { margin: 0; color: #29394f; font-size: var(--app-font-section-title); font-weight: var(--app-weight-semibold); line-height: var(--app-line-heading); letter-spacing: 0; }

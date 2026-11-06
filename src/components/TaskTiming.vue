@@ -18,10 +18,15 @@ const props = defineProps<{
 }>();
 const duration = (value: unknown) =>
   typeof value === "number" ? formatSolveTime(`${value}s`) : "--";
-const items = computed(() => [
-  { label: "设备求解时间", value: props.results?.runtime == null
-    ? formatSolveTime(props.deviceTime) : duration(props.results.runtime) },
-]);
+const items = computed(() => {
+  const rows = [{ label: "设备求解时间", value: props.results?.runtime == null
+    ? formatSolveTime(props.deviceTime) : duration(props.results.runtime) }];
+  const ids = props.results?.fpga?.device_ids;
+  if (Array.isArray(ids) && ids.length) {
+    rows.push({ label: "实际计算设备", value: ids.map(id => `FPGA-${id}`).join("、") });
+  }
+  return rows;
+});
 </script>
 
 <style scoped>

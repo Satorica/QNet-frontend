@@ -186,7 +186,7 @@ test('nested parameter rows keep full paths and collapse only their descendants'
   assert.equal(new Set(paths).size, paths.length);
   const available = all.find(row => row.path === 'data.quotaSummary.models.classic.available');
   assert.equal(available.depth, 4);
-  assert.equal(available.field.example, 198);
+  assert.equal(available.field.example, 9998);
   const closed = docs.flattenDocFields(fields, new Set());
   assert.deepEqual(Array.from(closed, row => row.path), ['data', 'requestId']);
   const partial = docs.flattenDocFields(fields, new Set(['data', 'data.quotaSummary', 'data.quotaSummary.models', 'data.quotaSummary.models.classic']));

@@ -22,6 +22,7 @@ import type {
   TaskStatusResponse,
   TaskSubmitRequest,
   TaskSubmitResponse,
+  QuantumDeviceList,
 } from "../types/api";
 
 interface RetriableRequestConfig extends InternalAxiosRequestConfig {
@@ -188,12 +189,34 @@ export const submitTask = async (
   const payload = { ...taskData };
   if (payload.modelType !== "classic") {
     delete payload.methodType;
+  } else {
+    delete payload.computeMode;
+    delete payload.deviceSelection;
+    delete payload.deviceIds;
+    delete payload.deviceCount;
   }
   const response = await cloudApi.post<Omit<TaskSubmitResponse, "usePolling">>(
     "/api/submit-task",
     payload,
   );
   return { ...response.data, usePolling: true };
+};
+
+export const getQuantumDevices = async (): Promise<QuantumDeviceList> => {
+  try {
+    const response = await cloudApi.get<ApiResponse<QuantumDeviceList>>("/api/quantum/devices");
+    if (!response.data.success || !response.data.data) {
+      throw new Error(response.data.message || "设备列表加载失败，请刷新重试");
+    }
+    return response.data.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 404) throw new Error("设备服务暂未就绪，请稍后重试");
+      if (!error.response) throw new Error("无法连接设备服务，请检查网络后重试");
+      throw new Error(error.response.data?.message || "设备列表暂不可用，请稍后重试");
+    }
+    throw error;
+  }
 };
 
 export const getProblemImportTemplate = async (
