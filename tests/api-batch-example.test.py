@@ -107,10 +107,10 @@ class BatchExampleTests(unittest.TestCase):
         with patch.object(example, 'SUBMIT_BYTES', boundary):
             self.assertEqual(list(example.submission_chunks(items[:2])), [items[:2]])
         with patch.object(example, 'SUBMIT_BYTES', boundary - 1):
-            with self.assertRaisesRegex(ValueError, 'exceeds the 32 MiB'):
+            with self.assertRaisesRegex(ValueError, 'exceeds the 512 MiB'):
                 list(example.submission_chunks(items[:2]))
         with patch.object(example, 'SUBMIT_BYTES', 1):
-            with self.assertRaisesRegex(ValueError, 'exceeds the 32 MiB'):
+            with self.assertRaisesRegex(ValueError, 'exceeds the 512 MiB'):
                 list(example.submission_chunks(items[:1]))
 
     def test_old_unconfirmed_manifest_refuses_to_resubmit(self):

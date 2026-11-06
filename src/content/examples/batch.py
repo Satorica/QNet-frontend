@@ -18,7 +18,7 @@ JOB_FILE = Path("qnet-batch-job.json")
 OUTPUT_DIR = Path("qnet-batch-results")
 WAIT_TIMEOUT = 600  # Stopping the client does not cancel accepted tasks.
 SUBMIT_BATCH_SIZE = 50
-SUBMIT_BYTES = 32 * 1024 * 1024
+SUBMIT_BYTES = 512 * 1024 * 1024
 
 
 def save_job(job):
@@ -37,7 +37,7 @@ def api_call(path, payload=None, method='POST'):
     for attempt in range(6):
         delay = min(30, 2 ** attempt)
         try:
-            with urlopen(Request(BASE_URL + path, data=body, headers=headers, method=method), timeout=30) as response:
+            with urlopen(Request(BASE_URL + path, data=body, headers=headers, method=method), timeout=300) as response:
                 return json.load(response)['data']
         except HTTPError as exc:
             if exc.code not in (429, 500, 502, 503, 504):
@@ -67,7 +67,7 @@ def submission_chunks(items):
     # limit; crossing the former 4 MiB threshold needs no extra HTTP request.
     for group in chunks(items, SUBMIT_BATCH_SIZE):
         if len(encode_json({'tasks': [submission_item(item) for item in group]})) > SUBMIT_BYTES:
-            raise ValueError('Batch exceeds the 32 MiB upload limit. '
+            raise ValueError('Batch exceeds the 512 MiB upload limit. '
                              'Keep the job file, keys and inputs; contact the service '
                              'or reduce the number of tasks per request.')
         yield group

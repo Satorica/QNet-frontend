@@ -1,19 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { runInNewContext } from 'node:vm';
 import { test } from 'node:test';
-import ts from 'typescript';
+import { loadApiDocs } from './helpers/api-docs.js';
 
-const source = readFileSync(new URL('../src/content/api-docs.ts', import.meta.url), 'utf8');
-const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText;
-const docs = {};
-runInNewContext(code, {
-  exports: docs,
-  require: name => ({ default: readFileSync(new URL(`../src/content/${name.replace('?raw', '')}`, import.meta.url), 'utf8') }),
-});
+const docs = loadApiDocs();
+
 const python = promisify(execFile);
 
 test('default task name examples match the selected problem', () => {
@@ -262,4 +255,48 @@ print(json.dumps(assignments))`, example.script], { timeout: 10000, encoding: 'u
     assert.equal(assignments.BASE_URL, 'https://example.test/api/v1');
     assert.deepEqual(assignments.PAYLOAD, JSON.parse(JSON.stringify(example.payload)));
   }
+});
+
+test('all four quantum modes are present in single and batch parameter trees and result examples', () => {
+  const submit = docs.apiEndpoints.find(endpoint => endpoint.id === 'submit');
+  const batch = docs.apiEndpoints.find(endpoint => endpoint.id === 'batch-submit');
+  const definitionsBefore = JSON.stringify(docs.apiEndpoints);
+  assert.equal(docs.quantumDeviceExamples.length, 4);
+  for (const problem of docs.problemExamples) {
+    for (const choice of docs.quantumDeviceExamples) {
+      const payload = docs.buildTaskPayload(problem.value, 'quantum', choice.value);
+      const expectedIds = choice.value.endsWith('manual') ? choice.value.startsWith('multi') ? [1, 3] : [3]
+        : choice.value.startsWith('multi') ? [1, 2] : [1];
+      assert.equal(payload.computeMode, choice.value.startsWith('multi') ? 'multi' : 'single');
+      assert.equal(payload.deviceSelection, choice.value.endsWith('manual') ? 'manual' : 'auto');
+      if (payload.deviceSelection === 'auto') assert.equal(Object.hasOwn(payload, 'deviceIds'), false);
+      else assert.deepEqual(Array.from(payload.deviceIds), expectedIds);
+      for (const [endpoint, prefix] of [[submit, ''], [batch, 'tasks[].payload.']]) {
+        const rows = docs.flattenDocFields(docs.requestDocFields(endpoint, payload));
+        for (const name of ['computeMode', 'deviceSelection', 'deviceIds', 'deviceCount']) {
+          const row = rows.find(row => row.path === prefix + name);
+          assert.ok(row, prefix + name);
+          assert.equal(row.field.required, false);
+        }
+      }
+      for (const id of ['result', 'batch-results']) {
+        const endpoint = docs.apiEndpoints.find(endpoint => endpoint.id === id);
+        const response = JSON.parse(docs.buildResponseExample(id, payload)).data;
+        const result = id === 'result' ? response.results : response.tasks[0].results;
+        assert.deepEqual(result.fpga.device_ids, expectedIds);
+        assert.equal(result.fpga.decomposed, expectedIds.length > 1);
+        const rows = docs.flattenDocFields(docs.responseDocFields(endpoint, payload));
+        const path = id === 'result' ? 'data.results.fpga.device_ids' : 'data.tasks[].results.fpga.device_ids';
+        assert.ok(rows.some(row => row.path === path), path);
+        if (id === 'result') {
+          assert.equal(response.input.computeMode, payload.computeMode);
+          assert.equal(response.taskInfo.deviceSelection, payload.deviceSelection);
+        }
+      }
+    }
+    const classic = docs.buildTaskPayload(problem.value, 'classic', 'multi-manual');
+    assert.ok(!Object.hasOwn(classic, 'computeMode'));
+    assert.ok(!Object.hasOwn(classic, 'deviceIds'));
+  }
+  assert.equal(JSON.stringify(docs.apiEndpoints), definitionsBefore, 'response examples do not mutate shared schemas');
 });

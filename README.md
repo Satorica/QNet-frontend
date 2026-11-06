@@ -22,6 +22,10 @@ npm run build
 
 生产构建输出到 `dist/`，不发布源码映射。`VITE_API_BASE_URL` 设置生产 API 地址，留空时使用同源地址；修改后需要重新构建。
 
+`npm test` 可在独立检出的前端仓库运行，不依赖后端检出或仓库外的文档。Python 请求示例测试仍需本机 Python 3。
+
+跨仓库 API 契约校验单独执行 `npm run test:integration`。默认使用同级 `backend` 和完整工作区的 `docs/API文档.md`，需先在所用 Python 环境安装后端依赖。不同目录可设置 `QNET_BACKEND_DIR`（后端路径）、`QNET_API_DOC_FILE`（离线文档路径）及 `QNET_PYTHON`（Python 可执行文件）；缺少依赖会明确报错。
+
 ## 代码入口
 
 - [src/main.ts](src/main.ts)：应用初始化、路由和全局样式。

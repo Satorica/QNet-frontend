@@ -55,17 +55,24 @@
         <section id="api-doc-request-params" data-doc-section><h3>请求参数</h3>
           <ApiParameterTable v-if="endpoint.parameters.length" :fields="requestFields" :initial-expanded-depth="0" :key="endpoint.id + '-request'" label="请求参数表" />
           <div v-else class="no-parameters">此接口无需请求参数。</div>
-          <div v-if="isSubmit" class="problem-guide"><h4>问题数据约束</h4><div v-for="problem in problemExamples" :key="problem.value" class="problem-row"><code>{{ problem.value }}</code><span>{{ problem.size }} 阶／项</span><p>{{ problem.input }}</p></div></div>
+          <div v-if="isSubmit" class="problem-guide"><h4>问题数据约束</h4><div v-for="problem in problemExamples" :key="problem.value" class="problem-row"><code>{{ problem.value }}</code><span>{{ problem.size }}</span><p>{{ problem.input }}</p></div></div>
+          <div v-if="isSubmit" class="quantum-device-guide">
+            <h4>量子任务的设备选择</h4>
+            <p>仅 <code>modelType=quantum</code> 支持。集群就是多台计算（<code>computeMode=multi</code>）。单任务直接传设备参数，批量提交放在每项 <code>payload</code> 中，可为每项选择不同方式。</p>
+            <p><code>deviceIds</code> 仅用于指定模式；单台恰好一个，多台至少两个，不可重复。<code>deviceCount</code> 仅用于多台自动模式，不填时按编码规模选择至少两台。默认最多 6 台，每台 1024 个 QUBO 变量；具体上限以部署为准，设备数量不能超过编码变量数。</p>
+            <p>指定设备忙碌时等待，离线或维护时失败，不自动换板。请求选择位于结果的 <code>taskInfo/input</code>，实际执行设备以 <code>results.fpga.device_ids</code> 为准。更改设备参数须使用新的幂等标识。</p>
+            <p>完全省略设备参数时保持旧协议；携带设备参数时，<code>computeMode/deviceSelection</code> 默认 <code>single/auto</code>。网页设备列表 <code>GET /api/quantum/devices</code> 需要登录态，不能仅用 API Key 调用。</p>
+          </div>
         </section>
         <section id="api-doc-request-example" data-doc-section><h3>请求示例</h3>
-          <div v-if="isSubmit" class="example-settings"><span>示例问题</span><el-select v-model="problemType" aria-label="示例问题"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select><el-select v-model="modelType" aria-label="示例模型"><el-option label="经典计算" value="classic" /><el-option label="量子芯片模拟计算" value="quantum" /></el-select></div>
+          <div v-if="isSubmit" class="example-settings"><span>示例问题</span><el-select v-model="problemType" aria-label="示例问题"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select><el-select v-model="modelType" aria-label="示例模型"><el-option label="经典计算" value="classic" /><el-option label="量子芯片模拟计算" value="quantum" /></el-select><el-select v-if="modelType === 'quantum'" v-model="deviceMode" aria-label="示例设备选择"><el-option v-for="choice in quantumDeviceExamples" :key="choice.value" :label="choice.label" :value="choice.value" /></el-select></div>
           <p v-if="endpoint.id === 'batch-submit'">每项填写 <code>idempotencyKey</code> 和 <code>payload</code>。重试时保持标识和参数不变；不传 <code>Idempotency-Key</code> 请求头。</p>
           <p v-if="endpoint.id === 'submit'">新任务使用新的 <code>Idempotency-Key</code>；重试时保持标识和参数不变。</p>
           <el-tabs v-model="language" class="language-tabs"><el-tab-pane label="python" name="python" /><el-tab-pane label="curl" name="curl" /></el-tabs>
           <ApiCodeBlock :code="requestCode" :title="language === 'python' ? 'Python · 标准库' : 'curl · Bash'" />
         </section>
         <section id="api-doc-response-params" data-doc-section><h3>响应参数</h3>
-          <div v-if="['result', 'batch-results'].includes(endpoint.id)" class="example-settings"><span>结果问题类型</span><el-select v-model="problemType" aria-label="结果问题类型"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select></div>
+          <div v-if="['result', 'batch-results'].includes(endpoint.id)" class="example-settings"><span>结果问题类型</span><el-select v-model="problemType" aria-label="结果问题类型"><el-option v-for="problem in problemExamples" :key="problem.value" :label="problem.label" :value="problem.value" /></el-select><el-select v-model="modelType" aria-label="结果模型"><el-option label="经典计算" value="classic" /><el-option label="量子芯片模拟计算" value="quantum" /></el-select><el-select v-if="modelType === 'quantum'" v-model="deviceMode" aria-label="结果设备选择"><el-option v-for="choice in quantumDeviceExamples" :key="choice.value" :label="choice.label" :value="choice.value" /></el-select></div>
           <ApiParameterTable :fields="responseFields" :key="endpoint.id + '-response'" label="响应参数表" response />
         </section>
         <section id="api-doc-response-example" data-doc-section><h3>响应示例</h3><div class="response-kind"><span class="success-dot" />正常 · HTTP {{ endpoint.success }}<span class="sample-label">示例数据</span></div><ApiCodeBlock :code="responseCode" title="JSON" /></section>
@@ -122,7 +129,7 @@ import ApiParameterTable from './ApiParameterTable.vue';
 import ApiRateLimits from './ApiRateLimits.vue';
 import type { ApiKeyOverview } from '../api';
 import { apiOperation } from '../content/api-rate-limits';
-import { apiEndpoints, businessErrors, requestDocFields, responseDocFields, withFieldExamples, problemExamples, buildTaskPayload, buildRequestExample, buildResponseExample, type ExampleLanguage, type ApiModelType, type ApiDocField } from '../content/api-docs';
+import { apiEndpoints, businessErrors, requestDocFields, responseDocFields, withFieldExamples, problemExamples, quantumDeviceExamples, buildTaskPayload, buildRequestExample, buildResponseExample, type ExampleLanguage, type ApiModelType, type ApiDeviceMode, type ApiDocField } from '../content/api-docs';
 
 const props = defineProps<{ baseUrl: string; limits: ApiKeyOverview['limits']; operationLimits?: ApiKeyOverview['operationLimits'] }>();
 const emit = defineEmits<{ (event: 'manage-keys'): void; (event: 'page-change', id: string): void }>();
@@ -131,6 +138,7 @@ const search = ref('');
 const expandedGroups = ref<Record<string, boolean>>({ batch: true, single: true });
 const problemType = ref('maxcut');
 const modelType = ref<ApiModelType>('classic');
+const deviceMode = ref<ApiDeviceMode>('single-auto');
 const language = ref<ExampleLanguage>('python');
 const quickStartLanguage = ref<ExampleLanguage>('python');
 const documentHeader = ref<HTMLElement>();
@@ -143,7 +151,7 @@ const endpointGroups = computed(() => [
   { id: 'batch', title: '批量任务', items: filteredEndpoints.value.filter(item => item.id.startsWith('batch-')) },
   { id: 'single', title: '基础接口', items: filteredEndpoints.value.filter(item => !item.id.startsWith('batch-')) },
 ].filter(group => group.items.length));
-const payload = computed(() => buildTaskPayload(problemType.value, modelType.value));
+const payload = computed(() => buildTaskPayload(problemType.value, modelType.value, deviceMode.value));
 const requestCode = computed(() => buildRequestExample(endpoint.value || apiEndpoints[0], props.baseUrl, language.value, payload.value));
 const responseCode = computed(() => buildResponseExample(endpoint.value?.id || 'submit', payload.value));
 const endpointKind = computed(() => apiOperation(endpoint.value?.id || ''));
@@ -351,7 +359,7 @@ button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px
 h2 { font-size: var(--app-font-page-title); margin: 0 0 12px; font-weight: 600; letter-spacing: 0; }h3 { color: var(--el-text-color-primary); font-size: var(--app-font-section-title); margin: 0 0 14px; font-weight: 600; line-height: 1.5; }h4 { font-size: var(--app-font-subtitle); font-weight: var(--app-weight-medium); }.endpoint-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }.endpoint-heading h2 { font: var(--app-weight-medium) var(--app-font-page-title)/var(--app-line-heading) var(--app-font-family-mono); margin: 0; overflow-wrap: anywhere; }
 p { color: var(--el-text-color-regular); line-height: var(--app-line-reading); margin: 10px 0 18px; font-size: var(--app-font-subtitle); }code { font: var(--app-font-mono)/1.7 var(--app-font-family-mono); overflow-wrap: anywhere; }section { margin-bottom: 34px; scroll-margin-top: 16px; }.endpoint-address { display: flex; gap: 8px; align-items: center; justify-content: space-between; background: var(--el-fill-color-lighter); padding: 8px 12px; border-radius: 5px; margin: 18px 0; }
 .parameter-table { overflow-x: auto; margin: 16px 0; }table { width: 100%; min-width: 590px; border-collapse: collapse; border: 1px solid var(--doc-border); font-size: 14px; }th { background: var(--el-fill-color-light); color: var(--el-text-color-regular); font-weight: 600; text-align: left; padding: 12px 14px; white-space: nowrap; }td { padding: 14px; border-bottom: 1px solid var(--doc-border); color: var(--el-text-color-regular); line-height: 1.75; vertical-align: top; }td:first-child { width: 126px; }td:nth-child(2) { width: 60px; }td:nth-child(3) { width: 56px; }td:nth-child(4) { min-width: 100px; }td code { font-size: 14px; }.required { color: #be5454; }.default-value { display: block; color: var(--el-text-color-secondary); font-size: 12px; margin-top: 5px; }.response-table td:nth-child(3) { min-width: 100px; }.error-table td:first-child { width: 30%; min-width: 180px; }.error-table td:nth-child(2) { width: 70%; }.no-parameters { padding: 20px; text-align: center; background: var(--el-fill-color-lighter); color: var(--el-text-color-secondary); font-size: 14px; }
-.problem-guide { margin-top: 22px; }.problem-row { display: grid; grid-template-columns: 156px 96px minmax(0, 1fr); gap: 8px; align-items: start; border-bottom: 1px solid var(--doc-border); padding: 10px 0; font-size: 13px; }.problem-row code { font-size: 13px; }.problem-row span { color: var(--el-text-color-secondary); }.problem-row p { margin: 0; font-size: 14px; }.example-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 18px 0; color: var(--el-text-color-secondary); font-size: 14px; }.example-settings .el-select { width: 170px; }.language-tabs :deep(.el-tabs__header) { margin: 0; }.language-tabs :deep(.el-tabs__item) { height: 36px; font-size: 14px; }.response-kind { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #367653; }.success-dot { width: 6px; height: 6px; border-radius: 50%; background: #509b69; }.sample-label { margin-left: auto; color: var(--el-text-color-secondary); font-size: 13px; }
+.problem-guide { margin-top: 22px; }.problem-row { display: grid; grid-template-columns: 140px minmax(200px, 1fr) minmax(0, 1.5fr); gap: 8px; align-items: start; border-bottom: 1px solid var(--doc-border); padding: 10px 0; font-size: 13px; }.problem-row code { font-size: 13px; }.problem-row span { color: var(--el-text-color-secondary); }.problem-row p { margin: 0; font-size: 14px; }.example-settings { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 18px 0; color: var(--el-text-color-secondary); font-size: 14px; }.example-settings .el-select { width: 170px; }.language-tabs :deep(.el-tabs__header) { margin: 0; }.language-tabs :deep(.el-tabs__item) { height: 36px; font-size: 14px; }.response-kind { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #367653; }.success-dot { width: 6px; height: 6px; border-radius: 50%; background: #509b69; }.sample-label { margin-left: auto; color: var(--el-text-color-secondary); font-size: 13px; }
 .connection-info { display: flex; justify-content: space-between; align-items: center; gap: 14px; background: var(--el-fill-color-lighter); border: 1px solid var(--doc-border); border-radius: 6px; padding: 16px; }.connection-info span { display: block; color: var(--el-text-color-secondary); font-size: 13px; margin-bottom: 6px; }
 .next-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 24px 0; }.next-links button { display: flex; justify-content: space-between; align-items: center; gap: 8px; text-align: left; border: 1px solid var(--doc-border); border-radius: 6px; padding: 14px; font-size: 14px; }.next-links button:hover { border-color: var(--app-accent); color: var(--app-accent); }
 .api-doc-outline { position: sticky; top: 24px; display: flex; flex-direction: column; box-sizing: border-box; min-width: 0; border-left: 1px solid var(--doc-border); padding: 0 12px 0 16px; margin-top: 4px; }.api-doc-outline button { text-align: left; padding: 8px 0; color: var(--el-text-color-secondary); font-size: 14px; line-height: 1.7; position: relative; }.api-doc-outline button:hover, .api-doc-outline button.active { color: var(--app-accent); }
@@ -392,7 +400,7 @@ p { color: var(--el-text-color-regular); line-height: var(--app-line-reading); m
   .menu-scroll { overflow-y: auto; }
   .api-doc-content { padding-top: 14px; }.endpoint-heading h2 { font-size: 24px; }
   .key-manager-content { min-height: calc(100dvh - 64px); }
-  .problem-row { grid-template-columns: 150px 86px; }.problem-row p { grid-column: 1 / -1; }
+  .problem-row { grid-template-columns: 120px minmax(0, 1fr); }.problem-row p { grid-column: 1 / -1; }
   .connection-info { flex-wrap: wrap; }.next-links { grid-template-columns: 1fr; }
 }
 
