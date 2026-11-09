@@ -39,8 +39,7 @@
         <span class="placeholder-message">{{ loading ? '正在生成登录二维码…' : message }}</span>
       </div>
     </div>
-    <p class="qr-title">{{ state === 'scanned' ? '已扫码，请在小程序中确认' : '使用小程序内扫一扫' }}</p>
-    <p class="qr-guide">打开「量子 Ising 求解」小程序<br />我的 → 扫一扫</p>
+    <p class="qr-title">{{ state === 'scanned' ? '已扫码，请在小程序中确认' : '小程序扫码登录' }}</p>
     <p v-if="!terminal && !loading" class="qr-status">{{ message }}</p>
     <el-button v-if="terminal" type="primary" plain :loading="loading" @click="create">重新获取登录二维码</el-button>
   </div>
@@ -60,7 +59,7 @@ const emit = defineEmits<{
 const loading = ref(false);
 const image = ref('');
 const state = ref('waiting');
-const message = ref('扫码后，请在小程序确认登录');
+const message = ref('扫码后确认登录');
 const terminal = computed(() => ['error', 'expired', 'cancelled', 'consumed'].includes(state.value));
 const visualState = computed(() => loading.value ? 'loading' : state.value);
 let requestId = '';
@@ -119,7 +118,7 @@ async function create() {
     requestId = data.requestId;
     expiresAt = data.expiresAt;
     image.value = data.image;
-    message.value = '扫码后，请在小程序确认登录';
+    message.value = '扫码后确认登录';
     schedulePoll(run);
   } catch (error) {
     if (disposed || run !== generation) return;
@@ -166,7 +165,7 @@ async function poll(run: number) {
     return;
   }
   const messages: Record<string, string> = {
-    waiting: '扫码后，请在小程序确认登录', scanned: '已扫码，请在小程序确认登录',
+    waiting: '扫码后确认登录', scanned: '已扫码，请在小程序确认登录',
     expired: '登录二维码已过期', cancelled: '已取消登录', consumed: '此登录二维码已使用',
   };
   message.value = messages[next] || '请重新扫码';
@@ -204,6 +203,5 @@ onUnmounted(() => { disposed = true; generation += 1; stop(); cancel(requestId);
 @keyframes loader-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .status-loader svg { animation: none; } }
 .qr-title { font-size: 17px; color: #1e293b; font-weight: 600; margin: 0 0 10px; }
-.qr-guide { color: #64748b; font-size: 13px; line-height: 1.8; margin: 0 0 10px; }
 .qr-status { font-size: 12px; color: var(--el-color-primary); line-height: 1.7; }
 </style>
