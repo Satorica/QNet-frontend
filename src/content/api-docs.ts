@@ -9,7 +9,7 @@ export const problemExamples = [
   { value: 'maxcut', label: '图分割', size: '经典 2–256；量子单台 2–1024／多台 2–4096', input: '对称方阵，对角线为 0；权重 0–30，最多一位小数。', script: maxcut },
   { value: 'number_partition', label: '数字分割', size: '经典 2–256；量子单台 2–1024／多台 2–4096', input: '一维整数数组，长度等于 matrixSize；元素绝对值不超过 1,000,000。', script: number },
   { value: 'coloring', label: '图着色', size: '经典 2–16；量子单台 2–32／多台 2–64', input: '对称 0/1 方阵，对角线为 0。', script: coloring },
-  { value: 'tsp', label: '旅行商', size: '经典 2–16；量子单台 2–32／多台 2–64', input: '对称距离方阵，对角线为 0；其余距离至少为 0.1。', script: tsp },
+  { value: 'tsp', label: '旅行商', size: '经典 2–16；量子单台 2–32／多台 2–64', input: '对称距离方阵，对角线为 0；其余距离为 0.1–100,000。', script: tsp },
   { value: 'general', label: '一般 QUBO', size: '经典 2–256；量子单台 2–1024／多台 2–4096', input: 'QUBO 方阵，允许非对称及非零对角线；矩阵元素绝对值不超过 100,000。', script: general },
 ];
 
@@ -32,6 +32,7 @@ export interface ApiTaskPayload {
   deviceSelection?: 'auto' | 'manual';
   deviceIds?: number[];
   deviceCount?: number;
+  generalInput?: typeof generalInputExample;
 }
 export interface ApiDocField {
   name: string;
@@ -86,7 +87,7 @@ const quantumSelectionFields: ApiDocField[] = [
 ];
 const solverResultFields = (): ApiDocField[] => [
   field('runtime', 'number', '求解运行时间，秒。', false),
-  field('candidates', 'array<object>', '候选解；模型可能返回额外字段，以实际响应为准。', false, [field('[]', 'object', '一个候选解。', true, [field('rank', 'integer', '候选解排名。', false), field('value', 'number', '候选解的目标值。', false), field('solution', 'array', '解向量，编码随问题和模型变化。', false, numericArray)])]),
+  field('candidates', 'array<object>', '候选解；模型可能返回额外字段，以实际响应为准。', false, [field('[]', 'object', '一个候选解。', true, [field('rank', 'integer', '候选解排名。', false), field('value', 'number', '候选解的目标值。', false), field('solution', 'array<number> | array<array<number>>', '解向量或编码矩阵，结构随问题和模型变化；下方经典示例使用一维向量。', false)])]),
   field('fpga', 'object', '量子任务的实际设备信息；经典任务和部分历史任务可能没有。', false, [
     field('device_ids', 'array<integer>', '实际参与计算的 FPGA 编号；与请求的 deviceIds 区分，自动分配时以此为准。', false, [field('[]', 'integer', '实际设备编号。')]),
     field('decomposed', 'boolean', '是否使用多板分解协同计算。', false),
@@ -104,7 +105,7 @@ const generalInputFields: ApiDocField[] = [
   field('sense', 'string', 'minimize 或 maximize，表示原始目标方向。'),
   field('variables', 'array<string>', '原始变量名；非空、不可重复，每项最多 64 字符。', true, [field('[]', 'string', '以字母或下划线开头，只含字母、数字、下划线。')]),
   field('slackVariables', 'array<string>', '松弛变量名，与 variables 合计长度等于 matrixSize；matrix 来源必须为空数组。', true, [field('[]', 'string', '松弛变量名，格式同 variables。')]),
-  field('expression', 'string', '原始目标表达式字符串，最多 10,000 字符；matrix 来源可传空字符串。'),
+  field('expression', 'string', '原始目标表达式字符串，最多 10,000 字符；expression 来源且 expressionForm=scalar 时不可为空白，其他情况可传空字符串。'),
   field('matrixObjective', 'object', '原始矩阵目标的文本快照，以下字段均传字符串。', true, [
     field('kind', 'string', 'quadratic 或 maxcut。'), field('weightMatrix', 'string', '权重矩阵文本，最多 2,097,152 字符。'), field('linearVector', 'string', '线性项向量文本，最多 10,000 字符。'), field('constant', 'string', '常数项文本，最多 10,000 字符。'),
   ]),
@@ -113,7 +114,7 @@ const generalInputFields: ApiDocField[] = [
   ])]),
 ];
 const logFields = [field('[]', 'object', '一条求解事件；历史任务可能没有日志。', true, [
-  field('sequence', 'integer', '事件顺序，从 1 开始。'), field('state', 'string', 'received 或任务状态。'), field('message', 'string', '事件说明。'),
+  field('sequence', 'integer', '事件顺序，从 1 开始；裁剪旧日志后序号可能不连续。'), field('state', 'string', 'received 或任务状态。'), field('message', 'string', '事件说明。'),
   field('timestampNs', 'string', 'Unix 纳秒时间戳，以字符串保留精度。'), field('timestamp', 'string', '带时区的事件时间。'), field('elapsedSeconds', 'number', '从接收任务开始的累计秒数。'),
 ])];
 export interface ApiEndpointDoc {
@@ -131,7 +132,7 @@ export interface ApiEndpointDoc {
 
 const taskIdParameter: ApiDocField = { name: 'taskId', type: 'string', required: true, description: '本账号的任务 ID，支持网页、小程序和 API 创建的任务。' };
 const stateField: ApiDocField = { name: 'state', type: 'string', description: 'queued、processing、completed、failed 或 cancelled。' };
-const logsField: ApiDocField = { name: 'solveLogs', type: 'array', description: '任务从接收到当前阶段的求解日志。' };
+const logsField: ApiDocField = { name: 'solveLogs', type: 'array', description: '求解事件日志，最多 200 条；超限保留首条接收事件及最近 199 条，历史任务可能为空数组。' };
 
 export const apiEndpoints: ApiEndpointDoc[] = [
   {
@@ -140,7 +141,7 @@ export const apiEndpoints: ApiEndpointDoc[] = [
     parameters: [
       { name: 'problemType', type: 'string', required: false, default: 'maxcut', description: '问题类型：maxcut、number_partition、coloring、tsp 或 general。建议显式指定。' },
       { name: 'modelType', type: 'string', required: false, default: 'classic', description: 'classic 为经典计算，quantum 为量子芯片模拟计算。' },
-      { name: 'methodType', type: 'string', required: false, default: 'sa', description: '算法：sa、tabu、genetic、hill_climb、ils、random_search。使用量子模型时可省略此字段。' },
+      { name: 'methodType', type: 'string', required: false, default: 'sa', description: '经典算法：sa、tabu、genetic、hill_climb、ils、random_search。量子模型可省略，也接受 fpga；实际使用设备端量子求解。' },
       ...quantumSelectionFields,
       { name: 'matrixSize', type: 'integer', required: true, description: '矩阵阶数或数字数组长度。quantum 单台：最大割、数字分割、一般 QUBO 为 2–1024，图着色、TSP 为 2–32；multi（集群／多台）分别为 2–4096、2–64。不传 computeMode 按单台上限校验；classic 保持 2–256／2–16。' },
       { name: 'adjacencyMatrix', type: 'array', required: true, description: '问题数据。数字分割为一维数组，其他问题为方阵；general 直接传入 QUBO 矩阵。' },
@@ -149,7 +150,7 @@ export const apiEndpoints: ApiEndpointDoc[] = [
     ],
     responseFields: [
       { name: 'taskId', type: 'string', description: '用于查询状态、获取结果或取消任务。' },
-      stateField,
+      { ...stateField, description: '新受理任务为 queued；幂等重放返回原任务当前状态，原任务已删除时为 null。' },
       { name: 'statusUrl', type: 'string', description: '状态查询路径，相对于 API 域名。' },
       { name: 'resultUrl', type: 'string', description: '结果查询路径，相对于 API 域名。' },
       { name: 'replayed', type: 'boolean', description: 'true 表示返回该幂等键对应的已提交任务，不会创建新任务。' },
@@ -163,18 +164,18 @@ export const apiEndpoints: ApiEndpointDoc[] = [
     responseFields: [{ name: 'taskId', type: 'string', description: '任务 ID。' }, { name: 'taskName', type: 'string', description: '任务名称。' }, stateField,
       { name: 'message', type: 'string', description: '当前阶段的说明或失败原因。' },
       { name: 'updatedAt', type: 'number', description: '最后更新时间，Unix 时间戳，单位为秒。' }, logsField,
-      { name: 'queuePosition', type: 'integer', description: '有可用排队信息时返回。' }],
+      { name: 'queuePosition', type: 'integer', description: '仅 queued 且可查询到当前队列位置时返回；其他状态或队列信息不可用时省略。' }],
     notes: ['任务 failed 或 cancelled 时停止轮询，查看 message，不要自动重新提交。', '任务不存在、已删除或不属于当前用户时统一返回 TASK_NOT_FOUND。'],
   },
   {
     id: 'result', title: '获取单个任务结果', method: 'GET', path: '/tasks/{taskId}/result', success: 200,
     description: '任务 completed 后，获取输入摘要、结果摘要与完整求解结果。', parameterLocation: '路径参数', parameters: [taskIdParameter],
-    responseFields: [{ name: 'taskId', type: 'string', description: '任务 ID。' }, stateField,
+    responseFields: [{ name: 'taskId', type: 'string', description: '任务 ID。' }, { ...stateField, description: '成功响应固定为 completed；其他任务状态返回 HTTP 409 的 error 分支。' },
       { name: 'taskInfo', type: 'object', description: '任务名称、问题、模型、算法和规模；其中 createdAt 为 Unix 毫秒时间戳。' },
       { name: 'input', type: 'object', description: '问题输入摘要；具体结构随 problemType 变化。' },
       { name: 'resultSummary', type: 'object', description: 'runtime（秒）、bestValue、usedColors 和 candidateCount。不适用的摘要字段可能为 null。' },
       { name: 'results', type: 'object', description: '完整求解结果，候选解位于 candidates。' }, logsField],
-    notes: ['queued 或 processing 返回 TASK_NOT_COMPLETED；failed、cancelled 分别返回 TASK_FAILED、TASK_CANCELLED。', '请及时保存 results。结果保留期限与网页任务相同，取决于服务的清理配置。'],
+    notes: ['仅 completed 返回 HTTP 200 和 data。queued 或 processing 返回 HTTP 409 TASK_NOT_COMPLETED；failed 返回 HTTP 409 TASK_FAILED；cancelled 返回 HTTP 409 TASK_CANCELLED。错误响应为顶层 error 和 requestId，不包含成功响应的 data。', '请及时保存 results。结果保留期限与网页任务相同，取决于服务的清理配置。'],
   },
   {
     id: 'list', title: '查询任务列表', method: 'GET', path: '/tasks', success: 200,
@@ -191,7 +192,7 @@ export const apiEndpoints: ApiEndpointDoc[] = [
     description: '取消排队或处理中的任务。请求无需 JSON 请求体。', parameterLocation: '路径参数', parameters: [taskIdParameter],
     responseFields: [{ name: 'taskId', type: 'string', description: '已取消任务的 ID。' }, { name: 'state', type: 'string', description: 'cancelled。' },
       { name: 'cancelled', type: 'boolean', description: '成功取消时为 true。' }, { name: 'message', type: 'string', description: '取消状态说明。' }, logsField],
-    notes: ['completed、failed 或 cancelled 任务不能再取消，返回 TASK_NOT_CANCELLABLE。', '取消后释放该任务占用的可用额度。'],
+    notes: ['仅 queued 或 processing 可取消。completed、failed 或 cancelled 返回 HTTP 409 TASK_NOT_CANCELLABLE；重复取消已取消任务也返回此错误，与批量取消的重放行为不同。', '取消后释放该任务占用的可用额度。'],
   },
   {
     id: 'quota', title: '查询可用额度', method: 'GET', path: '/quota', success: 200,
@@ -210,16 +211,16 @@ export const apiEndpoints: ApiEndpointDoc[] = [
 for (const endpoint of apiEndpoints) {
   endpoint.parameters = endpoint.parameters.map(item => item.name === 'generalInput' ? { ...item, children: generalInputFields } : item);
   endpoint.responseFields = endpoint.responseFields.map(item => ({ ...item, required: item.required ?? !['queuePosition', 'results'].includes(item.name), ...(item.name === 'state' && endpoint.id === 'submit' ? { type: 'string | null' } : {}), ...(item.name === 'solveLogs' ? { type: 'array<object>', children: logFields } : {}) }));
-  if (endpoint.id === 'submit') endpoint.responseFields.push(field('message', 'string', '任务接收说明。', false), { ...logsField, type: 'array<object>', children: logFields, required: false }, field('taskDeleted', 'boolean', '仅幂等记录对应任务已删除时返回 true，此时 state 为 null。', false));
+  if (endpoint.id === 'submit') endpoint.responseFields.push(field('message', 'string', '接收或幂等重放说明，始终返回。'), { ...logsField, description: '新任务受理时返回；幂等重放时省略。最多 200 条，保留首条接收事件及最近事件。', type: 'array<object>', children: logFields, required: false }, field('taskDeleted', 'boolean', '仅幂等记录对应任务已删除时返回 true，此时 state 为 null。', false));
   if (endpoint.id === 'list') endpoint.responseFields[0].children = [field('[]', 'object', '一个任务。', true, [
     field('taskId', 'string', '任务 ID。'), field('taskName', 'string', '任务名称。'), field('problemType', 'string', '问题类型。'), field('modelType', 'string', '计算模型。'), field('state', 'string', '任务状态。'), field('source', 'string', 'web、miniprogram 或 api。'), field('createdAt', 'number', '创建时间，Unix 秒时间戳。'),
   ])];
 }
 
 export function requestDocFields(endpoint: ApiEndpointDoc, payload = buildTaskPayload('maxcut')): ApiDocField[] {
-  if (endpoint.id === 'batch-submit') return withFieldExamples([field('tasks', 'array<object>', '1–50 项；整个请求最多 512 MiB。', true, [
+  if (endpoint.id === 'batch-submit') return withFieldExamples([field('tasks', 'array<object>', '1–50 项；请求体只能包含 tasks，每项只能包含 idempotencyKey 和 payload；整个请求最多 512 MiB。', true, [
     field('[]', 'object', '一项独立任务。', true, [field('idempotencyKey', 'string', '1–128 个无空白 ASCII 字符，批内唯一；24 小时内重试保持标识和参数不变。'),
-      field('payload', 'object', '完整任务参数；服务端 UTF-8 序列化后的参数及接收日志须小于 511 MiB，另预留 1 MiB 状态日志空间；矩阵字段须小于 512 MiB。', true, requestDocFields(apiEndpoints.find(item => item.id === 'submit')!, payload))]),
+      field('payload', 'object', '完整任务参数；服务端 UTF-8 序列化后的参数及接收日志须不超过 511 MiB，另预留 1 MiB 状态日志空间；矩阵字段须不超过 512 MiB。', true, requestDocFields(apiEndpoints.find(item => item.id === 'submit')!, payload))]),
   ])], batchRequestBody(endpoint.id, payload));
   if (endpoint.id.startsWith('batch-')) return withFieldExamples(endpoint.parameters, batchRequestBody(endpoint.id, payload));
   const values = { ...payload, taskId: 't_abcdefghijklmnop', taskName: '示例任务', page: 1, pageSize: 20, state: 'completed', generalInput: generalInputExample };
@@ -230,9 +231,9 @@ export function responseDocFields(endpoint: ApiEndpointDoc, payload = buildTaskP
   const fields = endpoint.responseFields.map(item => ({ ...item }));
   if (endpoint.id === 'result') {
     const addChildren = (name: string, children: ApiDocField[]) => { const item = fields.find(item => item.name === name); if (item) item.children = children; };
-    addChildren('taskInfo', [field('taskId', 'string', '任务 ID。'), field('taskName', 'string', '任务名称。'), field('source', 'string', '提交来源。'), field('problemType', 'string', '问题类型。'), field('modelType', 'string', '计算模型。'), field('methodType', 'string', '使用的算法。'), field('matrixSize', 'integer', '矩阵阶数或数组长度。'), field('createdAt', 'integer', '创建时间，Unix 毫秒时间戳。'), field('adjacencyMatrix', 'array', '原始问题数据。', true, payload.problemType === 'number_partition' ? numericArray : numericMatrix), field('extra', 'object', '任务保存的其他参数，按实际任务返回。', false), ...quantumSelectionFields]);
-    const input = payload.problemType === 'number_partition' ? [field('numbers', 'array<integer>', '待分割数字。', true, numericArray)] : payload.problemType === 'coloring' ? [field('nodeCount', 'integer', '节点数量。'), field('adjacencyMatrix', 'array', '图的邻接矩阵。', true, numericMatrix)] : payload.problemType === 'tsp' ? [field('cityCount', 'integer', '城市数量。'), field('cities', 'array', '城市信息，没有附加信息时为空数组。'), field('distanceMatrix', 'array', '城市距离矩阵。', true, numericMatrix)] : payload.problemType === 'general' ? [field('adjacencyMatrix', 'array', 'QUBO 矩阵。', true, numericMatrix), field('generalInput', 'object', '提交时附带的建模快照。', false, generalInputFields)] : [field('matrix', 'array', '图的权重矩阵。', true, numericMatrix)];
-    addChildren('input', [...input, field('methodType', 'string', '使用的算法。'), ...quantumSelectionFields]);
+    addChildren('taskInfo', [field('taskId', 'string', '任务 ID。'), field('taskName', 'string', '任务名称。'), field('source', 'string', '提交来源。'), field('problemType', 'string', '问题类型。'), field('modelType', 'string', '计算模型。'), field('methodType', 'string', '保存的经典算法名；fpga 或缺失值当前序列化为 sa，量子任务仍按 modelType 执行。'), field('matrixSize', 'integer', '矩阵阶数或数组长度。'), field('createdAt', 'integer', '创建时间，Unix 毫秒时间戳。'), field('adjacencyMatrix', payload.problemType === 'number_partition' ? 'array<integer>' : 'array', '原始问题数据；数字分割为一维整数数组，其他问题为方阵。', true, payload.problemType === 'number_partition' ? [field('[]', 'integer', '数字数组元素。')] : numericMatrix), field('extra', 'object', '任务保存的其他参数（如原始 methodType），按实际任务返回。', false), ...quantumSelectionFields]);
+    const input = payload.problemType === 'number_partition' ? [field('numbers', 'array<integer>', '待分割数字。', true, [field('[]', 'integer', '数字数组元素。')])] : payload.problemType === 'coloring' ? [field('nodeCount', 'integer', '节点数量。'), field('adjacencyMatrix', 'array', '图的邻接矩阵。', true, numericMatrix)] : payload.problemType === 'tsp' ? [field('cityCount', 'integer', '城市数量。'), field('cities', 'array', '城市信息，没有附加信息时为空数组。'), field('distanceMatrix', 'array', '城市距离矩阵。', true, numericMatrix)] : payload.problemType === 'general' ? [field('adjacencyMatrix', 'array', 'QUBO 矩阵。', true, numericMatrix), field('generalInput', 'object', '提交时附带的建模快照。', false, generalInputFields)] : [field('matrix', 'array', '图的权重矩阵。', true, numericMatrix)];
+    addChildren('input', [...input, field('methodType', 'string', '与 taskInfo.methodType 相同的序列化算法名；不能据此判断量子任务的实际求解方式。'), ...quantumSelectionFields]);
     addChildren('resultSummary', [field('runtime', 'number | null', '求解运行时间，秒；无记录时为 null。'), field('bestValue', 'number | null', '最佳目标值，不适用时为 null。'), field('usedColors', 'integer | null', '图着色使用颜色数，其他问题为 null。'), field('candidateCount', 'integer', '候选解数量。')]);
     addChildren('results', solverResultFields());
     fields.push(field('taskName', 'string', '任务名称。'), field('message', 'string', '完成状态说明。'), field('updatedAt', 'number', '最后更新时间，Unix 秒。'), field('queuePosition', 'integer', '有可用排队信息时返回。', false), field('runtime', 'number', '求解运行时间，秒。', false));
@@ -260,6 +261,7 @@ export const businessErrors: Record<string, { code: string; description: string 
     { code: 'TASK_QUEUE_FULL', description: '任务队列已满。' },
     { code: 'TASK_ADMISSION_UNAVAILABLE', description: '暂时无法受理任务。' },
     { code: 'TASK_ADMISSION_EXPIRED', description: '任务受理超时。' },
+    { code: 'REQUEST_TOO_LARGE', description: '请求体超过 512 MiB 上限。' },
     { code: 'ACCOUNT_MERGING', description: '账号合并正在进行。' },
   ],
   status: [{ code: 'TASK_NOT_FOUND', description: '任务不存在、已删除或不属于本账号。' }],
@@ -334,6 +336,10 @@ export function buildResponseExample(id: string, payload = buildTaskPayload('max
   const taskId = 't_abcdefghijklmnop';
   const prefixes: Record<string, string> = { maxcut: 'MaxCut', coloring: 'Coloring', number_partition: 'NumberPartition', tsp: 'TSP', general: 'General' };
   const taskName = `${prefixes[payload.problemType] || 'MaxCut'}_1791763200000`;
+  const submittedLogs = [
+    { sequence: 1, state: 'received', message: '后端已接收任务', timestampNs: '1791763200000000000', timestamp: '2026-10-12T08:00:00.000000000+08:00', elapsedSeconds: 0 },
+    { sequence: 2, state: 'queued', message: '任务已加入队列，等待处理', timestampNs: '1791763200001000000', timestamp: '2026-10-12T08:00:00.001000000+08:00', elapsedSeconds: 0.001 },
+  ];
   let data: unknown;
   if (id === 'batch-submit') data = { tasks: [{ index: 0, idempotencyKey: 'YOUR_UNIQUE_REQUEST_ID_1', taskId, state: 'queued', replayed: false, statusUrl: `/api/v1/tasks/${taskId}`, resultUrl: `/api/v1/tasks/${taskId}/result` }], acceptedCount: 1, replayedCount: 0 };
   else if (id === 'batch-status') data = { tasks: [{ taskId, taskName, state: 'completed', message: '计算完成', updatedAt: 1791763200 }], successCount: 1, errorCount: 0 };
@@ -342,14 +348,14 @@ export function buildResponseExample(id: string, payload = buildTaskPayload('max
     data = { tasks: [{ taskId, state: 'completed', results: result.results, resultSummary: { runtime: result.resultSummary.runtime, bestValue: result.resultSummary.bestValue, usedColors: result.resultSummary.usedColors } }], successCount: 1, errorCount: 0 };
   }
   else if (id === 'batch-cancel') data = { tasks: [{ taskId, state: 'cancelled', cancelled: true, message: '任务已取消' }], successCount: 1, errorCount: 0 };
-  else if (id === 'submit') data = { taskId, state: 'queued', replayed: false, message: '任务已接收并加入处理队列', queuePosition: 1, statusUrl: `/api/v1/tasks/${taskId}`, resultUrl: `/api/v1/tasks/${taskId}/result` };
+  else if (id === 'submit') data = { taskId, state: 'queued', replayed: false, message: '任务已接收并加入处理队列', solveLogs: submittedLogs, queuePosition: 1, statusUrl: `/api/v1/tasks/${taskId}`, resultUrl: `/api/v1/tasks/${taskId}/result` };
   else if (id === 'status') data = { taskId, taskName, state: 'queued', message: '任务已加入队列，等待处理', updatedAt: 1791763200, queuePosition: 1, solveLogs: [] };
   else if (id === 'list') data = { tasks: [{ taskId, taskName, problemType: 'maxcut', modelType: 'classic', state: 'completed', source: 'api', createdAt: 1791763200 }], page: 1, pageSize: 20, total: 1, totalPages: 1 };
   else if (id === 'cancel') data = { taskId, state: 'cancelled', cancelled: true, message: '任务已取消', solveLogs: [] };
   else if (id === 'quota') data = { quotaSummary: { defaultQuotas: { classic: 10000, quantum: 10000 }, models: { classic: { remaining: 9999, pending: 1, available: 9998, total: 10000, default: 10000, label: '经典计算' }, quantum: { remaining: 10000, pending: 0, available: 10000, total: 10000, default: 10000, label: '量子芯片模拟计算' } } } };
   else {
     const matrix = payload.adjacencyMatrix;
-    const methodType = 'sa';
+    const methodType = payload.methodType && payload.methodType !== 'fpga' ? payload.methodType : 'sa';
     // 示例候选解遵守实际求解器的编码，并根据输入计算对应目标值。
     const solution = Array.from({ length: payload.matrixSize }, (_, index) => {
       if (payload.problemType === 'number_partition') return [1, -1, -1, 1][index % 4];
@@ -369,12 +375,12 @@ export function buildResponseExample(id: string, payload = buildTaskPayload('max
       value = weights.reduce((sum, row, i) => sum + row.reduce((cost, weight, j) => cost + weight * solution[i] * solution[j], 0), 0);
     }
     const usedColors = payload.problemType === 'coloring' ? new Set(solution).size : null;
-    const input = payload.problemType === 'number_partition' ? { numbers: matrix, methodType } : payload.problemType === 'coloring' ? { nodeCount: matrix.length, adjacencyMatrix: matrix, methodType } : payload.problemType === 'tsp' ? { cityCount: matrix.length, cities: [], distanceMatrix: matrix, methodType } : payload.problemType === 'general' ? { adjacencyMatrix: matrix, methodType } : { matrix, methodType };
+    const input = payload.problemType === 'number_partition' ? { numbers: matrix, methodType } : payload.problemType === 'coloring' ? { nodeCount: matrix.length, adjacencyMatrix: matrix, methodType } : payload.problemType === 'tsp' ? { cityCount: matrix.length, cities: [], distanceMatrix: matrix, methodType } : payload.problemType === 'general' ? { adjacencyMatrix: matrix, methodType, ...(payload.generalInput ? { generalInput: payload.generalInput } : {}) } : { matrix, methodType };
     const selection = Object.fromEntries(Object.entries(payload)
       .filter(([key]) => ['computeMode', 'deviceSelection', 'deviceIds', 'deviceCount'].includes(key)));
     const actualIds = payload.deviceSelection === 'manual' ? payload.deviceIds || []
       : Array.from({ length: payload.computeMode === 'multi' ? payload.deviceCount || 2 : 1 }, (_, index) => index + 1);
-    data = { taskId, taskName, state: 'completed', message: '计算完成', updatedAt: 1791763200, input: { ...input, ...selection }, taskInfo: { taskId, taskName, source: 'api', ...payload, methodType, createdAt: 1791763200000 }, resultSummary: { runtime: 0.0125, bestValue: value, usedColors, candidateCount: 1 }, results: { runtime: 0.0125, candidates: [{ rank: 1, value, solution }], ...(payload.modelType === 'quantum' ? { fpga: { device_ids: actualIds, decomposed: actualIds.length > 1, failover_count: 0 } } : {}) }, solveLogs: [] };
+    data = { taskId, taskName, state: 'completed', message: '计算完成', updatedAt: 1791763200, runtime: 0.0125, input: { ...input, ...selection }, taskInfo: { taskId, taskName, source: 'api', problemType: payload.problemType, modelType: payload.modelType, matrixSize: payload.matrixSize, adjacencyMatrix: matrix, methodType, createdAt: 1791763200000, ...selection, extra: { methodType: payload.methodType || 'sa', ...selection } }, resultSummary: { runtime: 0.0125, bestValue: value, usedColors, candidateCount: 1 }, results: { runtime: 0.0125, candidates: [{ rank: 1, value, solution }], ...(payload.modelType === 'quantum' ? { fpga: { device_ids: actualIds, decomposed: actualIds.length > 1, failover_count: 0 } } : {}) }, solveLogs: [] };
   }
   return JSON.stringify({ data, requestId: '0123456789abcdef0123456789abcdef' }, null, 2);
 }
@@ -399,11 +405,11 @@ const batchEndpoints: ApiEndpointDoc[] = [
     parameterLocation: '请求体 · application/json', parameters: [field('tasks', 'array<object>', '任务数组，每项包含 idempotencyKey 与 payload。')],
     responseFields: [field('tasks', 'array<object>', '按输入顺序返回。', true, [field('[]', 'object', '每项任务的提交结果。', true, [
       field('index', 'integer', '输入下标，从 0 开始。'), field('idempotencyKey', 'string', '该项提交标识。'), field('taskId', 'string', '任务 ID。'),
-      field('state', 'string | null', '任务状态；使用相同标识重试已删除的任务时为 null。'), field('replayed', 'boolean', '是否返回已提交的任务；为 true 时未创建新任务。'),
+      field('state', 'string | null', '新受理任务为 queued；幂等重放返回原任务当前状态，原任务已删除时为 null。'), field('replayed', 'boolean', '是否返回已提交的任务；为 true 时未创建新任务。'),
       field('taskDeleted', 'boolean', '任务详情已删除时为 true，不会重复创建任务。', false), field('statusUrl', 'string', '该任务的状态查询地址。'), field('resultUrl', 'string', '该任务的完整结果获取地址。'),
     ])]), field('acceptedCount', 'integer', '本次新受理的任务数。'), field('replayedCount', 'integer', '通过幂等标识返回的已提交任务数。')],
     notes: ['请求体最多 512 MiB，服务端自动分段处理，无需按 4 MiB 拆分请求。任一项参数、名称、额度或容量检查失败，本次新任务全部不受理；此前已受理任务不受影响。',
-      '单个任务的完整参数及接收日志在服务端 UTF-8 序列化后须小于 511 MiB，另预留 1 MiB 状态日志空间；矩阵字段须小于 512 MiB。超限返回 INVALID_TASK，并标明任务下标，本次新任务全部不受理。',
+      '单个任务的完整参数及接收日志在服务端 UTF-8 序列化后须不超过 511 MiB，另预留 1 MiB 状态日志空间；矩阵字段须不超过 512 MiB。超限返回 INVALID_TASK，并标明任务下标，本次新任务全部不受理。',
       '每项必填独立 idempotencyKey，不传整批 Idempotency-Key 请求头。与单任务接口共享账号级 24 小时幂等记录。',
       '网络超时或返回 5xx 时，任务仍可能已受理。请使用相同的 idempotencyKey 和参数重试，避免重复创建任务。',
       '每个 HTTP 请求计 1 次提交，与单任务提交分别限流，重复提交也计数。计算次数额度仍按任务预留，成功完成后扣次，失败或取消后释放预留。'],
@@ -411,14 +417,14 @@ const batchEndpoints: ApiEndpointDoc[] = [
   ...(['status', 'results', 'cancel'] as const).map(kind => ({
     id: `batch-${kind}`, title: { status: '批量查询状态', results: '批量获取结果', cancel: '批量取消任务' }[kind],
     method: 'POST' as const, path: `/tasks/batch-${kind}`, success: 200,
-    description: { status: '查询状态与进度。建议每 2 秒查询，任务结束后停止。', results: '获取 completed 任务的结果及摘要，成功结果合计最多 8 MiB。', cancel: '批量取消任务，各项独立返回结果。' }[kind],
+    description: { status: '查询当前状态、名称、消息和更新时间；不返回数值进度、排队位置或求解日志。建议每 2 秒查询，任务结束后停止。', results: '获取 completed 任务的结果及摘要，成功结果合计最多 8 MiB。其他任务状态返回单项 error，批量请求本身仍为 HTTP 200。', cancel: '批量取消任务，各项独立返回结果；已取消任务可重试。' }[kind],
     parameterLocation: '请求体 · application/json',
-    parameters: [field('taskIds', 'array<string>', `任务 ID 数组，1–${{ status: 100, results: 20, cancel: 50 }[kind]} 项，不可重复；请求体最多 4 MiB。`)],
+    parameters: [field('taskIds', 'array<string>', `任务 ID 数组，1–${{ status: 100, results: 20, cancel: 50 }[kind]} 项，不可重复；每个 ID 为 1–128 字符，请求体只能包含 taskIds，最多 4 MiB。`)],
     responseFields: [field('tasks', 'array<object>', '按输入顺序返回，各项可能成功或携带 error。', true, [field('[]', 'object', '单项结果。', true, [
-      field('taskId', 'string', '请求中的任务 ID。'), field('state', 'string', '成功项的任务状态。', false),
+      field('taskId', 'string', '请求中的任务 ID。'), field('state', 'string', kind === 'results' ? '成功项固定为 completed；其他任务状态返回该项 error。' : kind === 'cancel' ? '成功项固定为 cancelled。' : '成功项的任务状态：queued、processing、completed、failed 或 cancelled。', false),
       ...(kind === 'status' ? [field('taskName', 'string', '任务名称。', false), field('message', 'string', '状态说明。', false), field('updatedAt', 'number', '更新时间，Unix 秒。', false)]
-        : kind === 'results' ? [field('results', 'object | null', '求解结果，结构与单任务结果中的 results 一致。', false), field('resultSummary', 'object', 'runtime、bestValue、usedColors；不适用时为 null。', false)]
-        : [field('cancelled', 'boolean', '平台任务已取消并释放额度。', false), field('replayed', 'boolean', '此前已取消时为 true。', false), field('message', 'string', '取消说明。', false)]), batchItemError,
+        : kind === 'results' ? [field('results', 'object | null', '求解结果，结构与单任务结果中的 results 一致。', false), field('resultSummary', 'object', '成功项始终包含此对象及 runtime、bestValue、usedColors；字段值可为 null，不返回 candidateCount。', false, [field('runtime', 'number | null', '保存的求解运行时间，秒。'), field('bestValue', 'number | null', '保存的最佳目标值。'), field('usedColors', 'integer | null', '保存的图着色颜色数，不适用时为 null。')])]
+        : [field('cancelled', 'boolean', '平台任务已取消并释放额度，成功项为 true。', false), field('replayed', 'boolean', '此前已取消时为 true；首次取消省略。', false), field('message', 'string', '首次取消成功时返回；已取消任务的重放项省略。', false)]), batchItemError,
     ])]), field('successCount', 'integer', '未携带 error 的项数。'), field('errorCount', 'integer', '携带 error 的项数。')],
     notes: ['请求体最多 4 MiB；任务不存在、已删除或不属于本账号统一返回单项 TASK_NOT_FOUND。',
       kind === 'status' ? '每 2 秒查询尚未结束的任务，遇到 429 遵循 Retry-After。每个 HTTP 请求计 1 次状态查询，与单任务状态查询分别限流，重复查询也计数。'
@@ -429,7 +435,6 @@ const batchEndpoints: ApiEndpointDoc[] = [
 ];
 apiEndpoints.unshift(...batchEndpoints);
 businessErrors['batch-submit'] = [...businessErrors.submit,
-  { code: 'REQUEST_TOO_LARGE', description: '请求体超过 512 MiB 上限。' },
   { code: 'INVALID_BATCH', description: '批量任务格式、数量或提交标识不符合要求。' },
   { code: 'BATCH_UNAVAILABLE', description: '批量提交暂不可用。' },
 ];

@@ -227,7 +227,7 @@ test('basic arrays display in one row while object arrays keep their fields and 
   const result = docs.apiEndpoints.find(endpoint => endpoint.id === 'result');
   const rows = docs.flattenDocFields(docs.compactDocFields(docs.responseDocFields(result)));
   assert.equal(rows.find(row => row.path === 'data.taskInfo.adjacencyMatrix').field.type, 'array<array<number>>');
-  assert.equal(rows.find(row => row.path === 'data.results.candidates[].solution').field.type, 'array<number>');
+  assert.equal(rows.find(row => row.path === 'data.results.candidates[].solution').field.type, 'array<number> | array<array<number>>');
   assert.ok(rows.some(row => row.path === 'data.results.candidates[].rank'));
 });
 
