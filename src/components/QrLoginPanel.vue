@@ -40,7 +40,7 @@
       </div>
     </div>
     <p class="qr-title">{{ state === 'scanned' ? '已扫码，请在小程序中确认' : '使用小程序内扫一扫' }}</p>
-    <p class="qr-guide">打开「量子 Ising 求解」小程序<br />我的 → 扫码登录网页</p>
+    <p class="qr-guide">打开「量子 Ising 求解」小程序<br />我的 → 扫一扫</p>
     <p v-if="!terminal && !loading" class="qr-status">{{ message }}</p>
     <el-button v-if="terminal" type="primary" plain :loading="loading" @click="create">重新获取登录二维码</el-button>
   </div>
