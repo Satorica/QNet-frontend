@@ -5,7 +5,7 @@
       :class="[`is-${visualState}`, { 'has-placeholder': !image || terminal }]"
       :aria-busy="loading"
     >
-      <img v-if="image && !terminal" :src="image" alt="请使用微信扫一扫此小程序码登录" />
+      <img v-if="image && !terminal" :src="image" alt="请使用量子 Ising 求解小程序内的扫一扫扫描此登录二维码" />
       <div v-else class="qr-placeholder">
         <div v-if="loading" class="status-loader" aria-hidden="true">
           <svg viewBox="0 0 44 44" fill="none">
@@ -36,12 +36,13 @@
             <path class="state-icon__soft" d="M36 36h6v6h-6zM45 36h6v15H45zM36 45h6v6h-6z" />
           </svg>
         </div>
-        <span class="placeholder-message">{{ loading ? '正在生成小程序码…' : message }}</span>
+        <span class="placeholder-message">{{ loading ? '正在生成登录二维码…' : message }}</span>
       </div>
     </div>
-    <p class="qr-title">{{ state === 'scanned' ? '已扫码，请在小程序中确认' : '使用微信扫一扫' }}</p>
+    <p class="qr-title">{{ state === 'scanned' ? '已扫码，请在小程序中确认' : '使用小程序内扫一扫' }}</p>
+    <p class="qr-guide">打开「量子 Ising 求解」小程序<br />我的 → 扫码登录网页</p>
     <p v-if="!terminal && !loading" class="qr-status">{{ message }}</p>
-    <el-button v-if="terminal" type="primary" plain :loading="loading" @click="create">重新获取小程序码</el-button>
+    <el-button v-if="terminal" type="primary" plain :loading="loading" @click="create">重新获取登录二维码</el-button>
   </div>
 </template>
 
@@ -93,11 +94,11 @@ const handlePollError = (error: unknown, run: number) => {
   }
   if (expiresAt && Date.now() >= expiresAt * 1000) {
     state.value = 'expired';
-    message.value = '小程序码已过期';
+    message.value = '登录二维码已过期';
     return;
   }
   state.value = 'error';
-  message.value = getErrorMessage(error, '登录状态获取失败，请刷新小程序码');
+  message.value = getErrorMessage(error, '登录状态获取失败，请刷新登录二维码');
 };
 
 async function create() {
@@ -113,7 +114,7 @@ async function create() {
   try {
     const response = await cloudApi.post<ApiResponse<{ requestId: string; image: string; expiresAt: number }>>('/auth/qr-login');
     const data = response.data.data;
-    if (!response.data.success || !data) throw new Error(response.data.message || '无法生成小程序码');
+    if (!response.data.success || !data) throw new Error(response.data.message || '无法生成登录二维码');
     if (disposed || run !== generation) { cancel(data.requestId); return; }
     requestId = data.requestId;
     expiresAt = data.expiresAt;
@@ -123,7 +124,7 @@ async function create() {
   } catch (error) {
     if (disposed || run !== generation) return;
     state.value = 'error';
-    message.value = getErrorMessage(error, '小程序码加载失败，请稍后重试');
+    message.value = getErrorMessage(error, '登录二维码加载失败，请稍后重试');
   } finally { if (!disposed && run === generation) loading.value = false; }
 }
 
@@ -158,7 +159,7 @@ async function poll(run: number) {
     } catch (error) {
       if (disposed || run !== generation) return;
       state.value = 'error';
-      message.value = getErrorMessage(error, '登录失败，请重新获取小程序码');
+      message.value = getErrorMessage(error, '登录失败，请重新获取登录二维码');
     } finally {
       emit('redeeming', false);
     }
@@ -166,7 +167,7 @@ async function poll(run: number) {
   }
   const messages: Record<string, string> = {
     waiting: '扫码后，请在小程序确认登录', scanned: '已扫码，请在小程序确认登录',
-    expired: '小程序码已过期', cancelled: '已取消登录', consumed: '此小程序码已使用',
+    expired: '登录二维码已过期', cancelled: '已取消登录', consumed: '此登录二维码已使用',
   };
   message.value = messages[next] || '请重新扫码';
   if (!terminal.value) schedulePoll(run);
@@ -203,5 +204,6 @@ onUnmounted(() => { disposed = true; generation += 1; stop(); cancel(requestId);
 @keyframes loader-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .status-loader svg { animation: none; } }
 .qr-title { font-size: 17px; color: #1e293b; font-weight: 600; margin: 0 0 10px; }
+.qr-guide { color: #64748b; font-size: 13px; line-height: 1.8; margin: 0 0 10px; }
 .qr-status { font-size: 12px; color: var(--el-color-primary); line-height: 1.7; }
 </style>
