@@ -206,7 +206,7 @@ export const getQuantumDevices = async (): Promise<QuantumDeviceList> => {
   try {
     const response = await cloudApi.get<ApiResponse<QuantumDeviceList>>("/api/quantum/devices");
     if (!response.data.success || !response.data.data) {
-      throw new Error(response.data.message || "设备列表加载失败，请刷新重试");
+      throw new Error(response.data.message || "设备列表加载失败，请重新打开列表");
     }
     return response.data.data;
   } catch (error) {

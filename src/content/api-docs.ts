@@ -82,14 +82,14 @@ const numericMatrix = [field('[]', 'array<number>', '矩阵的一行，长度等
 const quantumSelectionFields: ApiDocField[] = [
   { ...field('computeMode', 'string', '仅 quantum：single（单台）或 multi（多台）。携带设备参数时默认 single；完全省略设备参数则保留旧协议。', false), default: 'single', example: 'single' },
   { ...field('deviceSelection', 'string', '仅 quantum：auto（自动分配）或 manual（指定设备），默认 auto。', false), default: 'auto', example: 'auto' },
-  { ...field('deviceIds', 'array<integer>', '仅 quantum + manual 时必填：单台恰好一个，多台至少两个，不可重复。默认编号 1–6，部署可配置；auto 禁止携带。', false, [field('[]', 'integer', '已配置的 FPGA 编号；默认 1–6。')]), example: [3] },
+  { ...field('deviceIds', 'array<integer>', '仅 quantum + manual 时必填：单台恰好一个，多台至少两个，不可重复。默认编号 1–6，部署可配置；auto 禁止携带。', false, [field('[]', 'integer', '已配置的 Ising 设备编号；默认 1–6。')]), example: [3] },
   { ...field('deviceCount', 'integer', '仅 quantum + multi + auto 可选，默认范围 2–6，部署可配置。不填按编码后的规模分配至少两台；manual 或 single 禁止携带。', false), example: 2 },
 ];
 const solverResultFields = (): ApiDocField[] => [
   field('runtime', 'number', '求解运行时间，秒。', false),
   field('candidates', 'array<object>', '候选解；模型可能返回额外字段，以实际响应为准。', false, [field('[]', 'object', '一个候选解。', true, [field('rank', 'integer', '候选解排名。', false), field('value', 'number', '候选解的目标值。', false), field('solution', 'array<number> | array<array<number>>', '解向量或编码矩阵，结构随问题和模型变化；下方经典示例使用一维向量。', false)])]),
   field('fpga', 'object', '量子任务的实际设备信息；经典任务和部分历史任务可能没有。', false, [
-    field('device_ids', 'array<integer>', '实际参与计算的 FPGA 编号；与请求的 deviceIds 区分，自动分配时以此为准。', false, [field('[]', 'integer', '实际设备编号。')]),
+    field('device_ids', 'array<integer>', '实际参与计算的 Ising 设备编号；与请求的 deviceIds 区分，自动分配时以此为准。', false, [field('[]', 'integer', '实际设备编号。')]),
     field('decomposed', 'boolean', '是否使用多板分解协同计算。', false),
     field('failover_count', 'integer', '自动分配单板任务的故障切换次数；指定设备不自动换板。', false),
   ]),

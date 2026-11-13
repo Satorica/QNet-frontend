@@ -15,30 +15,30 @@
         :key="computeMode"
         :model-value="computeMode === 'single' ? singleDevice : multiDevices"
         :multiple="computeMode === 'multi'"
-        :disabled="disabled || loading"
+        :disabled="disabled"
         :loading="loading"
+        loading-text="正在加载设备状态…"
+        :no-data-text="feedbackMessage || '暂未发现计算设备'"
         aria-label="计算设备"
         placeholder="选择计算设备"
         @update:model-value="updateSelection"
+        @visible-change="onDropdownVisibleChange"
       >
         <template #label><span class="device-selected-text" :title="selectionLabel">{{ selectionLabel }}</span></template>
         <template #tag><span class="device-selected-text" :title="selectionLabel">{{ selectionLabel }}</span></template>
-        <el-option label="自动分配" value="auto" />
-        <el-option-group :label="computeMode === 'single' ? '指定设备' : '指定设备（至少选择两台）'">
-          <el-option v-for="device in devices" :key="device.device_id" :label="device.name || `FPGA-${device.device_id}`" :value="device.device_id" :disabled="isOptionDisabled(device)">
-            <span>{{ device.name || `FPGA-${device.device_id}` }}</span>
-            <span class="option-status">{{ statusText(device) }}</span>
+        <el-option v-if="!feedbackMessage" label="自动分配" value="auto" :disabled="loading" />
+        <el-option-group v-if="!feedbackMessage && deviceOptions.length" :label="computeMode === 'single' ? '指定设备' : '指定设备（至少选择两台）'">
+          <el-option v-for="option in deviceOptions" :key="option.id" :label="option.name" :value="option.id" :disabled="loading || option.disabled">
+            <span>{{ option.name }}</span>
+            <span class="option-status">{{ option.status }}</span>
           </el-option>
         </el-option-group>
       </el-select>
       </div>
     </div>
-    <div class="device-summary" :class="{ 'has-warning': Boolean(feedbackMessage) }" aria-live="polite">
-      <span class="device-status-dot" aria-hidden="true"></span>
-      <span>{{ feedbackMessage || summary }}</span>
-      <el-button link type="primary" :loading="loading" :disabled="disabled" aria-label="刷新设备" @click="loadDevices">刷新</el-button>
-    </div>
-    <p v-if="!feedbackMessage" class="device-note" :class="{ 'device-error': computeMode === 'multi' && deviceSelection === 'manual' && selectedIds.length < 2 }">{{ selectionNote }}</p>
+    <p v-if="feedbackMessage" class="device-note has-warning" aria-live="polite">{{ feedbackMessage }}</p>
+    <p v-else-if="!loading && !devices.length" class="device-note" aria-live="polite">暂未发现计算设备</p>
+    <p v-if="!feedbackMessage && selectionNote" class="device-note" :class="{ 'device-error': computeMode === 'multi' && selectedIds.length < 2 }">{{ selectionNote }}</p>
   </div>
 </template>
 
@@ -46,6 +46,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { getQuantumDevices } from '../api';
 import { getErrorMessage } from '../utils/error';
+import { formatQuantumDeviceName } from '../utils/format';
 import type { QuantumDevice, QuantumDeviceSelection } from '../types/api';
 
 defineProps<{ disabled?: boolean }>();
@@ -57,11 +58,9 @@ const selectedIds = computed(() => computeMode.value === 'single'
   : multiDevices.value.filter((value): value is number => typeof value === 'number'));
 const deviceSelection = computed<'auto' | 'manual'>(() => selectedIds.value.length ? 'manual' : 'auto');
 const selectionLabel = computed(() => deviceSelection.value === 'auto' ? '自动分配'
-  : selectedIds.value.map(id => devices.value.find(device => device.device_id === id)?.name || `FPGA-${id}`).join('、'));
+  : selectedIds.value.map(id => devices.value.find(device => device.device_id === id)?.name || formatQuantumDeviceName(id)).join('、'));
 const selectionNote = computed(() => {
-  if (deviceSelection.value === 'auto') return computeMode.value === 'single'
-    ? '自动分配一台空闲设备，忙碌时排队等待。'
-    : '系统按任务规模自动分配多台空闲设备，共同完成计算。';
+  if (deviceSelection.value === 'auto') return '';
   if (computeMode.value === 'multi' && selectedIds.value.length < 2) return '多台计算请至少选择两台设备。';
   return `已指定 ${selectedIds.value.length} 台设备${computeMode.value === 'multi' ? '协同计算' : '计算'}，忙碌时排队等待。`;
 });
@@ -71,12 +70,10 @@ const errorMessage = ref('');
 const selectionSupported = ref(false);
 const managerOk = ref(false);
 const feedbackMessage = computed(() => loading.value ? '' : errorMessage.value
-  || (!selectionSupported.value ? '设备服务暂未就绪，请稍后重试' : !managerOk.value ? '设备管理服务暂不可用，请稍后刷新' : ''));
+  || (!selectionSupported.value ? '设备服务暂未就绪，请稍后重试' : !managerOk.value ? '设备管理服务暂不可用，请稍后重试' : ''));
 let disposed = false;
 let requestVersion = 0;
 
-const summary = computed(() => loading.value ? '正在加载设备状态…' : errorMessage.value ? '设备状态暂不可用'
-  : devices.value.length ? `共 ${devices.value.length} 台设备 · ${devices.value.filter(d => d.schedulable).length} 台空闲可用` : '暂未发现计算设备');
 const isSelectable = (device: QuantumDevice) => device.online && device.enabled !== false && !(device.cooldown_seconds && device.cooldown_seconds > 0);
 // A device that became unavailable must still be removable from the selection.
 const isOptionDisabled = (device: QuantumDevice) => !selectedIds.value.includes(device.device_id) && !isSelectable(device);
@@ -86,7 +83,22 @@ function statusText(device: QuantumDevice) {
   if (device.cooldown_seconds && device.cooldown_seconds > 0) return '冷却中';
   return device.busy ? '忙碌 · 可排队' : '空闲';
 }
+const deviceOptions = computed(() => {
+  const options = devices.value.map(device => ({
+    id: device.device_id,
+    name: device.name,
+    status: statusText(device),
+    disabled: isOptionDisabled(device),
+  }));
+  for (const id of selectedIds.value) {
+    if (!devices.value.some(device => device.device_id === id)) {
+      options.push({ id, name: formatQuantumDeviceName(id), status: '已不可用', disabled: false });
+    }
+  }
+  return options;
+});
 function updateSelection(value: string | number | (string | number)[]) {
+  if (loading.value) return;
   if (computeMode.value === 'single') {
     singleDevice.value = typeof value === 'number' ? value : 'auto';
     return;
@@ -100,6 +112,9 @@ function updateSelection(value: string | number | (string | number)[]) {
   const ids = values.filter((value): value is number => typeof value === 'number');
   multiDevices.value = ids.length ? ids : ['auto'];
 }
+function onDropdownVisibleChange(open: boolean) {
+  if (open && !loading.value) return loadDevices();
+}
 async function loadDevices() {
   const version = ++requestVersion;
   loading.value = true;
@@ -107,13 +122,13 @@ async function loadDevices() {
   try {
     const data = await getQuantumDevices();
     if (disposed || version !== requestVersion) return;
-    devices.value = data.devices;
+    devices.value = data.devices.map(device => ({ ...device, name: formatQuantumDeviceName(device.device_id, device.name) }));
     selectionSupported.value = data.selectionSupported;
     managerOk.value = data.managerOk;
   } catch (error) {
     if (disposed || version !== requestVersion) return;
     devices.value = [];
-    errorMessage.value = getErrorMessage(error, '设备列表加载失败，请刷新重试');
+    errorMessage.value = getErrorMessage(error, '设备列表加载失败，请重新打开列表');
   } finally {
     if (!disposed && version === requestVersion) loading.value = false;
   }
@@ -129,7 +144,7 @@ function getSelection(): QuantumDeviceSelection {
       throw new Error(computeMode.value === 'single' ? '请选择一台计算设备' : '请至少选择两台计算设备');
     }
     if (selectedIds.value.some(id => !devices.value.some(device => device.device_id === id && isSelectable(device)))) {
-      throw new Error('所选设备当前不可用，请刷新后重新选择');
+      throw new Error('所选设备当前不可用，请重新选择');
     }
     selection.deviceIds = [...selectedIds.value].sort((a, b) => a - b);
   }
@@ -153,11 +168,7 @@ defineExpose({ getSelection });
 .device-select-field :deep(.el-select__selection.is-near) { margin-left: 0; }
 .device-select-field :deep(.el-select__input-wrapper) { flex: 0 0 0; min-width: 0; width: 0; }
 .device-selected-text { display: block; min-width: 0; overflow: hidden; color: var(--el-text-color-regular); font-size: 14px; line-height: 22px; text-overflow: ellipsis; white-space: nowrap; }
-.device-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; min-height: 20px; margin-top: 1px; font-size: 12px; line-height: 20px; color: #78879b; }
-.device-status-dot { flex: 0 0 5px; width: 5px; height: 5px; border-radius: 50%; background: var(--el-color-success); }
-.has-warning .device-status-dot { background: var(--el-color-warning); }
-.has-warning { color: #9a772d; }
-.device-summary :deep(.el-button) { margin-left: 4px; font-size: 12px; }
+.device-note.has-warning { color: #9a772d; }
 .option-status { float: right; margin-left: 24px; color: var(--el-text-color-secondary); font-size: 12px; }
 .device-note { margin: 0; font-size: 12px; line-height: 20px; color: #78879b; }
 .device-error { color: var(--el-color-danger); }

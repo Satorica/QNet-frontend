@@ -10,7 +10,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { TaskResults } from "../types/api";
-import { formatSolveTime } from "../utils/format";
+import { formatQuantumDeviceName, formatSolveTime } from "../utils/format";
 
 const props = defineProps<{
   results?: TaskResults | null;
@@ -23,7 +23,7 @@ const items = computed(() => {
     ? formatSolveTime(props.deviceTime) : duration(props.results.runtime) }];
   const ids = props.results?.fpga?.device_ids;
   if (Array.isArray(ids) && ids.length) {
-    rows.push({ label: "实际计算设备", value: ids.map(id => `FPGA-${id}`).join("、") });
+    rows.push({ label: "实际计算设备", value: ids.map(id => formatQuantumDeviceName(id)).join("、") });
   }
   return rows;
 });

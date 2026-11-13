@@ -1,3 +1,7 @@
+export function formatQuantumDeviceName(id: number, name?: string): string {
+  return name ? name.replace(/fpga/gi, "Ising") : `Ising-${id}`;
+}
+
 /**
  * 将 API 返回的有限数值统一为 number。
  * 部分计算节点会把数值序列化为字符串；空字符串、布尔值和非有限值不接受。
