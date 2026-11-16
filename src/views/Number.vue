@@ -4,18 +4,18 @@
       <div class="card-content">
         <section class="solver-configuration" :class="{ 'has-quantum-devices': solveType === 'quantum' }" aria-label="任务配置">
           <div class="workspace-section-heading"><h2>任务配置</h2></div>
-          <TaskNameField ref="taskNameField" :disabled="solving" />
+          <TaskNameField ref="taskNameField" :disabled="isBusy" />
           <div class="controls-top algorithm-control">
             <div class="solver-model-field">
               <span class="label">求解模型</span>
-              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="isBusy">
                 <el-radio-button label="classic">经典计算</el-radio-button>
                 <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
               </el-radio-group>
             </div>
             <div v-if="solveType === 'classic'" class="algorithm-field">
               <span class="label">算法类型</span>
-              <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+              <el-select v-model="methodType" :disabled="isBusy" style="width: 220px">
                 <el-option
                   v-for="option in METHOD_TYPE_OPTIONS"
                   :key="option.value"
@@ -25,7 +25,7 @@
               </el-select>
             </div>
           </div>
-          <QuantumDeviceSelector v-if="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="solving" />
+          <QuantumDeviceSelector v-show="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="isBusy" />
         </section>
         <div class="left-column">
           <div class="workspace-section-heading"><h2>数字输入</h2></div>
@@ -37,7 +37,7 @@
                 v-model="numberSize"
                 :min="NUMBER_MIN_SIZE"
                 :max="NUMBER_MAX_SIZE"
-                :disabled="solving"
+                :disabled="isBusy"
                 style="width: 130px"
                 @change="handleNumberSizeChange"
               />
@@ -54,15 +54,15 @@
                 resize="none"
                 aria-label="待划分的数字"
                 aria-describedby="number-input-hint"
-                :disabled="solving"
+                :disabled="isBusy"
                 placeholder="在这里输入或粘贴数字，例如：1, 2, 3, 4, 5"
               />
               <div class="number-input-footer">
                 <span id="number-input-hint">支持逗号、空格或换行分隔</span>
               <div class="input-buttons">
-                <el-button type="primary" :disabled="solving" @click="parseNumbers">解析数字</el-button>
-                <el-button :disabled="solving" @click="generateRandomNumbers">随机生成</el-button>
-                <el-button :disabled="solving" @click="clearNumbers">清空</el-button>
+                <el-button type="primary" :disabled="isBusy" @click="parseNumbers">解析数字</el-button>
+                <el-button :disabled="isBusy" @click="generateRandomNumbers">随机生成</el-button>
+                <el-button :disabled="isBusy" @click="clearNumbers">清空</el-button>
               </div>
               </div>
             </div>
@@ -73,7 +73,7 @@
                 <el-tag
                   v-for="(num, index) in numbers"
                   :key="index"
-                  :closable="!solving"
+                  :closable="!isBusy"
                   @close="removeNumber(index)"
                   :type="getNumberTagType(num)"
                 >
@@ -101,7 +101,7 @@
                 type="primary"
                 size="large"
                 :loading="solving"
-                :disabled="!numberInput.trim()"
+                :disabled="comparisonRunning || !numberInput.trim()"
                 @click="startSolve"
                 class="solve-btn"
               >
@@ -236,6 +236,14 @@
             <SolverLog :logs="logs" />
           </div>
         </div>
+        <PerformanceComparison
+          :prepare-task="prepareComparisonTask"
+          :method-type="methodType"
+          :disabled="solving"
+          @busy-change="comparisonRunning = $event"
+          @tasks-changed="loadTaskHistory()"
+          @submitted="clearCustomTaskName"
+        />
       </div>
     </el-card>
     <el-card class="history-card">
@@ -537,6 +545,9 @@
 </template>
 
 <script setup lang="ts">
+import PerformanceComparison from "../components/PerformanceComparison.vue";
+import { type ComparisonInput } from "../utils/performanceComparison";
+
 import type { TaskSolveLog, QuantumDeviceSelection } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
@@ -612,6 +623,8 @@ const numberSize = ref(NUMBER_DEFAULT_SIZE);
 const solveType = ref<ModelType>("classic");
 const methodType = useAlgorithmSelection("number_partition");
 const solving = ref(false);
+const comparisonRunning = ref(false);
+const isBusy = computed(() => solving.value || comparisonRunning.value);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const solveTime = ref("--");
@@ -689,7 +702,7 @@ const assertMatchedNumberSize = (values: number[]) => {
 };
 
 const handleNumberSizeChange = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   let nextNumbers;
   let nextInput;
 
@@ -714,7 +727,7 @@ const handleNumberSizeChange = () => {
 };
 
 const parseNumbers = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   try {
     const parsedNumbers = parseNumberInput();
     assertWithinNumberSize(parsedNumbers);
@@ -731,7 +744,7 @@ const parseNumbers = () => {
 };
 
 const generateRandomNumbers = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   const count = numberSize.value;
   const newNumbers: number[] = [];
 
@@ -747,7 +760,7 @@ const generateRandomNumbers = () => {
 };
 
 const clearNumbers = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   numbers.value = [];
   numberInput.value = "";
   clearSolveResult();
@@ -755,7 +768,7 @@ const clearNumbers = () => {
 };
 
 const removeNumber = (index: number) => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   numbers.value.splice(index, 1);
   numberInput.value = numbers.value.join(", ");
   clearSolveResult();
@@ -783,7 +796,7 @@ const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
 };
 
 const startSolve = async () => {
-  if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
+  if (isBusy.value || !(await taskNameField.value?.validate()) || isBusy.value) return;
   let deviceSelection: Partial<QuantumDeviceSelection> = {};
   try {
     if (solveType.value === "quantum") {
@@ -1385,6 +1398,24 @@ onBeforeUnmount(() => {
   taskHistoryRequestGuard.invalidate();
   taskDetailRequestGuard.invalidate();
 });
+
+const prepareComparisonTask = async (): Promise<ComparisonInput | null> => {
+  if (isBusy.value) return null;
+  if (!(await taskNameField.value?.validate()) || solving.value) return null;
+  const selector = quantumDeviceSelector.value;
+  if (!selector) throw new Error("设备配置正在初始化，请稍后重试");
+  const deviceSelection = selector.getSelection();
+  const parsedNumbers = parseNumberInput();
+  assertMatchedNumberSize(parsedNumbers);
+  return {
+    ...deviceSelection,
+    taskName: customTaskName.value,
+    problemType: "number_partition",
+    methodType: methodType.value,
+    matrixSize: parsedNumbers.length,
+    adjacencyMatrix: parsedNumbers,
+  };
+};
 </script>
 
 <style scoped>

@@ -4,18 +4,18 @@
       <div class="card-content">
         <section class="solver-configuration" :class="{ 'has-quantum-devices': solveType === 'quantum' }" aria-label="任务配置">
           <div class="workspace-section-heading"><h2>任务配置</h2></div>
-          <TaskNameField ref="taskNameField" :disabled="solving" />
+          <TaskNameField ref="taskNameField" :disabled="isBusy" />
           <div class="controls-top algorithm-control">
             <div class="solver-model-field">
               <span class="label">求解模型</span>
-              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="isBusy">
                 <el-radio-button label="classic">经典计算</el-radio-button>
                 <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
               </el-radio-group>
             </div>
             <div v-if="solveType === 'classic'" class="algorithm-field">
               <span class="label">算法类型</span>
-              <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+              <el-select v-model="methodType" :disabled="isBusy" style="width: 220px">
                 <el-option
                   v-for="option in METHOD_TYPE_OPTIONS"
                   :key="option.value"
@@ -25,7 +25,7 @@
               </el-select>
             </div>
           </div>
-          <QuantumDeviceSelector v-if="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="solving" />
+          <QuantumDeviceSelector v-show="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="isBusy" />
         </section>
         <div class="left-column">
           <div class="workspace-section-heading"><h2>模型构建</h2></div>
@@ -37,7 +37,7 @@
                 v-model="activeMatrixSize"
                 :min="2"
                 :max="256"
-                :disabled="solving || importing"
+                :disabled="isBusy || importing"
                 style="width: 130px"
                 @change="resizeActiveMatrix"
               />
@@ -50,45 +50,45 @@
               class="input-tabs"
               :before-leave="handleInputModeBeforeLeave"
             >
-              <el-tab-pane label="数学表达" name="expression" :disabled="solving || importing">
+              <el-tab-pane label="数学表达" name="expression" :disabled="isBusy || importing">
                 <el-form label-position="top" class="expression-form">
                   <el-form-item label="变量">
-                    <el-input v-model="variableText" :disabled="solving" placeholder="x1,x2,x3,x4" />
+                    <el-input v-model="variableText" :disabled="isBusy" placeholder="x1,x2,x3,x4" />
                   </el-form-item>
                   <div class="expression-options">
                     <el-form-item label="变量域">
-                      <el-select v-model="variableDomain" :disabled="solving">
+                      <el-select v-model="variableDomain" :disabled="isBusy">
                         <el-option label="0/1 变量" value="binary" />
                         <el-option label="-1/+1 变量" value="spin" />
                       </el-select>
                     </el-form-item>
                     <el-form-item label="方向">
-                      <el-select v-model="objectiveSense" :disabled="solving">
+                      <el-select v-model="objectiveSense" :disabled="isBusy">
                         <el-option label="最小化" value="minimize" />
                         <el-option label="最大化" value="maximize" />
                       </el-select>
                     </el-form-item>
-                    <el-button class="example-button" :disabled="solving" @click="loadMaxCutExample">加载4自旋MaxCut示例</el-button>
+                    <el-button class="example-button" :disabled="isBusy" @click="loadMaxCutExample">加载4自旋MaxCut示例</el-button>
                   </div>
 
                   <el-tabs v-model="expressionForm" class="expression-type-tabs">
-                    <el-tab-pane label="标量表达式" name="scalar" :disabled="solving || importing">
+                    <el-tab-pane label="标量表达式" name="scalar" :disabled="isBusy || importing">
                       <el-form-item label="标量目标函数（按所选变量域解释）">
                         <el-input
                           v-model="objectiveExpression"
                           type="textarea"
                           :rows="5"
-                          :disabled="solving"
+                          :disabled="isBusy"
                           placeholder="例如 2*x1*x2-3*x2；±1域可写 0.5*(1-x1*x2)"
                         />
                       </el-form-item>
                       <div class="tip expression-tip">标量式支持数字、变量以及 +、-、*、/、**。0/1域按 xᵢ²=xᵢ；±1域按 sᵢ²=1 后自动转 QUBO。</div>
                     </el-tab-pane>
 
-                    <el-tab-pane label="向量/矩阵形式" name="vector" :disabled="solving || importing">
+                    <el-tab-pane label="向量/矩阵形式" name="vector" :disabled="isBusy || importing">
                       <div class="matrix-formula">矩阵目标：输入 W 是一般权重矩阵，不是 QUBO；程序自动生成 QUBO</div>
                       <el-form-item label="矩阵类型">
-                        <el-select v-model="matrixObjectiveKind" :disabled="solving" class="matrix-kind-select">
+                        <el-select v-model="matrixObjectiveKind" :disabled="isBusy" class="matrix-kind-select">
                           <el-option label="通用二次型 zᵀWz+cᵀz+k" value="quadratic" />
                           <el-option label="MaxCut权重矩阵" value="maxcut" />
                         </el-select>
@@ -98,17 +98,17 @@
                           v-model="weightMatrixText"
                           type="textarea"
                           :rows="7"
-                          :disabled="solving"
+                          :disabled="isBusy"
                           class="matrix-textarea"
                           placeholder="W = [[0, 1], [1, 0]]"
                         />
                       </el-form-item>
                       <div class="vector-fields">
                         <el-form-item label="线性向量 c">
-                          <el-input v-model="linearVectorText" :disabled="solving" placeholder="c = [0,0,0,0]" />
+                          <el-input v-model="linearVectorText" :disabled="isBusy" placeholder="c = [0,0,0,0]" />
                         </el-form-item>
                         <el-form-item label="常数 k">
-                          <el-input v-model="constantText" :disabled="solving" placeholder="0" />
+                          <el-input v-model="constantText" :disabled="isBusy" placeholder="0" />
                         </el-form-item>
                       </div>
                       <div class="tip expression-tip">矩阵和向量请使用 JSON 数字数组，不支持元组或元素算式。通用二次型中 z 表示所选变量域；MaxCut模式下 W 表示图边权，c 按内部0/1变量解释。</div>
@@ -118,8 +118,8 @@
                   <div class="constraint-heading">
                     <span>约束与惩罚系数</span>
                     <div>
-                      <el-button size="small" :disabled="solving" @click="addConstraint">添加约束</el-button>
-                      <el-button size="small" :disabled="solving || constraints.length === 0" @click="constraints = []">清空约束</el-button>
+                      <el-button size="small" :disabled="isBusy" @click="addConstraint">添加约束</el-button>
+                      <el-button size="small" :disabled="isBusy || constraints.length === 0" @click="constraints = []">清空约束</el-button>
                     </div>
                   </div>
                   <el-table :data="constraints" class="constraint-table" table-layout="fixed" size="small" empty-text="暂无约束">
@@ -127,14 +127,14 @@
                       <template #default="{ row }">
                         <el-input
                           v-model="row.coefficients"
-                          :disabled="solving"
+                          :disabled="isBusy"
                           :placeholder="expressionForm === 'vector' ? '[1, 1, 0, 0]' : 'x1+x2'"
                         />
                       </template>
                     </el-table-column>
                     <el-table-column label="关系" width="68">
                       <template #default="{ row }">
-                        <el-select v-model="row.operator" :disabled="solving">
+                        <el-select v-model="row.operator" :disabled="isBusy">
                           <el-option label="≤" value="<=" />
                           <el-option label="=" value="==" />
                           <el-option label="≥" value=">=" />
@@ -143,17 +143,17 @@
                     </el-table-column>
                     <el-table-column label="右端" width="76">
                       <template #default="{ row }">
-                        <el-input v-model="row.rhs" :disabled="solving" />
+                        <el-input v-model="row.rhs" :disabled="isBusy" />
                       </template>
                     </el-table-column>
                     <el-table-column label="惩罚系数 λ" width="100">
                       <template #default="{ row }">
-                        <el-input-number v-model="row.penalty" class="constraint-penalty-input" :min="0.001" :controls="false" :disabled="solving" />
+                        <el-input-number v-model="row.penalty" class="constraint-penalty-input" :min="0.001" :controls="false" :disabled="isBusy" />
                       </template>
                     </el-table-column>
                     <el-table-column label="操作" width="72" align="center" fixed="right">
                       <template #default="{ $index }">
-                        <el-button link type="primary" :disabled="solving" @click="removeConstraint($index)">删除</el-button>
+                        <el-button link type="primary" :disabled="isBusy" @click="removeConstraint($index)">删除</el-button>
                       </template>
                     </el-table-column>
                   </el-table>
@@ -162,13 +162,13 @@
                 </el-form>
               </el-tab-pane>
 
-              <el-tab-pane label="QUBO 矩阵" name="matrix" :disabled="solving || importing">
+              <el-tab-pane label="QUBO 矩阵" name="matrix" :disabled="isBusy || importing">
                 <div class="matrix-actions">
-                  <input ref="fileInput" class="file-input" type="file" accept=".csv,.txt,text/csv,text/plain" :disabled="solving || importing" @change="handleFileImport" />
-                  <el-button :loading="importing" :disabled="solving || importing" @click="openFilePicker">导入数据</el-button>
-                  <el-button :disabled="solving || importing" @click="handleTemplateDownload">下载模板</el-button>
-                  <el-button :disabled="solving || importing" @click="symmetrizeMatrix">对称化</el-button>
-                  <el-button :disabled="solving || importing" @click="clearMatrix">全零</el-button>
+                  <input ref="fileInput" class="file-input" type="file" accept=".csv,.txt,text/csv,text/plain" :disabled="isBusy || importing" @change="handleFileImport" />
+                  <el-button :loading="importing" :disabled="isBusy || importing" @click="openFilePicker">导入数据</el-button>
+                  <el-button :disabled="isBusy || importing" @click="handleTemplateDownload">下载模板</el-button>
+                  <el-button :disabled="isBusy || importing" @click="symmetrizeMatrix">对称化</el-button>
+                  <el-button :disabled="isBusy || importing" @click="clearMatrix">全零</el-button>
                 </div>
               </el-tab-pane>
             </el-tabs>
@@ -180,7 +180,7 @@
               <VirtualMatrixEditor
                 :matrix="matrix"
                 :labels="matrixVariableNames"
-                :disabled="solving || importing"
+                :disabled="isBusy || importing"
                 @update-cell="handleDirectMatrixCellUpdate"
               />
               <div class="matrix-description">此页直接输入已经形成的 QUBO 矩阵，按 f(x)=xᵀQx 解释；数学表达页的 W 是一般权重矩阵，会先自动转成 QUBO。</div>
@@ -192,7 +192,8 @@
           <div class="workspace-section-heading"><h2>求解与结果</h2></div>
           <div class="solver-run-panel">
             <div class="solve-area">
-              <el-button type="primary" size="large" :loading="solving" :disabled="importing" class="solve-btn" @click="startSolve">
+              <el-button type="primary" size="large" :loading="solving"
+                :disabled="comparisonRunning || importing" class="solve-btn" @click="startSolve">
                 <span v-if="!solving" class="solve-start-icon" aria-hidden="true">
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="m6 4 9 6-9 6z" /></svg>
                 </span>
@@ -241,6 +242,14 @@
             <SolverLog :logs="logs" />
           </div>
         </div>
+        <PerformanceComparison
+          :prepare-task="prepareComparisonTask"
+          :method-type="methodType"
+          :disabled="solving || importing"
+          @busy-change="comparisonRunning = $event"
+          @tasks-changed="loadTaskHistory()"
+          @submitted="clearCustomTaskName"
+        />
       </div>
     </el-card>
 
@@ -414,6 +423,9 @@
 </template>
 
 <script setup lang="ts">
+import PerformanceComparison from "../components/PerformanceComparison.vue";
+import { assertComparisonMatrix, type ComparisonInput } from "../utils/performanceComparison";
+
 import type { TaskSolveLog, QuantumDeviceSelection } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
@@ -527,6 +539,8 @@ const fileInput = ref<HTMLInputElement | null>(null);
 
 const importing = ref(false);
 const solving = ref(false);
+const comparisonRunning = ref(false);
+const isBusy = computed(() => solving.value || comparisonRunning.value);
 const stateClass = ref("state-idle");
 const stateText = ref("等待求解");
 const solveTime = ref("--");
@@ -591,7 +605,7 @@ const constraintHint = computed(() => {
 });
 
 const resizeActiveMatrix = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   const size = activeMatrixSize.value;
   if (inputMode.value === "matrix") {
     const previous = matrix.value;
@@ -859,7 +873,7 @@ const pollTaskStatus = async (taskId: string, startedAt: number, token: number) 
 };
 
 const startSolve = async () => {
-  if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
+  if (isBusy.value || !(await taskNameField.value?.validate()) || isBusy.value) return;
   let deviceSelection: Partial<QuantumDeviceSelection> = {};
   try {
     if (solveType.value === "quantum") {
@@ -1190,6 +1204,50 @@ onBeforeUnmount(() => {
   taskHistoryRequestGuard.invalidate();
   taskDetailRequestGuard.invalidate();
 });
+
+const prepareComparisonTask = async (): Promise<ComparisonInput | null> => {
+  if (isBusy.value || importing.value) return null;
+  if (!(await taskNameField.value?.validate()) || solving.value || importing.value) return null;
+  const selector = quantumDeviceSelector.value;
+  if (!selector) throw new Error("设备配置正在初始化，请稍后重试");
+  const deviceSelection = selector.getSelection();
+  const expressionResult = inputMode.value === "expression"
+    ? buildExpressionQubo()
+    : { matrix: copyDirectQuboMatrix(), slackVariableNames: [], activeConstraints: [] };
+  const submittedInputMode = inputMode.value;
+  const submittedVariables = submittedInputMode === "matrix" ? [...matrixVariableNames.value] : [...variableNames.value];
+  const comparisonGeneralInput: GeneralInputSnapshot = {
+    source: submittedInputMode,
+    expressionForm: submittedInputMode === "matrix" ? "vector" : expressionForm.value,
+    variables: submittedVariables,
+    slackVariables: expressionResult.slackVariableNames,
+    domain: submittedInputMode === "matrix" ? "binary" : variableDomain.value,
+    sense: submittedInputMode === "matrix" ? "minimize" : objectiveSense.value,
+    expression: submittedInputMode === "expression" && expressionForm.value === "scalar" ? objectiveExpression.value : "",
+    matrixObjective: submittedInputMode === "matrix" || expressionForm.value === "scalar"
+      ? { kind: "quadratic", weightMatrix: "", linearVector: "", constant: "0" }
+      : {
+        kind: matrixObjectiveKind.value,
+        weightMatrix: weightMatrixText.value,
+        linearVector: linearVectorText.value,
+        constant: constantText.value,
+      },
+    constraints: submittedInputMode === "matrix"
+      ? []
+      : expressionResult.activeConstraints,
+  };
+  assertComparisonMatrix(expressionResult.matrix, expressionResult.matrix.length);
+  if (expressionResult.matrix.some(row => row.some(value => Math.abs(value) > 100000))) throw new Error("QUBO矩阵元素绝对值不能超过 100000");
+  return {
+    ...deviceSelection,
+    taskName: customTaskName.value,
+    problemType: "general",
+    methodType: methodType.value,
+    matrixSize: expressionResult.matrix.length,
+    adjacencyMatrix: expressionResult.matrix,
+    generalInput: comparisonGeneralInput,
+  };
+};
 </script>
 
 <style scoped>

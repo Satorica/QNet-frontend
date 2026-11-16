@@ -4,18 +4,18 @@
       <div class="card-content">
         <section class="solver-configuration" :class="{ 'has-quantum-devices': solveType === 'quantum' }" aria-label="任务配置">
           <div class="workspace-section-heading"><h2>任务配置</h2></div>
-          <TaskNameField ref="taskNameField" :disabled="solving" />
+          <TaskNameField ref="taskNameField" :disabled="isBusy" />
           <div class="controls-top algorithm-control">
             <div class="solver-model-field">
               <span class="label">求解模型</span>
-              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="isBusy">
                 <el-radio-button label="classic">经典计算</el-radio-button>
                 <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
               </el-radio-group>
             </div>
             <div v-if="solveType === 'classic'" class="algorithm-field">
               <span class="label">算法类型</span>
-              <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+              <el-select v-model="methodType" :disabled="isBusy" style="width: 220px">
                 <el-option
                   v-for="option in METHOD_TYPE_OPTIONS"
                   :key="option.value"
@@ -25,7 +25,7 @@
               </el-select>
             </div>
           </div>
-          <QuantumDeviceSelector v-if="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="solving" />
+          <QuantumDeviceSelector v-show="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="isBusy" />
         </section>
         <div class="left-column graph-data-section">
           <div class="workspace-section-heading"><h2>数据与预览</h2></div>
@@ -37,7 +37,7 @@
                 v-model="cityCount"
                 :min="2"
                 :max="16"
-                :disabled="solving"
+                :disabled="isBusy"
                 style="width: 130px"
                 @change="generateCitiesAndMatrix"
               />
@@ -56,13 +56,13 @@
               <div class="matrix-actions">
                 <el-button
                   :type="matrixMode === 'custom' ? 'primary' : ''"
-                  :disabled="solving"
+                  :disabled="isBusy"
                   @click="setMatrixMode('custom')"
                   >自定义</el-button
                 >
                 <el-button
                   :type="matrixMode === 'random' ? 'primary' : ''"
-                  :disabled="solving"
+                  :disabled="isBusy"
                   @click="
                     setMatrixMode('random');
                     generateRandomMatrix();
@@ -75,20 +75,20 @@
                   accept=".csv,.txt,text/csv,text/plain"
                   :limit="1"
                   :show-file-list="false"
-                  :disabled="solving || importing"
+                  :disabled="isBusy || importing"
                   :http-request="handleFileImport"
                   :on-success="clearImportFiles"
                   :on-error="clearImportFiles"
                 >
                   <el-button
-                    :disabled="solving || importing"
+                    :disabled="isBusy || importing"
                     :loading="importing"
                   >
                     {{ importing ? "解析中..." : "导入数据" }}
                   </el-button>
                 </el-upload>
                 <el-button
-                  :disabled="solving"
+                  :disabled="isBusy"
                   @click="handleTemplateDownload"
                   >下载模板</el-button
                 >
@@ -96,7 +96,7 @@
 
               <GraphMatrixEditor
                 :matrix="distanceMatrix"
-                :disabled="solving || importing || (matrixMode !== 'custom' && matrixMode !== 'random')"
+                :disabled="isBusy || importing || (matrixMode !== 'custom' && matrixMode !== 'random')"
                 matrix-label="距离矩阵"
                 @cell-click="toggleMatrixCell"
               />
@@ -110,7 +110,7 @@
                 :cities="cities"
                 :route="currentRoute"
                 :bestRoute="bestRoute"
-                :editable="!solving"
+                :editable="!isBusy"
                 :selected-nodes="selectedNodes"
                 :distance-matrix="distanceMatrix"
                 @city-click="onCityClick"
@@ -131,6 +131,7 @@
                 type="primary"
                 size="large"
                 :loading="solving"
+                :disabled="comparisonRunning"
                 @click="submitSolve"
                 class="solve-btn"
               >
@@ -227,6 +228,14 @@
             <SolverLog :logs="logs" />
           </div>
         </div>
+        <PerformanceComparison
+          :prepare-task="prepareComparisonTask"
+          :method-type="methodType"
+          :disabled="solving || importing"
+          @busy-change="comparisonRunning = $event"
+          @tasks-changed="loadTaskHistory()"
+          @submitted="clearCustomTaskName"
+        />
       </div>
     </el-card>
     <el-card class="history-card">
@@ -528,6 +537,9 @@
 </template>
 
 <script setup lang="ts">
+import PerformanceComparison from "../components/PerformanceComparison.vue";
+import { assertComparisonMatrix, type ComparisonInput } from "../utils/performanceComparison";
+
 import type { TaskSolveLog, QuantumDeviceSelection } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
@@ -604,6 +616,8 @@ const temperature = ref(500);
 const solveType = ref<ModelType>("classic");
 const methodType = useAlgorithmSelection("tsp");
 const solving = ref(false);
+const comparisonRunning = ref(false);
+const isBusy = computed(() => solving.value || comparisonRunning.value);
 const statusClass = ref("status-idle");
 const statusText = ref("等待求解");
 const solveTime = ref("--");
@@ -746,7 +760,7 @@ const normalizeTspRouteFromSolution = (solution: unknown, n: number): number[] =
 
 // 方法
 const generateCitiesAndMatrix = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   const size = cityCount.value;
   distanceMatrix.value = createRandomDistanceMatrix(size);
   generateCities();
@@ -1147,7 +1161,7 @@ const handleRouteChange = (newRoute: number[]) => {
 };
 
 const onCityClick = async (cityId: number) => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   // 选中两点
   if (selectedNodes.value.includes(cityId)) {
     selectedNodes.value = selectedNodes.value.filter((id) => id !== cityId);
@@ -1181,7 +1195,7 @@ const onCityClick = async (cityId: number) => {
 };
 
 const setEdgeWeight = (i: number, j: number, w: number) => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   if (i === j) return;
   const a = Math.min(i, j);
   const b = Math.max(i, j);
@@ -1199,7 +1213,7 @@ const setEdgeWeight = (i: number, j: number, w: number) => {
 
 // 距离矩阵交互：自定义/随机/导入
 const setMatrixMode = (mode: "custom" | "random") => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   matrixMode.value = mode;
   // 切换模式时清除路径结果
   currentRoute.value = [];
@@ -1233,7 +1247,7 @@ const createRandomDistanceMatrix = (size: number): number[][] => {
 };
 
 const generateRandomMatrix = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   const size = cityCount.value;
   const m = createRandomDistanceMatrix(size);
   distanceMatrix.value = m;
@@ -1257,13 +1271,13 @@ const handleTemplateDownload = async () => {
 const clearImportFiles = () => importUpload.value?.clearFiles();
 
 const handleFileImport = async ({ file }: UploadRequestOptions) => {
-  if (solving.value || importing.value) {
+  if (isBusy.value || importing.value) {
     throw new Error("当前无法导入文件");
   }
   importing.value = true;
   try {
     const imported = await parseProblemImportFile("tsp", file);
-    if (solving.value) {
+    if (isBusy.value) {
 
       return;
     }
@@ -1287,7 +1301,7 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
 };
 
 const toggleMatrixCell = async (i: number, j: number) => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   if (
     (matrixMode.value !== "custom" && matrixMode.value !== "random") ||
     i === j
@@ -1325,7 +1339,7 @@ const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
 
 // 求解提交（统一POST参数）
 const submitSolve = async () => {
-  if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
+  if (isBusy.value || !(await taskNameField.value?.validate()) || isBusy.value) return;
   let deviceSelection: Partial<QuantumDeviceSelection> = {};
   try {
     if (solveType.value === "quantum") {
@@ -1913,6 +1927,24 @@ onBeforeUnmount(() => {
   taskHistoryRequestGuard.invalidate();
   taskDetailRequestGuard.invalidate();
 });
+
+const prepareComparisonTask = async (): Promise<ComparisonInput | null> => {
+  if (isBusy.value || importing.value) return null;
+  if (!(await taskNameField.value?.validate()) || solving.value || importing.value) return null;
+  const selector = quantumDeviceSelector.value;
+  if (!selector) throw new Error("设备配置正在初始化，请稍后重试");
+  const deviceSelection = selector.getSelection();
+  assertComparisonMatrix(distanceMatrix.value, cityCount.value);
+  return {
+    ...deviceSelection,
+    taskName: customTaskName.value,
+    problemType: "tsp",
+    methodType: methodType.value,
+    matrixSize: cityCount.value,
+    adjacencyMatrix: distanceMatrix.value,
+    cities: cities.value.map(city => ({ id: city.id, x: city.x, y: city.y })),
+  };
+};
 </script>
 
 <style scoped>

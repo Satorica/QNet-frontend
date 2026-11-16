@@ -5,18 +5,18 @@
       <div class="card-content">
         <section class="solver-configuration" :class="{ 'has-quantum-devices': solveType === 'quantum' }" aria-label="任务配置">
           <div class="workspace-section-heading"><h2>任务配置</h2></div>
-          <TaskNameField ref="taskNameField" :disabled="solving" />
+          <TaskNameField ref="taskNameField" :disabled="isBusy" />
           <div class="controls-top algorithm-control">
             <div class="solver-model-field">
               <span class="label">求解模型</span>
-              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="solving">
+              <el-radio-group v-model="solveType" class="solve-type-group" :disabled="isBusy">
                 <el-radio-button label="classic">经典计算</el-radio-button>
                 <el-radio-button label="quantum">量子芯片模拟计算</el-radio-button>
               </el-radio-group>
             </div>
             <div v-if="solveType === 'classic'" class="algorithm-field">
               <span class="label">算法类型</span>
-              <el-select v-model="methodType" :disabled="solving" style="width: 220px">
+              <el-select v-model="methodType" :disabled="isBusy" style="width: 220px">
                 <el-option
                   v-for="option in METHOD_TYPE_OPTIONS"
                   :key="option.value"
@@ -26,7 +26,7 @@
               </el-select>
             </div>
           </div>
-          <QuantumDeviceSelector v-if="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="solving" />
+          <QuantumDeviceSelector v-show="solveType === 'quantum'" ref="quantumDeviceSelector" :disabled="isBusy" />
         </section>
         <div class="left-column graph-data-section">
           <div class="workspace-section-heading"><h2>数据与预览</h2></div>
@@ -38,7 +38,7 @@
                 v-model="matrixSize"
                 :min="2"
                 :max="256"
-                :disabled="solving"
+                :disabled="isBusy"
                 style="width: 130px"
                 @change="handleMatrixSizeChange"
               />
@@ -57,13 +57,13 @@
               <div class="matrix-actions">
                 <el-button
                   :type="editMode === 'custom' ? 'primary' : ''"
-                  :disabled="solving"
+                  :disabled="isBusy"
                   @click="setEditMode('custom')"
                   >自定义</el-button
                 >
                 <el-button
                   :type="editMode === 'random' ? 'primary' : ''"
-                  :disabled="solving"
+                  :disabled="isBusy"
                   @click="
                     setEditMode('random');
                     generateRandomMatrix();
@@ -76,20 +76,20 @@
                   accept=".csv,.txt,text/csv,text/plain"
                   :limit="1"
                   :show-file-list="false"
-                  :disabled="solving || importing"
+                  :disabled="isBusy || importing"
                   :http-request="handleFileImport"
                   :on-success="clearImportFiles"
                   :on-error="clearImportFiles"
                 >
                   <el-button
-                    :disabled="solving || importing"
+                    :disabled="isBusy || importing"
                     :loading="importing"
                   >
                     {{ importing ? "解析中..." : "导入数据" }}
                   </el-button>
                 </el-upload>
                 <el-button
-                  :disabled="solving"
+                  :disabled="isBusy"
                   @click="handleTemplateDownload"
                   >下载模板</el-button
                 >
@@ -97,7 +97,7 @@
 
               <GraphMatrixEditor
                 :matrix="matrix"
-                :disabled="solving || importing"
+                :disabled="isBusy || importing"
                 @cell-click="toggleCell"
               />
               <div class="tip">
@@ -112,7 +112,7 @@
                 :nodes="nodes"
                 :edges="edges"
                 :partition="partition"
-                :editable="!solving"
+                :editable="!isBusy"
                 :selected-nodes="selectedNodes"
                 @node-click="onGraphNodeClick"
               />
@@ -130,6 +130,7 @@
                 type="primary"
                 size="large"
                 :loading="solving"
+                :disabled="comparisonRunning"
                 @click="startSolve"
                 class="solve-btn"
               >
@@ -200,6 +201,14 @@
             <SolverLog :logs="logs" />
           </div>
         </div>
+        <PerformanceComparison
+          :prepare-task="prepareComparisonTask"
+          :method-type="methodType"
+          :disabled="solving || importing"
+          @busy-change="comparisonRunning = $event"
+          @tasks-changed="loadTaskHistory()"
+          @submitted="clearCustomTaskName"
+        />
       </div>
     </el-card>
 
@@ -503,13 +512,16 @@
 </template>
 
 <script setup lang="ts">
+import PerformanceComparison from "../components/PerformanceComparison.vue";
+import { assertComparisonMatrix, type ComparisonInput } from "../utils/performanceComparison";
+
 import type { TaskSolveLog, QuantumDeviceSelection } from "../types/api";
 import TaskTiming from "../components/TaskTiming.vue";
 import TaskNameField from "../components/TaskNameField.vue";
 import QuantumDeviceSelector from "../components/QuantumDeviceSelector.vue";
 import CandidateEmptyState from "../components/CandidateEmptyState.vue";
 import SolverLog from "../components/SolverLog.vue";
-import { ref, onMounted, onBeforeUnmount } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import {
   submitTask,
   getTaskStatus,
@@ -580,6 +592,8 @@ const matrixSize = ref(6);
 const editMode = ref("custom");
 const matrix = ref<number[][]>([]);
 const solving = ref(false);
+const comparisonRunning = ref(false);
+const isBusy = computed(() => solving.value || comparisonRunning.value);
 const stateClass = ref("state-idle");
 const stateText = ref("等待求解");
 const solveTime = ref("--");
@@ -639,7 +653,7 @@ const invalidateCurrentResult = () => {
 
 // 初始化矩阵
 const generateMatrix = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   const size = matrixSize.value;
   matrix.value = Array(size)
     .fill(null)
@@ -661,7 +675,7 @@ const generateNodes = () => {
 
 // 生成随机矩阵
 const generateRandomMatrix = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   const size = matrixSize.value;
   const newMatrix = Array(size)
     .fill(null)
@@ -687,7 +701,7 @@ const generateRandomMatrix = () => {
 };
 
 const handleMatrixSizeChange = () => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   selectedNodes.value = [];
   editMode.value = "random";
   generateNodes();
@@ -696,14 +710,14 @@ const handleMatrixSizeChange = () => {
 
 // 设置编辑模式
 const setEditMode = (mode: "custom" | "random") => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   editMode.value = mode;
   invalidateCurrentResult();
 
 };
 
 const setEdgeWeight = (i: number, j: number, weight: number) => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   if (i === j) return;
   const normalizedWeight = normalizeAdjacencyWeight(weight);
   matrix.value[i][j] = normalizedWeight;
@@ -744,7 +758,7 @@ const promptEdgeWeight = async (i: number, j: number, title = "编辑矩阵单�
 
 // 邻接矩阵交互：弹窗编辑边权重
 const toggleCell = async (i: number, j: number) => {
-  if (solving.value) return;
+  if (isBusy.value) return;
   if (i === j) return;
   const weight = await promptEdgeWeight(i, j, `编辑节点 ${i} 与 ${j} 的边权重`);
   if (weight !== null) {
@@ -782,7 +796,7 @@ const applyTerminalTaskStatus = (taskStatus: TaskStatus) => {
 
 // 节点点击事件处理
 const onGraphNodeClick = async (nodeId: number) => {
-  if (solving.value || edgeDialogOpen.value) return;
+  if (isBusy.value || edgeDialogOpen.value) return;
   if (selectedNodes.value.includes(nodeId)) {
     selectedNodes.value = selectedNodes.value.filter((id) => id !== nodeId);
   } else {
@@ -829,13 +843,13 @@ const clearImportFiles = () => importUpload.value?.clearFiles();
 
 // 文件内容由后端解析；返回 Promise 交给 el-upload 管理成功/失败状态。
 const handleFileImport = async ({ file }: UploadRequestOptions) => {
-  if (solving.value || importing.value) {
+  if (isBusy.value || importing.value) {
     throw new Error("当前无法导入文件");
   }
   importing.value = true;
   try {
     const imported = await parseProblemImportFile("maxcut", file);
-    if (solving.value) {
+    if (isBusy.value) {
 
       return;
     }
@@ -857,7 +871,7 @@ const handleFileImport = async ({ file }: UploadRequestOptions) => {
 
 // 开始求解
 const startSolve = async () => {
-  if (solving.value || !(await taskNameField.value?.validate()) || solving.value) return;
+  if (isBusy.value || !(await taskNameField.value?.validate()) || isBusy.value) return;
   let deviceSelection: Partial<QuantumDeviceSelection> = {};
   try {
     if (solveType.value === "quantum") {
@@ -1413,6 +1427,23 @@ onBeforeUnmount(() => {
   taskHistoryRequestGuard.invalidate();
   taskDetailRequestGuard.invalidate();
 });
+
+const prepareComparisonTask = async (): Promise<ComparisonInput | null> => {
+  if (isBusy.value || importing.value) return null;
+  if (!(await taskNameField.value?.validate()) || solving.value || importing.value) return null;
+  const selector = quantumDeviceSelector.value;
+  if (!selector) throw new Error("设备配置正在初始化，请稍后重试");
+  const deviceSelection = selector.getSelection();
+  assertComparisonMatrix(matrix.value, matrixSize.value);
+  return {
+    ...deviceSelection,
+    taskName: customTaskName.value,
+    problemType: "maxcut",
+    methodType: methodType.value,
+    matrixSize: matrixSize.value,
+    adjacencyMatrix: matrix.value,
+  };
+};
 </script>
 
 <style scoped>

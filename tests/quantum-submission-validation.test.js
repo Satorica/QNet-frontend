@@ -39,6 +39,8 @@ function fixture(view, { message = '多台计算请至少选择两台设备', mi
     ctx[field] = { value: `previous-${field}` };
   }
   ctx.solving = { value: false };
+  ctx.comparisonRunning = { value: false };
+  ctx.isBusy = { get value() { return ctx.solving.value || ctx.comparisonRunning.value; } };
   ctx.clearCustomTaskName = () => { ctx.customTaskName.value = ''; };
   const before = Object.fromEntries(Object.entries(ctx).filter(([, value]) => value && Object.hasOwn(value, 'value'))
     .filter(([key]) => key !== 'quantumDeviceSelector').map(([key, value]) => [key, value.value]));
@@ -48,6 +50,15 @@ function fixture(view, { message = '多台计算请至少选择两台设备', mi
 }
 
 for (const view of ['MaxCut', 'Number', 'Coloring', 'TSP', 'General']) {
+  test(`${view}: a comparison preparing during name validation prevents a pending normal submission`, async () => {
+    const f = fixture(view, { valid: true }); let resolveValidation;
+    f.ctx.taskNameField.value.validate = () => new Promise(resolve => { resolveValidation = resolve; });
+    const pending = f.submit();
+    f.ctx.comparisonRunning.value = true;
+    resolveValidation(true); await pending;
+    assert.equal(f.requests.length, 0); assert.equal(f.validations, 0); assert.equal(f.scopes, 0);
+    assert.equal(f.ctx.customTaskName.value, '保留我的任务名称');
+  });
   test(`${view}: device validation failures preserve the task name, results and idle state`, async () => {
     for (const options of [
       { message: '多台计算请至少选择两台设备' },
