@@ -1287,10 +1287,11 @@ const prepareComparisonTask = async (): Promise<ComparisonInput | null> => {
 .expression-options .example-button { margin-bottom: 14px; white-space: nowrap; }
 .expression-type-tabs { margin: 4px 0 18px; }
 .expression-type-tabs > :deep(.el-tabs__header) { margin: 0 0 18px; }
-.expression-type-tabs > :deep(.el-tabs__header .el-tabs__nav) { display: flex; gap: 4px; padding: 3px; border: 0; border-radius: 7px; background: #f3f5f8; }
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__nav) { display: flex; gap: 8px; padding: 4px; border: 0; border-radius: 8px; background: #f3f5f8; }
 .expression-type-tabs > :deep(.el-tabs__header .el-tabs__nav-wrap::after),
 .expression-type-tabs > :deep(.el-tabs__header .el-tabs__active-bar) { display: none; }
-.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item) { height: 30px; padding: 0 14px; border-radius: 5px; color: #78879b; font-size: 12px; font-weight: 400; transition: background-color 150ms, color 150ms; }
+/* Preserve both edge paddings against the default first/last tab resets. */
+.expression-type-tabs > :deep(.el-tabs__header .el-tabs__item.is-top) { height: 36px; padding: 0 18px; border-radius: 6px; color: #78879b; font-size: 13px; font-weight: 400; transition: background-color 150ms, color 150ms; }
 .expression-type-tabs > :deep(.el-tabs__header .el-tabs__item.is-active) { color: var(--app-accent); background: #fff; font-weight: 500; box-shadow: 0 1px 3px #2638500a; }
 .expression-type-tabs > :deep(.el-tabs__header .el-tabs__item:not(.is-disabled):hover) { color: var(--app-accent); }
 .expression-tip { margin-top: -3px; margin-bottom: 14px; }
