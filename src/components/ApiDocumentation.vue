@@ -58,10 +58,9 @@
           <div v-if="isSubmit" class="problem-guide"><h4>问题数据约束</h4><div v-for="problem in problemExamples" :key="problem.value" class="problem-row"><code>{{ problem.value }}</code><span>{{ problem.size }}</span><p>{{ problem.input }}</p></div></div>
           <div v-if="isSubmit" class="quantum-device-guide">
             <h4>量子任务的设备选择</h4>
-            <p>仅 <code>modelType=quantum</code> 支持。集群就是多台计算（<code>computeMode=multi</code>）。单任务直接传设备参数，批量提交放在每项 <code>payload</code> 中，可为每项选择不同方式。</p>
-            <p><code>deviceIds</code> 仅用于指定模式；单台恰好一个，多台至少两个，不可重复。<code>deviceCount</code> 仅用于多台自动模式，不填时按编码规模选择至少两台。默认最多 6 台，每台 1024 个 QUBO 变量；具体上限以部署为准，设备数量不能超过编码变量数。</p>
-            <p>指定设备忙碌时等待，离线或维护时失败，不自动换板。请求选择位于结果的 <code>taskInfo/input</code>，实际执行设备以 <code>results.fpga.device_ids</code> 为准。更改设备参数须使用新的幂等标识。</p>
-            <p>完全省略设备参数时保持旧协议；携带设备参数时，<code>computeMode/deviceSelection</code> 默认 <code>single/auto</code>。网页设备列表 <code>GET /api/quantum/devices</code> 需要登录态，不能仅用 API Key 调用。</p>
+            <p>量子任务可使用单台设备计算，也可使用多台设备协同计算。支持系统自动分配或手动指定设备。</p>
+            <p>指定设备时，单台选 1 台，多台至少选 2 台。指定的设备忙碌时排队等待；离线或维护时，任务会失败。</p>
+            <p>可在下方“请求示例”中选择计算方式，查看对应参数。批量任务可为每项单独设置。</p>
           </div>
         </section>
         <section id="api-doc-request-example" data-doc-section><h3>请求示例</h3>
