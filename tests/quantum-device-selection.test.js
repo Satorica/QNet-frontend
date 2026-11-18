@@ -62,6 +62,21 @@ test('offline, maintenance and cooldown devices cannot be submitted', async () =
   }
 });
 
+test('automatic allocation shows current capacity and counts busy online boards', async () => {
+  let data = { ...list(), devices: list().devices.map(d => ({ ...d, online: false })), queueableCount: 0 };
+  const { state: s } = fixture(async () => data);
+  await s.loadDevices();
+  assert.match(s.autoWarning.value, /没有可用的在线/);
+  data = { ...data, devices: [list().devices[3]], queueableCount: 1 };
+  await s.loadDevices();
+  assert.equal(s.autoWarning.value, '');
+  s.computeMode.value = 'multi';
+  assert.match(s.autoWarning.value, /至少需要 2 台/);
+  data.queueableCount = 2;
+  await s.loadDevices();
+  assert.equal(s.autoWarning.value, '');
+});
+
 test('selected unavailable devices remain removable, but cannot be selected again', async () => {
   for (const unavailable of [{ online: false }, { enabled: false }, { cooldown_seconds: 30 }]) {
     let data = list();

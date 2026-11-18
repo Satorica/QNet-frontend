@@ -18,6 +18,7 @@ export interface QuantumDevice {
 }
 export interface QuantumDeviceList {
   devices: QuantumDevice[];
+  queueableCount?: number;
   maxDevices: number;
   variablesPerDevice: number;
   managerOk: boolean;

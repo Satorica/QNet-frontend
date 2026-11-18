@@ -26,7 +26,7 @@
       >
         <template #label><span class="device-selected-text" :title="selectionLabel">{{ selectionLabel }}</span></template>
         <template #tag><span class="device-selected-text" :title="selectionLabel">{{ selectionLabel }}</span></template>
-        <el-option v-if="!feedbackMessage" label="自动分配" value="auto" :disabled="loading" />
+        <el-option v-if="!feedbackMessage" label="自动分配" value="auto" :disabled="loading || !!autoWarning" />
         <el-option-group v-if="!feedbackMessage && deviceOptions.length" :label="computeMode === 'single' ? '指定设备' : '指定设备（至少选择两台）'">
           <el-option v-for="option in deviceOptions" :key="option.id" :label="option.name" :value="option.id" :disabled="loading || option.disabled">
             <span>{{ option.name }}</span>
@@ -37,6 +37,7 @@
       </div>
     </div>
     <p v-if="feedbackMessage" class="device-note has-warning" aria-live="polite">{{ feedbackMessage }}</p>
+    <p v-else-if="!loading && deviceSelection === 'auto' && autoWarning" class="device-note has-warning" aria-live="polite">{{ autoWarning }}</p>
     <p v-else-if="!loading && !devices.length" class="device-note" aria-live="polite">暂未发现计算设备</p>
     <p v-if="!feedbackMessage && selectionNote" class="device-note" :class="{ 'device-error': computeMode === 'multi' && selectedIds.length < 2 }">{{ selectionNote }}</p>
   </div>
@@ -75,6 +76,12 @@ let disposed = false;
 let requestVersion = 0;
 
 const isSelectable = (device: QuantumDevice) => device.online && device.enabled !== false && !(device.cooldown_seconds && device.cooldown_seconds > 0);
+const queueableCount = ref(0);
+const autoWarning = computed(() => {
+  if (!queueableCount.value) return '当前没有可用的在线 Ising 设备，请稍后重试';
+  if (computeMode.value === 'multi' && queueableCount.value < 2) return '多台计算至少需要 2 台在线 Ising 设备';
+  return '';
+});
 // A device that became unavailable must still be removable from the selection.
 const isOptionDisabled = (device: QuantumDevice) => !selectedIds.value.includes(device.device_id) && !isSelectable(device);
 function statusText(device: QuantumDevice) {
@@ -123,6 +130,7 @@ async function loadDevices() {
     const data = await getQuantumDevices();
     if (disposed || version !== requestVersion) return;
     devices.value = data.devices.map(device => ({ ...device, name: formatQuantumDeviceName(device.device_id, device.name) }));
+    queueableCount.value = data.queueableCount ?? devices.value.filter(isSelectable).length;
     selectionSupported.value = data.selectionSupported;
     managerOk.value = data.managerOk;
   } catch (error) {
